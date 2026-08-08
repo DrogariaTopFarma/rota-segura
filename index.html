@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#4C2A85">
+<title>Rota Segura — Rede de apoio e segurança para mulheres</title>
+<meta name="description" content="Plataforma colaborativa onde mulheres consultam e registram informações sobre segurança urbana, com botão de emergência e comunidade de apoio.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+<!-- ===================== TELA DE AUTENTICAÇÃO ===================== -->
+<section id="telaAuth" class="tela-auth">
+  <div class="auth-glow" aria-hidden="true"></div>
+
+  <div class="auth-card">
+    <div class="auth-brand">
+      <span class="auth-logo" aria-hidden="true">
+        <svg viewBox="0 0 40 40" width="34" height="34" fill="none">
+          <path d="M20 3C12.8 3 7 8.8 7 16c0 9.6 13 20.3 13 20.3S33 25.6 33 16c0-7.2-5.8-13-13-13Z" fill="#7C4DBF"/>
+          <circle cx="20" cy="16" r="6.2" fill="#F3E9FF"/>
+        </svg>
+      </span>
+      <h1>Rota Segura</h1>
+      <p>Uma rede de apoio construída por mulheres, para mulheres.</p>
+    </div>
+
+    <div class="auth-tabs">
+      <button type="button" id="authTabLogin" class="auth-tab active">Entrar</button>
+      <button type="button" id="authTabCadastro" class="auth-tab">Criar conta</button>
+    </div>
+
+    <form id="formLogin" class="auth-form">
+      <div class="field">
+        <label for="loginEmail">E-mail</label>
+        <input type="email" id="loginEmail" required autocomplete="email" placeholder="voce@email.com">
+      </div>
+      <div class="field">
+        <label for="loginSenha">Senha</label>
+        <input type="password" id="loginSenha" required autocomplete="current-password" placeholder="••••••••">
+      </div>
+      <button type="submit" class="btn-primario btn-bloco">Entrar</button>
+    </form>
+
+    <form id="formCadastro" class="auth-form" hidden>
+      <div class="field">
+        <label for="cadastroNome">Nome</label>
+        <input type="text" id="cadastroNome" required autocomplete="name" placeholder="Seu nome">
+      </div>
+      <div class="field">
+        <label for="cadastroEmail">E-mail</label>
+        <input type="email" id="cadastroEmail" required autocomplete="email" placeholder="voce@email.com">
+      </div>
+      <div class="field">
+        <label for="cadastroSenha">Senha</label>
+        <input type="password" id="cadastroSenha" required minlength="6" autocomplete="new-password" placeholder="Mínimo 6 caracteres">
+      </div>
+      <div class="field">
+        <label for="cadastroContato">Contato de emergência (WhatsApp)</label>
+        <input type="tel" id="cadastroContato" required placeholder="Ex: (21) 99999-9999">
+        <span class="field-hint">Essa pessoa receberá sua localização se você usar o botão de emergência. Só você tem acesso a este dado.</span>
+      </div>
+      <button type="submit" class="btn-primario btn-bloco">Criar minha conta</button>
+    </form>
+  </div>
+</section>
+
+<!-- ===================== APP PRINCIPAL ===================== -->
+<div id="appRoot" hidden>
+
+  <header class="app-header">
+    <div class="app-header-inner">
+      <div class="brand">
+        <svg viewBox="0 0 40 40" width="28" height="28" fill="none" aria-hidden="true">
+          <path d="M20 3C12.8 3 7 8.8 7 16c0 9.6 13 20.3 13 20.3S33 25.6 33 16c0-7.2-5.8-13-13-13Z" fill="#7C4DBF"/>
+          <circle cx="20" cy="16" r="6.2" fill="#F3E9FF"/>
+        </svg>
+        <span>Rota Segura</span>
+      </div>
+
+      <nav class="app-tabs" aria-label="Seções do app">
+        <button type="button" id="navBtnMapa" class="app-tab active">Mapa &amp; Locais</button>
+        <button type="button" id="navBtnComunidade" class="app-tab">Comunidade</button>
+      </nav>
+
+      <div class="user-menu">
+        <button type="button" id="btnMeuPerfil" class="user-chip">
+          <span class="user-avatar" id="userAvatar" aria-hidden="true">👤</span>
+          <span id="nomeUsuaria">Usuária</span>
+        </button>
+        <button type="button" id="btnSair" class="btn-texto">Sair</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================== ABA MAPA & LOCAIS ===================== -->
+  <main id="tabMapa" class="tab-conteudo active">
+    <div class="toolbar">
+      <input type="search" id="campoBusca" placeholder="Buscar por nome ou bairro..." aria-label="Buscar locais">
+
+      <div class="categorias" role="group" aria-label="Filtrar por categoria">
+        <button type="button" class="categoria-btn active" data-categoria="todos">Todos</button>
+        <button type="button" class="categoria-btn" data-categoria="rua">Ruas &amp; Praças</button>
+        <button type="button" class="categoria-btn" data-categoria="estabelecimento">Estabelecimentos</button>
+        <button type="button" class="categoria-btn" data-categoria="onibus">Pontos de ônibus</button>
+        <button type="button" class="categoria-btn" data-categoria="estacao">Estações</button>
+      </div>
+
+      <button type="button" id="btnCadastrarLocal" class="btn-primario">+ Cadastrar local</button>
+    </div>
+
+    <div id="mapaContainer" class="mapa-container"></div>
+
+    <div class="secao-locais">
+      <p id="contagemLocais" class="contagem-locais">carregando...</p>
+      <div id="gridLocais" class="grid-locais" aria-live="polite"></div>
+    </div>
+  </main>
+
+  <!-- ===================== ABA COMUNIDADE ===================== -->
+  <main id="tabComunidade" class="tab-conteudo" hidden>
+    <div class="comunidade-wrap">
+      <div id="listaPosts" class="lista-posts" aria-live="polite"></div>
+
+      <form id="formPost" class="form-post">
+        <select id="postTipo" aria-label="Tipo de mensagem">
+          <option value="relato">Relato</option>
+          <option value="duvida">Dúvida</option>
+          <option value="aviso">Aviso de segurança</option>
+        </select>
+        <textarea id="postConteudo" rows="2" maxlength="1000" placeholder="Compartilhe um relato, dúvida ou aviso com a comunidade..." required></textarea>
+        <button type="submit" class="btn-primario">Publicar</button>
+      </form>
+    </div>
+  </main>
+
+  <!-- ===================== BOTÃO DE EMERGÊNCIA ===================== -->
+  <button type="button" id="btnEmergencia" class="btn-emergencia" title="Enviar minha localização ao contato de emergência">
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 2 3 6v6c0 5 3.8 9 9 10 5.2-1 9-5 9-10V6l-9-4Z"/><path d="M12 8v5M12 16h.01"/>
+    </svg>
+    <span>Emergência</span>
+  </button>
+
+  <!-- ===================== MODAL: CADASTRAR LOCAL ===================== -->
+  <div class="modal-overlay" id="modalLocal" hidden>
+    <div class="modal-painel" role="dialog" aria-modal="true" aria-labelledby="tituloModalLocal">
+      <button type="button" class="modal-fechar" id="fecharModalLocal" aria-label="Fechar">✕</button>
+      <h2 id="tituloModalLocal">Cadastrar local</h2>
+
+      <form id="formLocal" class="form-modal">
+        <div class="field">
+          <label for="localNome">Nome do local ou endereço</label>
+          <input type="text" id="localNome" required placeholder="Ex: Praça da Matriz">
+        </div>
+        <div class="field">
+          <label for="localBairro">Bairro</label>
+          <input type="text" id="localBairro" required placeholder="Ex: Centro">
+        </div>
+        <div class="field">
+          <label for="localCategoria">Categoria</label>
+          <select id="localCategoria" required>
+            <option value="" disabled selected>Selecione</option>
+            <option value="rua">Rua / Praça</option>
+            <option value="estabelecimento">Estabelecimento</option>
+            <option value="onibus">Ponto de ônibus</option>
+            <option value="estacao">Estação</option>
+          </select>
+        </div>
+
+        <fieldset class="field">
+          <legend>Nível de segurança</legend>
+          <div class="opcoes-nivel">
+            <label class="opcao-nivel nivel-seguro"><input type="radio" name="nivelSeguranca" value="seguro"> Seguro</label>
+            <label class="opcao-nivel nivel-atencao"><input type="radio" name="nivelSeguranca" value="atencao"> Pouco iluminado</label>
+            <label class="opcao-nivel nivel-alerta"><input type="radio" name="nivelSeguranca" value="alerta"> Isolado / Alerta</label>
+          </div>
+        </fieldset>
+
+        <div class="field">
+          <label for="localDescricao">Descrição (opcional)</label>
+          <textarea id="localDescricao" rows="3" placeholder="O que outras mulheres deveriam saber sobre este local?"></textarea>
+        </div>
+
+        <div class="field">
+          <button type="button" id="btnEscolherNoMapa" class="btn-secundario btn-bloco">📍 Escolher local no mapa</button>
+          <span id="coordSelecionada" class="field-hint">Nenhum ponto escolhido ainda.</span>
+        </div>
+
+        <button type="submit" class="btn-primario btn-bloco">Salvar local</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== MODAL: PERFIL ===================== -->
+  <div class="modal-overlay" id="modalPerfil" hidden>
+    <div class="modal-painel modal-painel-pequeno" role="dialog" aria-modal="true" aria-labelledby="tituloModalPerfil">
+      <button type="button" class="modal-fechar" id="fecharModalPerfil" aria-label="Fechar">✕</button>
+      <h2 id="tituloModalPerfil">Meu perfil</h2>
+      <dl class="lista-perfil">
+        <dt>Nome</dt><dd id="perfilNome">—</dd>
+        <dt>E-mail</dt><dd id="perfilEmail">—</dd>
+        <dt>Contato de emergência</dt><dd id="perfilContato">—</dd>
+      </dl>
+      <p class="field-hint">Para alterar esses dados, atualize diretamente na tabela <code>perfis</code> do Supabase (edição pelo app pode ser adicionada depois).</p>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module" src="js/app.js?v=4"></script>
+</body>
+</html>

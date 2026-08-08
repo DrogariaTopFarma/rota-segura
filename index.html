@@ -2,17 +2,17 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#4C2A85">
 <title>Rota Segura — Rede de apoio e segurança para mulheres</title>
-<meta name="description" content="Plataforma colaborativa onde mulheres consultam e registram informações sobre segurança urbana, com botão de emergência e comunidade de apoio.">
+<meta name="description" content="Plataforma colaborativa onde mulheres consultam e registram informações sobre segurança urbana, com mapa de relatos, delegacias, pontos de apoio, mural de avisos e botão de emergência.">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=2">
 </head>
 <body>
 
@@ -24,10 +24,10 @@
 
   <div class="auth-card">
     <div class="auth-brand">
-      <span class="auth-logo" aria-hidden="true">
-        <svg viewBox="0 0 40 40" width="34" height="34" fill="none">
+      <span class="logo-marca" aria-hidden="true">
+        <svg viewBox="0 0 40 40" width="38" height="38" fill="none">
           <path d="M20 3C12.8 3 7 8.8 7 16c0 9.6 13 20.3 13 20.3S33 25.6 33 16c0-7.2-5.8-13-13-13Z" fill="#7C4DBF"/>
-          <circle cx="20" cy="16" r="6.2" fill="#F3E9FF"/>
+          <path d="M20 10.5c-1.8 3-3.6 4-6 4.3 0 4.8 2.4 8 6 9.7 3.6-1.7 6-4.9 6-9.7-2.4-.3-4.2-1.3-6-4.3Z" fill="#F3E9FF"/>
         </svg>
       </span>
       <h1>Rota Segura</h1>
@@ -80,21 +80,22 @@
   <header class="app-header">
     <div class="app-header-inner">
       <div class="brand">
-        <svg viewBox="0 0 40 40" width="28" height="28" fill="none" aria-hidden="true">
+        <svg viewBox="0 0 40 40" width="30" height="30" fill="none" aria-hidden="true">
           <path d="M20 3C12.8 3 7 8.8 7 16c0 9.6 13 20.3 13 20.3S33 25.6 33 16c0-7.2-5.8-13-13-13Z" fill="#7C4DBF"/>
-          <circle cx="20" cy="16" r="6.2" fill="#F3E9FF"/>
+          <path d="M20 10.5c-1.8 3-3.6 4-6 4.3 0 4.8 2.4 8 6 9.7 3.6-1.7 6-4.9 6-9.7-2.4-.3-4.2-1.3-6-4.3Z" fill="#F3E9FF"/>
         </svg>
         <span>Rota Segura</span>
       </div>
 
       <nav class="app-tabs" aria-label="Seções do app">
-        <button type="button" id="navBtnMapa" class="app-tab active">Mapa &amp; Locais</button>
-        <button type="button" id="navBtnComunidade" class="app-tab">Comunidade</button>
+        <button type="button" id="navBtnMapa" class="app-tab active">Mapa</button>
+        <button type="button" id="navBtnMural" class="app-tab">Mural de Avisos</button>
+        <button type="button" id="navBtnGuia" class="app-tab">Guia de Segurança</button>
       </nav>
 
       <div class="user-menu">
         <button type="button" id="btnMeuPerfil" class="user-chip">
-          <span class="user-avatar" id="userAvatar" aria-hidden="true">👤</span>
+          <span class="user-avatar" aria-hidden="true">👤</span>
           <span id="nomeUsuaria">Usuária</span>
         </button>
         <button type="button" id="btnSair" class="btn-texto">Sair</button>
@@ -105,20 +106,59 @@
   <!-- ===================== ABA MAPA & LOCAIS ===================== -->
   <main id="tabMapa" class="tab-conteudo active">
     <div class="toolbar">
-      <input type="search" id="campoBusca" placeholder="Buscar por nome ou bairro..." aria-label="Buscar locais">
-
-      <div class="categorias" role="group" aria-label="Filtrar por categoria">
-        <button type="button" class="categoria-btn active" data-categoria="todos">Todos</button>
-        <button type="button" class="categoria-btn" data-categoria="rua">Ruas &amp; Praças</button>
-        <button type="button" class="categoria-btn" data-categoria="estabelecimento">Estabelecimentos</button>
-        <button type="button" class="categoria-btn" data-categoria="onibus">Pontos de ônibus</button>
-        <button type="button" class="categoria-btn" data-categoria="estacao">Estações</button>
+      <div class="campo-busca-wrap">
+        <input type="search" id="campoBusca" placeholder="Buscar por nome ou bairro..." aria-label="Buscar locais" autocomplete="off">
+        <div id="resultadosBusca" class="resultados-busca" hidden></div>
       </div>
 
-      <button type="button" id="btnCadastrarLocal" class="btn-primario">+ Cadastrar local</button>
+      <button type="button" id="btnCadastrarLocal" class="btn-primario">+ Cadastrar relato</button>
+      <button type="button" id="btnCadastrarInstituicao" class="btn-secundario">+ Ponto de apoio / Delegacia</button>
+    </div>
+
+    <div class="filtros-mapa">
+      <div class="filtro-grupo">
+        <span class="filtro-titulo">Categoria</span>
+        <div class="categorias" role="group" aria-label="Filtrar por categoria">
+          <button type="button" class="categoria-btn active" data-categoria="todos">Todos</button>
+          <button type="button" class="categoria-btn" data-categoria="rua">Ruas &amp; Praças</button>
+          <button type="button" class="categoria-btn" data-categoria="estabelecimento">Estabelecimentos</button>
+          <button type="button" class="categoria-btn" data-categoria="onibus">Pontos de ônibus</button>
+          <button type="button" class="categoria-btn" data-categoria="estacao">Estações</button>
+        </div>
+      </div>
+
+      <div class="filtro-grupo">
+        <span class="filtro-titulo">Período do ocorrido</span>
+        <div class="categorias" role="group" aria-label="Filtrar por período">
+          <button type="button" class="periodo-btn active" data-periodo="todos">Todos</button>
+          <button type="button" class="periodo-btn" data-periodo="manha">☀️ Manhã</button>
+          <button type="button" class="periodo-btn" data-periodo="tarde">🌤️ Tarde</button>
+          <button type="button" class="periodo-btn" data-periodo="noite">🌙 Noite</button>
+          <button type="button" class="periodo-btn" data-periodo="madrugada">🌌 Madrugada</button>
+        </div>
+      </div>
+
+      <div class="filtro-grupo">
+        <span class="filtro-titulo">Camadas do mapa</span>
+        <div class="categorias" role="group" aria-label="Camadas visíveis no mapa">
+          <button type="button" class="camada-btn active" data-camada="todos">Todos</button>
+          <button type="button" class="camada-btn" data-camada="relatos">Relatos</button>
+          <button type="button" class="camada-btn" data-camada="delegacia">🛡️ Delegacias</button>
+          <button type="button" class="camada-btn" data-camada="apoio">💚 Pontos de apoio</button>
+        </div>
+      </div>
     </div>
 
     <div id="mapaContainer" class="mapa-container"></div>
+
+    <div class="mapa-legenda">
+      <span><i class="legenda-dot" style="background:#4C9A6E"></i> Seguro</span>
+      <span><i class="legenda-dot" style="background:#D99C3F"></i> Pouco iluminado</span>
+      <span><i class="legenda-dot" style="background:#C9505F"></i> Isolado / Alerta</span>
+      <span><i class="legenda-dot" style="background:#D6428C"></i> Delegacia (DEAM)</span>
+      <span><i class="legenda-dot" style="background:#2E9E8F"></i> Ponto de apoio</span>
+      <span class="legenda-nota">O tamanho do pino cresce com o número de relatos no local.</span>
+    </div>
 
     <div class="secao-locais">
       <p id="contagemLocais" class="contagem-locais">carregando...</p>
@@ -126,46 +166,111 @@
     </div>
   </main>
 
-  <!-- ===================== ABA COMUNIDADE ===================== -->
-  <main id="tabComunidade" class="tab-conteudo" hidden>
+  <!-- ===================== ABA MURAL DE AVISOS ===================== -->
+  <main id="tabMural" class="tab-conteudo" hidden>
     <div class="comunidade-wrap">
       <div id="listaPosts" class="lista-posts" aria-live="polite"></div>
 
       <form id="formPost" class="form-post">
-        <select id="postTipo" aria-label="Tipo de mensagem">
-          <option value="relato">Relato</option>
-          <option value="duvida">Dúvida</option>
-          <option value="aviso">Aviso de segurança</option>
-        </select>
-        <textarea id="postConteudo" rows="2" maxlength="1000" placeholder="Compartilhe um relato, dúvida ou aviso com a comunidade..." required></textarea>
-        <button type="submit" class="btn-primario">Publicar</button>
+        <div class="form-post-linha1">
+          <select id="postTipo" aria-label="Tipo de mensagem">
+            <option value="aviso">Aviso rápido</option>
+            <option value="relato">Relato</option>
+            <option value="duvida">Dúvida</option>
+          </select>
+          <label class="checkbox-anonimo">
+            <input type="checkbox" id="postAnonimo"> Publicar como Anônima
+          </label>
+        </div>
+        <div class="form-post-linha2">
+          <textarea id="postConteudo" rows="2" maxlength="1000" placeholder="Ex: Ponto da estação X sem iluminação hoje..." required></textarea>
+          <button type="submit" class="btn-primario">Publicar</button>
+        </div>
       </form>
     </div>
   </main>
 
-  <!-- ===================== BOTÃO DE EMERGÊNCIA ===================== -->
-  <button type="button" id="btnEmergencia" class="btn-emergencia" title="Enviar minha localização ao contato de emergência">
-    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M12 2 3 6v6c0 5 3.8 9 9 10 5.2-1 9-5 9-10V6l-9-4Z"/><path d="M12 8v5M12 16h.01"/>
-    </svg>
-    <span>Emergência</span>
-  </button>
+  <!-- ===================== ABA GUIA DE SEGURANÇA ===================== -->
+  <main id="tabGuia" class="tab-conteudo" hidden>
+    <div class="guia-grid">
+      <article class="guia-card">
+        <h3>🚶‍♀️ Na rua</h3>
+        <ul>
+          <li>Prefira caminhar por ruas movimentadas e bem iluminadas, mesmo que o trajeto seja um pouco maior.</li>
+          <li>Evite usar o celular distraidamente enquanto caminha; mantenha atenção ao redor.</li>
+          <li>Compartilhe sua localização em tempo real com alguém de confiança em trajetos noturnos.</li>
+          <li>Se perceber que está sendo seguida, entre em um estabelecimento aberto e peça ajuda.</li>
+        </ul>
+      </article>
 
-  <!-- ===================== MODAL: CADASTRAR LOCAL ===================== -->
+      <article class="guia-card">
+        <h3>🚌 Transporte público</h3>
+        <ul>
+          <li>Espere em pontos iluminados e, se possível, próximos a outras pessoas.</li>
+          <li>Prefira sentar-se perto do motorista ou da cobradora em ônibus vazios.</li>
+          <li>Guarde o número da linha e o horário previsto de chegada com um contato de confiança.</li>
+          <li>Em caso de importunação, grite, chame atenção e acione a tripulação imediatamente.</li>
+        </ul>
+      </article>
+
+      <article class="guia-card">
+        <h3>⚖️ Orientações jurídicas básicas</h3>
+        <ul>
+          <li>A Lei Maria da Penha (Lei 11.340/2006) prevê medidas protetivas de urgência contra agressores.</li>
+          <li>Você pode registrar um Boletim de Ocorrência em qualquer delegacia, mas o ideal é buscar uma DEAM.</li>
+          <li>A Central de Atendimento à Mulher (180) orienta sobre direitos e encaminha para a rede de apoio local.</li>
+          <li>Medidas protetivas podem ser solicitadas mesmo sem advogada, diretamente na delegacia ou no fórum.</li>
+        </ul>
+      </article>
+    </div>
+  </main>
+
+  <!-- ===================== BARRA SOS (LIGAÇÃO DIRETA) ===================== -->
+  <div class="sos-wrap">
+    <div class="sos-menu" id="sosMenu" hidden>
+      <button type="button" class="sos-item sos-whatsapp" id="btnEmergenciaWhatsApp">
+        <span class="sos-icone">📍</span> Enviar localização (WhatsApp)
+      </button>
+      <a class="sos-item sos-tel" href="tel:180"><span class="sos-icone">☎️</span> 180 · Central de Atendimento à Mulher</a>
+      <a class="sos-item sos-tel" href="tel:190"><span class="sos-icone">🚓</span> 190 · Polícia Militar</a>
+      <a class="sos-item sos-tel" href="tel:192"><span class="sos-icone">🚑</span> 192 · SAMU</a>
+    </div>
+    <button type="button" id="btnSos" class="btn-sos" title="Abrir opções de emergência">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 2 3 6v6c0 5 3.8 9 9 10 5.2-1 9-5 9-10V6l-9-4Z"/><path d="M12 8v5M12 16h.01"/>
+      </svg>
+      <span>SOS</span>
+    </button>
+  </div>
+
+  <!-- ===================== MODAL: CADASTRAR RELATO ===================== -->
   <div class="modal-overlay" id="modalLocal" hidden>
     <div class="modal-painel" role="dialog" aria-modal="true" aria-labelledby="tituloModalLocal">
       <button type="button" class="modal-fechar" id="fecharModalLocal" aria-label="Fechar">✕</button>
-      <h2 id="tituloModalLocal">Cadastrar local</h2>
+      <h2 id="tituloModalLocal">Cadastrar relato</h2>
 
       <form id="formLocal" class="form-modal">
         <div class="field">
-          <label for="localNome">Nome do local ou endereço</label>
+          <label for="localNome">Nome do local (referência)</label>
           <input type="text" id="localNome" required placeholder="Ex: Praça da Matriz">
         </div>
+
+        <div class="campo-duplo">
+          <div class="field">
+            <label for="localRua">Rua</label>
+            <input type="text" id="localRua" required placeholder="Ex: Rua das Flores">
+          </div>
+          <div class="field campo-numero">
+            <label for="localNumero">Nº</label>
+            <input type="text" id="localNumero" placeholder="123">
+          </div>
+        </div>
+
         <div class="field">
           <label for="localBairro">Bairro</label>
           <input type="text" id="localBairro" required placeholder="Ex: Centro">
         </div>
+
         <div class="field">
           <label for="localCategoria">Categoria</label>
           <select id="localCategoria" required>
@@ -174,6 +279,16 @@
             <option value="estabelecimento">Estabelecimento</option>
             <option value="onibus">Ponto de ônibus</option>
             <option value="estacao">Estação</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="localPeriodo">Período em que aconteceu</label>
+          <select id="localPeriodo" required>
+            <option value="manha">☀️ Manhã (6h–12h)</option>
+            <option value="tarde" selected>🌤️ Tarde (12h–18h)</option>
+            <option value="noite">🌙 Noite (18h–24h)</option>
+            <option value="madrugada">🌌 Madrugada (0h–6h)</option>
           </select>
         </div>
 
@@ -192,12 +307,70 @@
         </div>
 
         <div class="field">
-          <button type="button" id="btnEscolherNoMapa" class="btn-secundario btn-bloco">📍 Escolher local no mapa</button>
-          <span id="coordSelecionada" class="field-hint">Nenhum ponto escolhido ainda.</span>
+          <label class="checkbox-anonimo">
+            <input type="checkbox" id="localAnonimo"> Publicar como Anônima
+          </label>
         </div>
 
-        <button type="submit" class="btn-primario btn-bloco">Salvar local</button>
+        <div class="field">
+          <label>Localização no mapa</label>
+          <span class="field-hint" id="statusGeocodificacao">Digite o endereço acima — o mapa localiza automaticamente. Você também pode arrastar o pino ou clicar no mapa para ajustar.</span>
+          <div id="miniMapaCadastro" class="mini-mapa"></div>
+          <button type="button" id="btnConfirmarLocalizacao" class="btn-secundario btn-bloco" disabled>📍 Confirmar localização</button>
+          <span id="coordSelecionada" class="field-hint">Nenhum ponto confirmado ainda.</span>
+        </div>
+
+        <button type="submit" class="btn-primario btn-bloco">Salvar relato</button>
       </form>
+    </div>
+  </div>
+
+  <!-- ===================== MODAL: CADASTRAR INSTITUIÇÃO ===================== -->
+  <div class="modal-overlay" id="modalInstituicao" hidden>
+    <div class="modal-painel" role="dialog" aria-modal="true" aria-labelledby="tituloModalInstituicao">
+      <button type="button" class="modal-fechar" id="fecharModalInstituicao" aria-label="Fechar">✕</button>
+      <h2 id="tituloModalInstituicao">Cadastrar delegacia ou ponto de apoio</h2>
+
+      <form id="formInstituicao" class="form-modal">
+        <fieldset class="field">
+          <legend>Tipo</legend>
+          <div class="opcoes-nivel">
+            <label class="opcao-nivel opcao-delegacia"><input type="radio" name="instituicaoTipo" value="delegacia"> 🛡️ Delegacia da Mulher (DEAM)</label>
+            <label class="opcao-nivel opcao-apoio"><input type="radio" name="instituicaoTipo" value="apoio"> 💚 Ponto de apoio (Rede Amiga)</label>
+          </div>
+        </fieldset>
+
+        <div class="field">
+          <label for="instituicaoNome">Nome</label>
+          <input type="text" id="instituicaoNome" required placeholder="Ex: DEAM Centro / Farmácia 24h Bela Vista">
+        </div>
+        <div class="field">
+          <label for="instituicaoEndereco">Endereço</label>
+          <input type="text" id="instituicaoEndereco" required placeholder="Ex: Av. Principal, 500 - Centro">
+        </div>
+        <div class="field">
+          <label for="instituicaoTelefone">Telefone (opcional)</label>
+          <input type="tel" id="instituicaoTelefone" placeholder="(21) 0000-0000">
+        </div>
+
+        <div class="field">
+          <span class="field-hint" id="statusGeocodificacaoInstituicao">Digite o endereço acima — o mapa localiza automaticamente.</span>
+          <div id="miniMapaInstituicao" class="mini-mapa"></div>
+          <button type="button" id="btnConfirmarLocalizacaoInstituicao" class="btn-secundario btn-bloco" disabled>📍 Confirmar localização</button>
+        </div>
+
+        <button type="submit" class="btn-primario btn-bloco">Salvar</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== MODAL: DETALHES DO PONTO ===================== -->
+  <div class="modal-overlay" id="modalDetalhes" hidden>
+    <div class="modal-painel" role="dialog" aria-modal="true" aria-labelledby="tituloModalDetalhes">
+      <button type="button" class="modal-fechar" id="fecharModalDetalhes" aria-label="Fechar">✕</button>
+      <h2 id="tituloModalDetalhes">Relatos deste local</h2>
+      <p id="detalhesSubtitulo" class="field-hint"></p>
+      <div id="listaDetalhes" class="lista-detalhes"></div>
     </div>
   </div>
 
@@ -218,6 +391,6 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script type="module" src="js/app.js?v=4"></script>
+<script type="module" src="js/app.js?v=5"></script>
 </body>
 </html>

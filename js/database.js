@@ -1,7 +1,9 @@
 /* ============================================================
    ROTA SEGURA — database.js
-   CRUD de "locais" e a lógica de "mostrar só a informação mais
-   recente" quando o mesmo lugar foi cadastrado mais de uma vez.
+   CRUD de "locais" (relatos) e agrupamento por ponto no mapa:
+   cada ponto (local_key) reúne todos os relatos já feitos ali,
+   mostra o mais recente como representante e usa a quantidade
+   de relatos para o tamanho do marcador (densidade).
    ============================================================ */
 
 import { supabase } from './supabaseClient.js';
@@ -9,8 +11,8 @@ import { supabase } from './supabaseClient.js';
 /**
  * Gera uma chave estável para identificar "o mesmo local",
  * normalizando nome + bairro (minúsculas, sem acento, sem espaços
- * extras). Dois cadastros com essa mesma chave são tratados como
- * atualizações do mesmo ponto no mapa.
+ * extras). Relatos com essa mesma chave são tratados como o
+ * mesmo ponto no mapa.
  */
 export function gerarLocalKey(nome, bairro) {
   const normalizar = (txt) =>
@@ -24,7 +26,10 @@ export function gerarLocalKey(nome, bairro) {
   return `${normalizar(nome)}|${normalizar(bairro)}`;
 }
 
-export async function criarLocal({ nome, bairro, categoria, nivelSeguranca, descricao, latitude, longitude, autorId, autorNome }) {
+export async function criarLocal({
+  nome, bairro, categoria, nivelSeguranca, periodo, descricao,
+  latitude, longitude, autorId, autorNome, anonimo
+}) {
   const local_key = gerarLocalKey(nome, bairro);
 
   const { data, error } = await supabase
@@ -34,10 +39,12 @@ export async function criarLocal({ nome, bairro, categoria, nivelSeguranca, desc
       bairro,
       categoria,
       nivel_seguranca: nivelSeguranca,
+      periodo,
       descricao,
       latitude,
       longitude,
       local_key,
+      anonimo: !!anonimo,
       autor_id: autorId,
       autor_nome: autorNome
     })
@@ -49,12 +56,15 @@ export async function criarLocal({ nome, bairro, categoria, nivelSeguranca, desc
 }
 
 /**
- * Busca todos os locais e devolve apenas o cadastro MAIS RECENTE
- * de cada local_key. Os demais entram em `desatualizados` — o app
- * pode exibi-los marcados como "informação antiga" em vez de
- * simplesmente escondê-los, se quiser.
+ * Busca todos os relatos e agrupa por local_key (mesmo ponto no
+ * mapa). Cada item retornado tem:
+ *  - representante: o relato mais recente daquele ponto (usado
+ *    para nome, categoria, nível de segurança e posição do pino)
+ *  - relatos: todos os relatos daquele ponto, mais recentes primeiro
+ *  - totalRelatos: quantidade de relatos (usado para o tamanho do
+ *    marcador — "heatmap visual" por densidade)
  */
-export async function buscarLocaisRecentes() {
+export async function buscarPontosAgrupados() {
   const { data, error } = await supabase
     .from('locais')
     .select('*')
@@ -62,20 +72,18 @@ export async function buscarLocaisRecentes() {
 
   if (error) throw error;
 
-  const vistos = new Set();
-  const recentes = [];
-  const desatualizados = [];
-
+  const porChave = new Map();
   for (const local of data) {
-    if (vistos.has(local.local_key)) {
-      desatualizados.push(local);
-    } else {
-      vistos.add(local.local_key);
-      recentes.push(local);
-    }
+    if (!porChave.has(local.local_key)) porChave.set(local.local_key, []);
+    porChave.get(local.local_key).push(local);
   }
 
-  return { recentes, desatualizados };
+  return Array.from(porChave.values()).map((relatos) => ({
+    localKey: relatos[0].local_key,
+    representante: relatos[0],
+    relatos,
+    totalRelatos: relatos.length
+  }));
 }
 
 export function inscreverNovosLocais(callback) {

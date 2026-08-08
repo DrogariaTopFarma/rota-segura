@@ -1,6 +1,20 @@
 # Rota Segura
 
-Rede colaborativa de segurança e apoio para mulheres: mapa de locais com nível de segurança, botão de emergência com geolocalização, comunidade em tempo real e login com banco de dados real (Supabase).
+Rede colaborativa de segurança e apoio para mulheres: mapa de relatos com nível de segurança e densidade visual, delegacias (DEAM) e pontos de apoio no mapa, geocodificação automática de endereço, mural de avisos em tempo real, validação comunitária de relatos, barra SOS com ligação de 1 clique, filtro por horário, guia de segurança e login com banco de dados real (Supabase).
+
+## Novidades desta versão
+
+- **Geocodificação automática**: ao digitar rua/número/bairro no cadastro de relato (ou o endereço de uma instituição), um mini mapa localiza o ponto sozinho — a usuária só confirma. Também dá para arrastar o pino ou clicar no mapa para ajustar manualmente.
+- **Densidade visual no mapa**: quanto mais relatos um mesmo local recebe, maior o pino fica. Clicar no pino abre todos os relatos daquele ponto.
+- **Delegacias (DEAM) e Pontos de Apoio**: cadastráveis pelo app, aparecem no mapa com ícones exclusivos (rosa para delegacia, verde para ponto de apoio) e têm um filtro de camadas próprio.
+- **Mural de Avisos**: feed em tempo real com "há X min/h/dias", separado do fórum antigo — pense nele como um "Twitter local de segurança".
+- **Validação comunitária**: cada relato tem botões "Concordo" / "Não concordo"; os mais confirmados aparecem no topo da lista de detalhes.
+- **Anônimo**: checkbox no cadastro de relato e no mural — o nome não aparece para as outras usuárias (mas o registro continua vinculado à conta internamente, para moderação/edição).
+- **Filtro por período**: Manhã / Tarde / Noite / Madrugada, baseado no horário informado pela autora do relato (não no horário da postagem).
+- **Barra SOS**: um botão fixo abre um menu com WhatsApp de emergência + ligação de 1 toque para 180 (Central da Mulher), 190 (Polícia) e 192 (SAMU).
+- **Guia de Segurança**: aba com dicas de prevenção na rua, transporte público e orientações jurídicas básicas (Lei Maria da Penha, medidas protetivas).
+
+Se você já tinha rodado a versão anterior do banco, rode **`sql/migration_v2.sql`** (não `schema.sql`) para não perder dados existentes — veja o Passo 2 abaixo.
 
 ## Estrutura de pastas
 
@@ -33,10 +47,17 @@ rota-segura/
 
 ## Passo 2 — Rodar o schema do banco
 
+**Banco novo (primeira vez):**
 1. No painel do projeto, abra **SQL Editor** → **New query**.
 2. Copie todo o conteúdo de `sql/schema.sql` deste projeto e cole no editor.
-3. Clique em **Run**. Isso cria as tabelas `perfis`, `locais`, `comunidade_posts`, ativa o **RLS** (Row Level Security) e liga o **Realtime**.
-4. Confira em **Table Editor** se as três tabelas aparecem.
+3. Clique em **Run**. Isso cria as tabelas `perfis`, `locais`, `comunidade_posts`, `instituicoes`, `locais_votos`, ativa o **RLS** (Row Level Security) e liga o **Realtime**.
+4. Confira em **Table Editor** se as cinco tabelas aparecem.
+
+**Já tinha rodado uma versão anterior?**
+Rode `sql/migration_v2.sql` em vez do `schema.sql` — ele só adiciona as colunas e tabelas novas, sem apagar nada do que já existe.
+
+**Quer colocar delegacias (DEAM) reais no mapa?**
+No fim do `schema.sql` há um exemplo comentado de `insert into instituicoes`. Pegue o endereço e telefone reais da DEAM da sua região e as coordenadas (Google Maps → botão direito no ponto exato → copiar coordenadas), e rode o `insert` no SQL Editor.
 
 ## Passo 3 — Pegar as chaves de API
 
@@ -120,6 +141,16 @@ Isso acontece quando a linha correspondente na tabela `perfis` nunca foi criada 
 
 **Os modais de "Cadastrar local" e "Meu perfil" abriram um em cima do outro.**
 Já corrigido: agora abrir qualquer modal fecha automaticamente os demais, e a tecla **Esc** fecha o modal aberto.
+
+## Observações do desenvolvedor — rodada de funcionalidades novas
+
+1. **Geocodificação usa o Nominatim (OpenStreetMap), que é gratuito mas tem uso justo**: no máximo ~1 requisição por segundo. O `geocode.js` já tem debounce de 800ms enquanto a usuária digita, e cancela buscas antigas ainda em andamento — isso é suficiente para uso normal do app, mas não tente geocodificar em massa (ex: um script que geocodifica 500 endereços de uma vez) a partir do navegador.
+2. **"Confirmar localização" é uma trava intencional**: o formulário só permite salvar depois desse clique, mesmo que a geocodificação já tenha posicionado o pino sozinha. Isso evita salvar coordenadas erradas por engano quando o endereço tem nomes parecidos em bairros diferentes.
+3. **Delegacias e pontos de apoio são cadastráveis por qualquer usuária autenticada.** Isso é de propósito (colaborativo, como o resto do app), mas em produção real vale considerar um passo de moderação/aprovação antes de um pino "oficial" de delegacia aparecer para todo mundo — hoje ele aparece imediatamente.
+4. **Anônimo esconde o nome só na interface.** `autor_id` continua salvo no banco (é o que permite RLS de edição/exclusão e evita spam). Se a proposta evoluir para anonimato mais forte, seria necessário repensar esse modelo — hoje, alguém com acesso direto ao banco (não à interface) ainda vê quem postou.
+5. **O filtro de período é auto-declarado.** A usuária escolhe manualmente em que período o fato ocorreu; não é calculado a partir da hora da postagem, porque muita gente relata horas ou dias depois do ocorrido.
+6. **Validação comunitária ("Concordo/Não concordo") não bloqueia nem remove relatos automaticamente** — ela só reordena, priorizando os mais confirmados. Adicionar um limite (ex: ocultar relato com muitos "não concordo") é uma extensão natural, mas decidi não esconder relatos automaticamente para não criar um mecanismo fácil de silenciar denúncias reais por brigada de votos.
+7. **Os botões SOS de 180/190/192 usam `tel:` puro** — funcionam nativamente em celular (abrem o discador). Em desktop sem app de telefone associado, o navegador pode não fazer nada visível; isso é esperado e não é um bug do app.
 
 ## Observações do desenvolvedor (leia antes de usar em produção)
 

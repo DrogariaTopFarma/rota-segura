@@ -330,36 +330,6 @@ input, select, textarea { font-family: inherit; font-size: 0.95rem; }
 }
 
 /* ============================================================
-   BOTÃO DE EMERGÊNCIA
-   ============================================================ */
-.btn-emergencia {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: linear-gradient(135deg, var(--rosa-queimado) 0%, var(--rosa-queimado-escuro) 100%);
-  color: var(--branco);
-  border: none;
-  border-radius: 999px;
-  padding: 16px 22px;
-  font-weight: 700;
-  box-shadow: 0 8px 24px rgba(168, 81, 93, 0.45);
-  animation: pulsar 2.4s infinite;
-}
-.btn-emergencia:hover { transform: translateY(-2px); }
-.btn-emergencia.carregando { opacity: .75; animation: none; }
-@keyframes pulsar {
-  0%, 100% { box-shadow: 0 8px 24px rgba(168, 81, 93, 0.45); }
-  50% { box-shadow: 0 8px 32px rgba(168, 81, 93, 0.7); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .btn-emergencia { animation: none; }
-}
-
-/* ============================================================
    MODAIS
    ============================================================ */
 .modal-overlay {
@@ -411,6 +381,8 @@ input, select, textarea { font-family: inherit; font-size: 0.95rem; }
 .opcao-nivel.nivel-seguro { color: var(--sucesso); }
 .opcao-nivel.nivel-atencao { color: var(--atencao); }
 .opcao-nivel.nivel-alerta { color: var(--alerta); }
+.opcao-nivel.opcao-delegacia { color: #D6428C; }
+.opcao-nivel.opcao-apoio { color: #2E9E8F; }
 
 .lista-perfil { margin: 0; }
 .lista-perfil dt { font-size: 0.78rem; color: var(--texto-suave); margin-top: 12px; }
@@ -447,16 +419,273 @@ input, select, textarea { font-family: inherit; font-size: 0.95rem; }
 .toast-info { background: var(--roxo); }
 
 /* ============================================================
+   BUSCA COM RESULTADOS INSTANTÂNEOS
+   ============================================================ */
+.campo-busca-wrap { position: relative; flex: 1 1 240px; }
+.campo-busca-wrap #campoBusca {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 999px;
+  border: 1.5px solid var(--cinza-borda);
+  background: var(--branco);
+}
+.resultados-busca {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--branco);
+  border-radius: var(--raio-peq);
+  box-shadow: var(--sombra-media);
+  border: 1px solid var(--cinza-borda);
+  z-index: 15;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.resultado-busca-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--cinza-claro);
+  cursor: pointer;
+}
+.resultado-busca-item:last-child { border-bottom: none; }
+.resultado-busca-item:hover { background: var(--lilas-suave); }
+.resultado-busca-nome { font-weight: 600; color: var(--roxo-profundo); font-size: 0.9rem; }
+.resultado-busca-bairro { font-size: 0.78rem; color: var(--texto-suave); }
+
+/* ============================================================
+   FILTROS DO MAPA
+   ============================================================ */
+.filtros-mapa {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--branco);
+  border: 1px solid var(--cinza-borda);
+  border-radius: var(--raio);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.filtro-grupo { display: flex; flex-direction: column; gap: 8px; }
+.filtro-titulo { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--texto-suave); }
+.periodo-btn, .camada-btn {
+  border: 1.5px solid var(--cinza-borda);
+  background: var(--branco);
+  color: var(--texto-suave);
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+.periodo-btn.active { background: var(--rosa-queimado); border-color: var(--rosa-queimado); color: var(--branco); }
+.camada-btn.active { background: var(--roxo-profundo); border-color: var(--roxo-profundo); color: var(--branco); }
+
+.mapa-legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  font-size: 0.78rem;
+  color: var(--texto-suave);
+  padding: 10px 4px 20px;
+}
+.mapa-legenda span { display: flex; align-items: center; gap: 6px; }
+.legenda-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.legenda-nota { font-style: italic; }
+
+/* ============================================================
+   MARCADORES DE DENSIDADE E INSTITUCIONAIS (Leaflet)
+   ============================================================ */
+.mapa-pin-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 3px solid var(--branco);
+  box-shadow: 0 2px 6px rgba(0,0,0,.35);
+}
+.mapa-pin-contador {
+  color: var(--branco);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+.mapa-pin-instituicao-corpo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px; height: 28px;
+  border-radius: 50% 50% 50% 4px;
+  transform: rotate(45deg);
+  border: 3px solid var(--branco);
+  box-shadow: 0 2px 6px rgba(0,0,0,.35);
+}
+.mapa-pin-instituicao-corpo svg { transform: rotate(-45deg); }
+
+/* ============================================================
+   MINI MAPA (CADASTRO COM GEOCODIFICAÇÃO)
+   ============================================================ */
+.mini-mapa {
+  height: 220px;
+  border-radius: var(--raio-peq);
+  overflow: hidden;
+  border: 1.5px solid var(--cinza-borda);
+  margin: 10px 0;
+}
+.campo-duplo { display: flex; gap: 10px; }
+.campo-duplo .field { flex: 1; }
+.campo-duplo .campo-numero { flex: 0 0 90px; }
+
+.checkbox-anonimo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  font-size: 0.88rem;
+  color: var(--texto);
+  cursor: pointer;
+}
+.checkbox-anonimo input { width: 16px; height: 16px; }
+
+/* ============================================================
+   MURAL DE AVISOS — extras
+   ============================================================ */
+.form-post { flex-direction: column; align-items: stretch; }
+.form-post-linha1 { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.form-post-linha1 select {
+  border-radius: var(--raio-peq);
+  border: 1.5px solid var(--cinza-borda);
+  padding: 8px 10px;
+}
+.form-post-linha2 { display: flex; gap: 10px; }
+.form-post-linha2 textarea { flex: 1; resize: none; border-radius: var(--raio-peq); border: 1.5px solid var(--cinza-borda); padding: 10px 14px; }
+.post-tempo { font-size: 0.72rem; color: var(--texto-suave); }
+
+/* ============================================================
+   VALIDAÇÃO COMUNITÁRIA (CONCORDO / NÃO CONCORDO)
+   ============================================================ */
+.votos-linha { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.voto-btn {
+  display: flex; align-items: center; gap: 5px;
+  border: 1.5px solid var(--cinza-borda);
+  background: var(--branco);
+  color: var(--texto-suave);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.voto-btn.voto-concordo.ativo { background: #E4F4EB; border-color: var(--sucesso); color: var(--sucesso); }
+.voto-btn.voto-discordo.ativo { background: #FBE4E7; border-color: var(--alerta); color: var(--alerta); }
+
+/* ============================================================
+   DETALHES DO PONTO (todos os relatos de um local)
+   ============================================================ */
+.lista-detalhes { display: flex; flex-direction: column; gap: 14px; margin-top: 12px; max-height: 60vh; overflow-y: auto; }
+.detalhe-item {
+  background: var(--cinza-claro);
+  border-radius: var(--raio-peq);
+  padding: 14px;
+  border-left: 4px solid var(--cinza-borda);
+}
+.detalhe-item.nivel-seguro { border-left-color: var(--sucesso); }
+.detalhe-item.nivel-atencao { border-left-color: var(--atencao); }
+.detalhe-item.nivel-alerta { border-left-color: var(--alerta); }
+.detalhe-cabecalho { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 6px; }
+.detalhe-meta { font-size: 0.75rem; color: var(--texto-suave); margin: 4px 0 0; }
+
+/* ============================================================
+   GUIA DE SEGURANÇA
+   ============================================================ */
+.guia-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
+.guia-card { background: var(--branco); border-radius: var(--raio); padding: 20px; box-shadow: var(--sombra-suave); }
+.guia-card h3 { margin-bottom: 12px; }
+.guia-card ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; }
+.guia-card li { font-size: 0.9rem; line-height: 1.45; color: var(--texto); }
+
+/* ============================================================
+   BARRA SOS (LIGAÇÃO DIRETA DE 1 CLIQUE)
+   ============================================================ */
+.sos-wrap {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+.sos-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--branco);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra-media);
+  padding: 10px;
+  width: min(90vw, 300px);
+}
+.sos-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: none;
+  background: var(--cinza-claro);
+  color: var(--texto);
+  text-decoration: none;
+  border-radius: var(--raio-peq);
+  padding: 12px 14px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  text-align: left;
+}
+.sos-item:hover { background: var(--lilas-suave); }
+.sos-icone { font-size: 1.1rem; }
+
+.btn-sos {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, var(--rosa-queimado) 0%, var(--rosa-queimado-escuro) 100%);
+  color: var(--branco);
+  border: none;
+  border-radius: 999px;
+  padding: 16px 22px;
+  font-weight: 700;
+  box-shadow: 0 8px 24px rgba(168, 81, 93, 0.45);
+  animation: pulsar 2.4s infinite;
+}
+.btn-sos:hover { transform: translateY(-2px); }
+@keyframes pulsar {
+  0%, 100% { box-shadow: 0 8px 24px rgba(168, 81, 93, 0.45); }
+  50% { box-shadow: 0 8px 32px rgba(168, 81, 93, 0.7); }
+}
+@media (prefers-reduced-motion: reduce) { .btn-sos { animation: none; } }
+
+/* ============================================================
    RESPONSIVO
    ============================================================ */
+@media (min-width: 780px) {
+  .filtros-mapa { flex-direction: row; flex-wrap: wrap; gap: 28px; }
+  .filtro-grupo { flex: 1 1 auto; }
+}
+
 @media (max-width: 720px) {
   .app-header-inner { flex-direction: column; align-items: stretch; gap: 10px; }
-  .app-tabs { margin-left: 0; justify-content: center; }
+  .app-tabs { margin-left: 0; justify-content: center; flex-wrap: wrap; }
   .user-menu { justify-content: center; }
   .mapa-container { height: 300px; }
-  .btn-emergencia span { display: none; }
-  .btn-emergencia { padding: 16px; }
+  .btn-sos span { display: none; }
+  .btn-sos { padding: 16px; }
+  .sos-menu { width: 90vw; }
   .comunidade-wrap { height: 72vh; }
+  .campo-duplo { flex-direction: column; }
+  .campo-duplo .campo-numero { flex: 1; }
+  .toolbar { flex-direction: column; align-items: stretch; }
+  .toolbar .btn-primario, .toolbar .btn-secundario { width: 100%; }
 }
 /* ============================================================
    CORREÇÃO: MAPA ATRÁS DO MODAL

@@ -28,7 +28,5 @@ export const APP_CONFIG = {
   // Raio (em metros) usado para contar relatos perto de um endereço pesquisado
   raioBuscaMetros: 500,
   // Tempo de espera antes de disparar a busca enquanto você digita (ms)
-  debounceMs: 500,
-  // E-mail de contato usado no cabeçalho das chamadas ao Nominatim
-  contatoNominatim: 'rota-segura-app'
+  debounceMs: 500
 };

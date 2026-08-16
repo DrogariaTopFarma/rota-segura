@@ -15,8 +15,8 @@ Este repositório contém o **Bloco 1**: arquitetura, banco de dados, autentica�
 - Proteção de páginas: sem sessão, ninguém entra no mapa
 - Mapa Leaflet + OpenStreetMap com localização do usuário e círculo de precisão
 - Marcadores SVG diferentes por tipo: relatos, iluminação, pontos de apoio, delegacias, ônibus
-- Busca de endereço com geocodificação real (Nominatim), busca em cascata para números de casa
-  e priorização pela área visível do mapa
+- Busca de endereço com geocodificação real (Photon/OpenStreetMap), reconhecendo rua + número
+  e priorizando a área visível do mapa
 - Seletor de local com mini-mapa e pino arrastável nos formulários, independente da busca da tela
 - Precisão do GPS informada em metros, com aviso quando a localização está aproximada
 - Contagem de relatos num raio de 500 m do endereço pesquisado
@@ -60,7 +60,7 @@ rota-segura/
 │   ├── auth.js                login, cadastro, recuperação, logout, guard
 │   ├── map.js                 Leaflet, marcadores, consulta por área visível
 │   ├── geolocation.js         GPS do navegador
-│   ├── geocoding.js           Nominatim (endereço ⇄ coordenadas, cascata de número)
+│   ├── geocoding.js           Photon (endereço ⇄ coordenadas, reconhece rua + número)
 │   ├── location-picker.js     mini-mapa com pino arrastável dos formulários
 │   ├── search.js              barra de pesquisa da Tela 1
 │   ├── reports.js             lista e formulário de relatos
@@ -136,5 +136,5 @@ por `default 'pending'` nessas tabelas.
 
 ## Créditos de dados
 
-Mapa e geocodificação: © colaboradores do OpenStreetMap, via Nominatim.
-Respeite o limite de 1 requisição por segundo do Nominatim.
+Mapa: © colaboradores do OpenStreetMap. Geocodificação: [Photon](https://photon.komoot.io), da Komoot,
+também construído sobre dados do OpenStreetMap. Use com moderação — é um serviço público gratuito.

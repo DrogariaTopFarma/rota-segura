@@ -1,29 +1,34 @@
 /* ============================================================================
    ROTA SEGURA — Geocodificação (endereço -> coordenadas e vice-versa)
-   Serviço: Nominatim, do OpenStreetMap. Gratuito, sem chave de API.
+   Serviço: Photon (Komoot), construído sobre dados do OpenStreetMap.
+   Gratuito, sem chave de API, sem cadastro.
 
-   POR QUE ESTE ARQUIVO MUDOU:
-   A busca não achava número, só rua. Dois motivos:
+   POR QUE TROCAMOS O NOMINATIM PELO PHOTON:
+   1. A política de uso do Nominatim proíbe explicitamente busca "enquanto
+      digita" (autocomplete) — que é exatamente o que este app faz. Ao testar
+      isso na prática, o próprio Nominatim bloqueou as requisições ("Access
+      denied"). Numa rede compartilhada (Wi-Fi da escola, por exemplo), isso
+      pode travar a busca para todo mundo atrás do mesmo IP.
+      O Photon é feito exatamente para esse uso ("search as you type") e não
+      tem essa restrição.
+   2. Testado lado a lado com endereços reais, o Photon encontrou tudo que o
+      Nominatim encontrava e, em vários casos — inclusive o exemplo
+      "Rua Geógrafo Milton Santos" —, encontrou a RUA quando o Nominatim não
+      achou nada.
 
-   1. O OpenStreetMap não tem TODOS os números de casa do Brasil mapeados.
-      Nenhum serviço gratuito tem. Quando o número não existe na base,
-      a busca com número simplesmente não devolve nada.
-   2. A busca era feita como texto solto e sem dizer ao Nominatim em que
-      região procurar, então "Rua da Paz, 120" competia com ruas de mesmo
-      nome do país inteiro.
-
-   O que fazemos agora, em cascata:
-   Tentativa 1 - busca estruturada (rua+número separados da cidade)
-   Tentativa 2 - busca em texto livre
-   Tentativa 3 - busca só a rua, sem o número, e MARCA o resultado como
-                 aproximado, para a tela avisar você e deixar ajustar o pino.
-
-   Também passamos a "viewbox": a área que você está vendo no mapa. Assim os
-   resultados perto de você aparecem primeiro.
+   O QUE NÃO MUDA (e por quê):
+   Nenhum serviço gratuito — Photon, Nominatim ou qualquer outro baseado no
+   OpenStreetMap — tem TODOS os números de casa do Brasil mapeados. Fora de
+   áreas centrais/bem mapeadas, é comum a rua existir no mapa mas o número
+   exato não. Por isso, quando o número pedido não é encontrado, a busca
+   ainda devolve a rua e MARCA o resultado como aproximado (campo
+   `aproximado`), para a tela avisar você e deixar ajustar o pino arrastando
+   — ver location-picker.js.
    ============================================================================ */
 
-const BASE = 'https://nominatim.openstreetmap.org';
+const BASE = 'https://photon.komoot.io';
 const cache = new Map();
+let controladorBusca = null;
 
 /** Separa "Rua da Paz, 120 - Centro" em { rua: 'Rua da Paz', numero: '120', resto: 'Centro' } */
 export function separarNumero(texto) {
@@ -42,37 +47,53 @@ export function separarNumero(texto) {
   };
 }
 
-async function chamar(parametros) {
-  const url = `${BASE}/${parametros.rota}?${parametros.query}`;
-  const resposta = await fetch(url, { headers: { Accept: 'application/json' } });
-  if (!resposta.ok) throw new Error('Falha na geocodificação');
-  return resposta.json();
+/** Zoom aproximado (estilo Leaflet) a partir do tamanho da área visível do mapa. */
+function estimarZoom({ oeste, sul, leste, norte }) {
+  const vao = Math.max(leste - oeste, norte - sul);
+  if (vao < 0.01) return 16;
+  if (vao < 0.05) return 14;
+  if (vao < 0.2) return 12;
+  if (vao < 1) return 10;
+  return 7;
 }
 
-function formatar(itens, { aproximado = false } = {}) {
-  return itens.map((item) => {
-    const a = item.address || {};
-    const numero = a.house_number || null;
-    const rua = a.road || a.pedestrian || a.footway || '';
-    const bairro = a.suburb || a.neighbourhood || a.city_district || '';
-    const cidade = a.city || a.town || a.village || a.municipality || '';
+function formatar(features, numeroPedido) {
+  return features
+    .map((item) => {
+      const p = item.properties || {};
+      const [lng, lat] = item.geometry?.coordinates || [];
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
 
-    const curto = [
-      [rua, numero].filter(Boolean).join(', '),
-      bairro,
-      cidade
-    ].filter(Boolean).join(' — ') || item.display_name;
+      const numero = p.housenumber || null;
+      const rua = p.street || p.name || '';
+      const bairro = p.district || p.locality || '';
+      const cidade = p.city || p.town || p.village || p.county || '';
 
-    return {
-      nome: item.display_name,
-      curto,
-      lat: parseFloat(item.lat),
-      lng: parseFloat(item.lon),
-      temNumero: Boolean(numero),
-      // true = o número pedido não foi encontrado; o pino está na rua, não na porta
-      aproximado: aproximado && !numero
-    };
-  });
+      const nome = [
+        [rua, numero].filter(Boolean).join(', '),
+        bairro,
+        cidade,
+        p.state
+      ].filter(Boolean).join(', ') || p.name || 'Local sem nome';
+
+      const curto = [
+        [rua, numero].filter(Boolean).join(', '),
+        bairro,
+        cidade
+      ].filter(Boolean).join(' — ') || nome;
+
+      return {
+        nome,
+        curto,
+        lat,
+        lng,
+        temNumero: Boolean(numero),
+        // true = o número encontrado não bate com o número pedido (ou não existe);
+        // o pino está na rua, não necessariamente na porta certa
+        aproximado: Boolean(numeroPedido) && numero !== numeroPedido
+      };
+    })
+    .filter(Boolean);
 }
 
 /**
@@ -95,43 +116,43 @@ export async function buscarEndereco(texto, opcoes = {}) {
   const chave = `b:${termo}:${limite}:${chaveArea}`;
   if (cache.has(chave)) return cache.get(chave);
 
-  const comum =
-    `format=jsonv2&limit=${limite}&countrycodes=br` +
-    `&addressdetails=1&accept-language=pt-BR` +
-    (area
-      ? `&viewbox=${area.oeste},${area.norte},${area.leste},${area.sul}&bounded=0`
-      : '');
-
-  const { rua, numero, resto } = separarNumero(termo);
-  let resultados = [];
-
-  // ---- Tentativa 1: busca estruturada (só quando há número) ----
-  if (numero) {
-    try {
-      const partes = [`street=${encodeURIComponent(`${numero} ${rua}`)}`];
-      if (resto) partes.push(`city=${encodeURIComponent(resto)}`);
-      const dados = await chamar({ rota: 'search', query: `${comum}&${partes.join('&')}` });
-      resultados = formatar(dados);
-    } catch { /* segue para a próxima tentativa */ }
+  const parametros = [`q=${encodeURIComponent(termo)}`, `limit=${limite}`, 'countrycode=BR'];
+  if (area) {
+    // Só prioriza resultados perto do que você está vendo no mapa — não exclui o resto.
+    parametros.push(`lat=${((area.sul + area.norte) / 2).toFixed(5)}`);
+    parametros.push(`lon=${((area.oeste + area.leste) / 2).toFixed(5)}`);
+    parametros.push(`zoom=${estimarZoom(area)}`);
   }
 
-  // ---- Tentativa 2: texto livre, do jeito que a pessoa digitou ----
-  if (!resultados.length) {
-    const dados = await chamar({ rota: 'search', query: `${comum}&q=${encodeURIComponent(termo)}` });
-    resultados = formatar(dados);
+  // Cancela uma busca anterior ainda em andamento: sem isso, se a resposta
+  // antiga chegar depois da nova (rede lenta), ela sobrescrevia a sugestão
+  // certa com uma desatualizada.
+  controladorBusca?.abort();
+  controladorBusca = new AbortController();
+
+  // Usado só para conferir se o número encontrado bate com o pedido
+  // (o Photon já entende "rua, número" sozinho — não precisa de campos separados).
+  const { numero } = separarNumero(termo);
+  let resultados;
+
+  try {
+    const resposta = await fetch(`${BASE}/api?${parametros.join('&')}`, {
+      headers: { Accept: 'application/json' },
+      signal: controladorBusca.signal
+    });
+    if (!resposta.ok) throw new Error('Falha na geocodificação');
+    const dados = await resposta.json();
+    resultados = formatar(dados.features || [], numero);
+  } catch (erro) {
+    if (erro.name === 'AbortError') return []; // uma busca mais nova já está em andamento
+    throw erro;
   }
 
-  // ---- Tentativa 3: sem o número, marcando como aproximado ----
-  if (!resultados.length && numero) {
-    const semNumero = [rua, resto].filter(Boolean).join(', ');
-    const dados = await chamar({ rota: 'search', query: `${comum}&q=${encodeURIComponent(semNumero)}` });
-    resultados = formatar(dados, { aproximado: true });
-  }
-
-  // Se pediram número e nenhum resultado tem número, todos são aproximados
-  if (numero && resultados.length && !resultados.some((r) => r.temNumero)) {
-    resultados = resultados.map((r) => ({ ...r, aproximado: true }));
-  }
+  // Não reordenamos por "tem número exato": o Photon já leva em conta a
+  // proximidade (via lat/lon acima) e a relevância de cada resultado. Testamos
+  // colocar sempre o número exato em primeiro lugar e o efeito foi ruim —
+  // um resultado numerado a 500 km passava na frente da rua certa que
+  // aparecia bem na tela, só por não ter o número mapeado.
 
   cache.set(chave, resultados);
   return resultados;
@@ -142,18 +163,18 @@ export async function enderecoDeCoordenadas(lat, lng) {
   const chave = `r:${lat.toFixed(5)}:${lng.toFixed(5)}`;
   if (cache.has(chave)) return cache.get(chave);
 
-  const url = `${BASE}/reverse?format=jsonv2&zoom=18&lat=${lat}&lon=${lng}&addressdetails=1&accept-language=pt-BR`;
+  const url = `${BASE}/reverse?lat=${lat}&lon=${lng}`;
   try {
     const resposta = await fetch(url, { headers: { Accept: 'application/json' } });
     if (!resposta.ok) throw new Error('falha');
     const dados = await resposta.json();
-    const a = dados.address || {};
+    const p = dados.features?.[0]?.properties || {};
     const partes = [
-      [a.road, a.house_number].filter(Boolean).join(', '),
-      a.suburb || a.neighbourhood,
-      a.city || a.town || a.village
+      [p.street, p.housenumber].filter(Boolean).join(', '),
+      p.district || p.locality,
+      p.city || p.town || p.village
     ].filter(Boolean);
-    const endereco = partes.join(' — ') || dados.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    const endereco = partes.join(' — ') || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
     cache.set(chave, endereco);
     return endereco;
   } catch {

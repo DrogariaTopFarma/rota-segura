@@ -519,7 +519,7 @@ Faça na ordem. Cada item tem "o que fazer" e "o que tem que acontecer".
 |---|---|---|
 | `new row violates row-level security policy for table "reports"` | O `user_id` enviado não é o da sessão, ou a sessão expirou | Saia e entre de novo. Confira que as policies `relatos_insert_proprio` existem |
 | Relato salvou mas não aparece no mapa | O mapa está mostrando outra região | Clique no botão de **recentralizar** (alvo, canto inferior direito do mapa) |
-| A busca de endereço não devolve nada | Nominatim exige contexto | Escreva "rua + cidade", ex.: `Rua da Paz, Niterói`, e evite muitas buscas seguidas (limite de 1 por segundo) |
+| A busca de endereço não devolve nada | Faltou contexto, ou o número da casa não está mapeado no OpenStreetMap | Escreva "rua + cidade", ex.: `Rua da Paz, Niterói`. Se só a rua aparecer (marcada como "sem número exato"), é porque aquele número específico ainda não existe na base gratuita — ajuste o pino arrastando |
 | Erro `403` ao enviar imagem do relato | Policy do Storage | Confira em **Storage → rota-segura → Policies** se existe a policy de insert por pasta do usuário |
 | `Sua sessão expirou` | Token vencido | Faça login de novo |
 
@@ -767,7 +767,7 @@ precisão melhora de verdade. Antes ele piscava a cada leitura do GPS.
 |---|---|---|
 | Mini-mapa aparece cinza, sem ruas | O mapa foi criado dentro de um modal escondido | Já tratado no código (`invalidateSize`). Se acontecer, feche e abra o modal de novo |
 | O pino não arrasta no celular | Você está arrastando o mapa, não o pino | Segure em cima do pino por meio segundo antes de arrastar. Ou só toque no ponto desejado |
-| A busca demora e não devolve nada | Limite do Nominatim (1 busca por segundo) | Espere alguns segundos entre buscas. O app já espera 500 ms depois que você para de digitar |
+| A busca demora e não devolve nada | Sem internet, ou o serviço de geocodificação está fora do ar | Espere alguns segundos e tente de novo. O app já espera 500 ms depois que você para de digitar antes de buscar |
 | A precisão do GPS não melhora nunca | Navegador sem permissão de alta precisão, ou dentro de prédio | No celular: Configurações → Localização → Alta precisão. Teste ao ar livre |
 | A faixa amarela reaparece depois de fechada | Você recarregou a página | Normal: o "fechei este aviso" vale por sessão. Feche de novo |
 | O formulário abre e não preenche o endereço | GPS negado para o site | Clique no cadeado ao lado do endereço no navegador → Localização → Permitir |
@@ -814,7 +814,7 @@ vá em **Project Settings → API → service_role → Revoke / Generate new key
 | **Bucket** | Pasta de arquivos no Storage |
 | **Leaflet** | Biblioteca que desenha o mapa na tela |
 | **OpenStreetMap** | Mapa gratuito e colaborativo, usado como base |
-| **Nominatim** | Serviço gratuito que transforma endereço em coordenadas (e o contrário) |
+| **Photon** | Serviço gratuito (da Komoot, com dados do OpenStreetMap) que transforma endereço em coordenadas (e o contrário) |
 | **Geocodificação** | Transformar "Rua da Paz, 100" em latitude e longitude |
 | **Bounding box** | O retângulo que você está vendo no mapa. Usamos para buscar só os dados dessa área |
 | **Repositório (repo)** | A pasta do seu projeto hospedada no GitHub |

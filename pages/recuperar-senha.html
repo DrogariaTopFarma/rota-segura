@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#E83D67">
+  <title>Recuperar senha — Rota Segura</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/global.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="../css/auth.css">
+  <link rel="stylesheet" href="../css/responsive.css">
+</head>
+<body class="auth-body">
+  <main class="auth-caixa">
+    <div class="auth-marca">
+      <div class="auth-marca__escudo" data-icone="cadeado" data-tamanho="34" aria-hidden="true"></div>
+      <span class="auth-marca__nome">Rota Segura</span>
+    </div>
+
+    <h1 class="auth-titulo">Esqueci minha senha</h1>
+    <p class="auth-subtitulo">Informe seu e-mail e enviaremos um link para criar uma nova senha.</p>
+
+    <div id="mensagem" class="mensagem" hidden></div>
+
+    <form id="form-recuperar" novalidate>
+      <div class="campo">
+        <label for="email">E-mail</label>
+        <input type="email" id="email" name="email" autocomplete="email"
+               placeholder="voce@exemplo.com" required aria-describedby="erro-email">
+        <span class="campo-erro" id="erro-email" hidden></span>
+      </div>
+
+      <button type="submit" class="btn btn-primario btn-bloco">ENVIAR LINK</button>
+    </form>
+
+    <p class="auth-rodape"><a href="login.html">Voltar ao login</a></p>
+  </main>
+
+  <script type="module">
+    import { aplicarIcones } from '../js/icons.js';
+    import { iniciarAuth } from '../js/auth.js';
+    aplicarIcones();
+    iniciarAuth();
+  </script>
+</body>
+</html>

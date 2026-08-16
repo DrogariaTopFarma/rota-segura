@@ -1,0 +1,84 @@
+/* ============================================================
+   ROTA SEGURA — Responsivo
+   Mobile-first. Aqui só ajustamos telas maiores.
+   ============================================================ */
+
+/* ---------- Telefones muito pequenos ---------- */
+@media (max-width: 359px) {
+  .topo__titulo { font-size: var(--fs-lg); }
+  .busca { padding-left: 14px; }
+  .bottom-nav__item { font-size: 10px; }
+}
+
+/* ---------- Tablets (a partir de 700px) ---------- */
+@media (min-width: 700px) {
+  :root { --largura-app: 620px; }
+
+  .app-shell {
+    box-shadow: var(--sombra-lg);
+    border-radius: var(--raio-xl);
+    margin: var(--esp-5) auto;
+    min-height: calc(100vh - 40px);
+    overflow: hidden;
+  }
+
+  #mapa { height: 52vh; }
+
+  .bottom-nav {
+    border-radius: 0 0 var(--raio-xl) var(--raio-xl);
+    bottom: var(--esp-5);
+  }
+
+  .modal { align-items: center; }
+  .modal__caixa {
+    border-radius: var(--raio-xl);
+    max-width: 560px;
+    margin: var(--esp-5);
+  }
+}
+
+/* ---------- Notebooks e desktops (a partir de 1024px) ----------
+   Em telas grandes o app deixa de ser uma coluna estreita:
+   o mapa ocupa a coluna principal e os painéis ficam ao lado. */
+@media (min-width: 1024px) {
+  :root { --largura-app: 100%; }
+
+  body { background: var(--cinza-muito-claro); }
+
+  .app-shell {
+    max-width: 1240px;
+    border-radius: var(--raio-xl);
+    background: var(--rosa-bebe);
+    padding-bottom: var(--esp-8);
+    margin: var(--esp-6) auto;
+    min-height: auto;
+  }
+
+  .conteudo-mapa {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: var(--esp-5);
+    padding: 0 var(--esp-6) var(--esp-6);
+    align-items: start;
+  }
+
+  .topo { padding: var(--esp-6) var(--esp-6) var(--esp-4); }
+  .busca { margin: 0 var(--esp-6) var(--esp-5); max-width: 620px; }
+
+  .mapa-wrapper { margin: 0; }
+  #mapa { height: 620px; }
+
+  .secao-relatos, .resultado-busca { margin: 0 0 var(--esp-4); }
+  .secao-relatos { position: sticky; top: var(--esp-5); }
+
+  /* A bottom navigation vira uma barra fixa centralizada e compacta */
+  .bottom-nav {
+    max-width: 520px;
+    border-radius: var(--raio-xl);
+    border: 1px solid var(--borda);
+    box-shadow: var(--sombra-lg);
+    bottom: var(--esp-6);
+  }
+
+  .app-shell { padding-bottom: calc(var(--altura-bottom-nav) + var(--esp-8)); }
+}

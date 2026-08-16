@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#E83D67">
+  <title>Mapa — Rota Segura</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Leaflet (mapa) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/global.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="../css/map.css">
+  <link rel="stylesheet" href="../css/responsive.css">
+</head>
+<body>
+  <a class="pular-link" href="#mapa">Pular para o mapa</a>
+
+  <div class="app-shell">
+
+    <!-- ================= CABEÇALHO ================= -->
+    <header class="topo">
+      <div class="topo__marca">
+        <span class="topo__escudo" data-icone="escudo" data-tamanho="34" aria-hidden="true"></span>
+        <span>
+          <span class="topo__titulo">Rota Segura</span><br>
+          <span class="topo__slogan">Sua segurança. Sua rota.</span>
+        </span>
+      </div>
+
+      <div class="topo__acoes">
+        <button type="button" class="topo__botao" id="botao-notificacoes" aria-label="Notificações">
+          <span data-icone="sino" data-tamanho="24" aria-hidden="true"></span>
+          <span class="badge" id="badge-notificacoes" hidden>0</span>
+        </button>
+        <button type="button" class="topo__botao" id="botao-menu" aria-label="Abrir menu">
+          <span data-icone="menu" data-tamanho="24" aria-hidden="true"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ================= BUSCA ================= -->
+    <form class="busca" id="form-busca" role="search">
+      <span class="busca__lupa-esq" data-icone="lupa" data-tamanho="20" aria-hidden="true"></span>
+      <label class="sr-only" for="campo-busca">Pesquisar um endereço</label>
+      <input type="search" id="campo-busca" name="busca" placeholder="Para onde você quer ir?"
+             autocomplete="off" aria-describedby="resultado-busca">
+      <button type="submit" class="busca__botao" aria-label="Pesquisar">
+        <span data-icone="lupa" data-tamanho="22" aria-hidden="true"></span>
+      </button>
+      <div class="sugestoes" id="sugestoes-busca" role="listbox" hidden></div>
+    </form>
+
+    <div class="conteudo-mapa">
+      <!-- ================= MAPA ================= -->
+      <div>
+        <div class="mapa-wrapper">
+          <div id="mapa" role="application" aria-label="Mapa com relatos e pontos de apoio"></div>
+          <div class="mapa-aviso" id="mapa-aviso" hidden></div>
+          <button type="button" class="mapa-botao-recentralizar" id="botao-recentralizar"
+                  aria-label="Recentralizar no meu local">
+            <span data-icone="mira" data-tamanho="22" aria-hidden="true"></span>
+          </button>
+        </div>
+
+        <div class="resultado-busca" id="resultado-busca" role="status" hidden></div>
+      </div>
+
+      <!-- ================= RELATOS ================= -->
+      <section class="secao-relatos" aria-labelledby="titulo-relatos">
+        <div class="secao-relatos__topo">
+          <h2 class="secao-relatos__titulo" id="titulo-relatos">Relatos de segurança</h2>
+          <a href="alertas.html" class="btn-texto">Ver todos</a>
+        </div>
+        <div id="lista-relatos"></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ================= BOTTOM NAVIGATION ================= -->
+  <nav class="bottom-nav" aria-label="Navegação principal">
+    <a class="bottom-nav__item" href="mapa.html">
+      <span data-icone="mapa" data-tamanho="22" aria-hidden="true"></span>
+      <span class="bottom-nav__rotulo">Mapa</span>
+    </a>
+    <a class="bottom-nav__item" href="rotas.html">
+      <span data-icone="rotas" data-tamanho="22" aria-hidden="true"></span>
+      <span class="bottom-nav__rotulo">Rotas</span>
+    </a>
+    <button type="button" class="bottom-nav__fab" id="botao-central" aria-label="Cadastrar">
+      <span data-icone="mais" data-tamanho="28" aria-hidden="true"></span>
+    </button>
+    <a class="bottom-nav__item" href="alertas.html">
+      <span data-icone="sino" data-tamanho="22" aria-hidden="true"></span>
+      <span class="bottom-nav__rotulo">Alertas</span>
+    </a>
+    <a class="bottom-nav__item" href="perfil.html">
+      <span data-icone="perfil" data-tamanho="22" aria-hidden="true"></span>
+      <span class="bottom-nav__rotulo">Perfil</span>
+    </a>
+  </nav>
+
+  <!-- ================= MODAL: O QUE CADASTRAR ================= -->
+  <div class="modal" id="modal-cadastrar" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-cadastrar" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-cadastrar">O que você deseja cadastrar?</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+
+      <button type="button" class="modal__opcao" data-abrir="modal-relato">
+        <span class="modal__opcao__icone" data-icone="escudo" data-tamanho="24" aria-hidden="true"></span>
+        <span>
+          <span class="modal__opcao__titulo">Cadastrar relato</span>
+          <span class="modal__opcao__desc">Registre algo que aconteceu com você em um local</span>
+        </span>
+      </button>
+
+      <button type="button" class="modal__opcao" data-abrir="modal-ponto">
+        <span class="modal__opcao__icone" data-icone="predio" data-tamanho="24" aria-hidden="true"></span>
+        <span>
+          <span class="modal__opcao__titulo">Cadastrar ponto de apoio ou delegacia</span>
+          <span class="modal__opcao__desc">Locais onde é possível pedir ajuda</span>
+        </span>
+      </button>
+
+      <button type="button" class="modal__opcao" data-abrir="modal-publicacao">
+        <span class="modal__opcao__icone" data-icone="megafone" data-tamanho="24" aria-hidden="true"></span>
+        <span>
+          <span class="modal__opcao__titulo">Cadastrar publicação</span>
+          <span class="modal__opcao__desc">Compartilhe uma dica, alerta ou apoio na comunidade</span>
+        </span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: RELATO ================= -->
+  <div class="modal" id="modal-relato" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-relato" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-relato">Cadastrar relato</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+
+      <div id="mensagem-relato" class="mensagem" hidden></div>
+
+      <form id="form-relato" novalidate>
+        <div class="campo">
+          <label for="relato-tipo">Tipo de ocorrência</label>
+          <select id="relato-tipo" name="tipo" required>
+            <option value="">Selecione</option>
+            <option value="assedio_verbal">Assédio verbal</option>
+            <option value="assedio_fisico">Assédio físico</option>
+            <option value="perseguicao">Perseguição</option>
+            <option value="rua_pouco_iluminada">Rua pouco iluminada</option>
+            <option value="local_isolado">Local isolado</option>
+            <option value="outro">Outro</option>
+          </select>
+        </div>
+
+        <fieldset class="seletor-local">
+          <legend>Onde aconteceu</legend>
+
+          <button type="button" class="btn btn-primario btn-bloco" id="relato-usar-localizacao">
+            <span data-icone="mira" data-tamanho="18" aria-hidden="true"></span> Usar minha localização
+          </button>
+
+          <div class="local-resumo" id="relato-local-escolhido" role="status" hidden></div>
+
+          <div class="mini-mapa" id="relato-mini-mapa"
+               role="img" aria-label="Mapa de conferência do local escolhido"></div>
+          <p class="seletor-local__dica">Confira o endereço acima. O relato será salvo neste ponto.</p>
+
+          <details class="seletor-local__ajuste" id="relato-ajuste">
+            <summary>Não é aqui? Corrigir o local</summary>
+
+            <div class="seletor-local__busca">
+              <label class="sr-only" for="relato-busca-local">Pesquisar endereço</label>
+              <input type="search" id="relato-busca-local"
+                     placeholder="Digite: rua, número, cidade" autocomplete="off">
+              <div class="sugestoes" id="relato-sugestoes" hidden></div>
+            </div>
+
+            <p class="seletor-local__dica">
+              Ou arraste o pino no mapa acima até o ponto certo.
+            </p>
+          </details>
+        </fieldset>
+
+        <div class="linha-campos">
+          <div class="campo">
+            <label for="relato-data">Data</label>
+            <input type="date" id="relato-data" name="data" required>
+          </div>
+          <div class="campo">
+            <label for="relato-hora">Horário</label>
+            <input type="time" id="relato-hora" name="hora" required>
+          </div>
+        </div>
+
+        <div class="campo">
+          <label for="relato-atencao">Nível de atenção</label>
+          <select id="relato-atencao" name="atencao">
+            <option value="baixo">Baixo</option>
+            <option value="medio" selected>Médio</option>
+            <option value="alto">Alto</option>
+          </select>
+        </div>
+
+        <div class="campo">
+          <label for="relato-descricao">Descrição</label>
+          <textarea id="relato-descricao" name="descricao"
+                    placeholder="Conte o que aconteceu, sem identificar pessoas pelo nome."></textarea>
+        </div>
+
+        <div class="campo">
+          <label for="relato-imagem">Imagem <span class="texto-secundario">(opcional, até 5 MB)</span></label>
+          <input type="file" id="relato-imagem" name="imagem" accept="image/*">
+        </div>
+
+        <button type="submit" class="btn btn-primario btn-bloco">ENVIAR RELATO</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: PONTO DE APOIO / DELEGACIA ================= -->
+  <div class="modal" id="modal-ponto" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-ponto" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-ponto">Cadastrar ponto de apoio ou delegacia</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+
+      <div id="mensagem-ponto" class="mensagem" hidden></div>
+
+      <form id="form-ponto" novalidate>
+        <div class="campo">
+          <label for="ponto-tipo">Tipo do local</label>
+          <select id="ponto-tipo" name="tipo" required>
+            <option value="">Selecione</option>
+            <option value="delegacia">Delegacia</option>
+            <option value="ponto_apoio">Ponto de apoio</option>
+            <option value="farmacia">Farmácia</option>
+            <option value="hospital">Hospital</option>
+            <option value="comercio_24h">Comércio 24h</option>
+            <option value="ponto_onibus">Ponto de ônibus</option>
+            <option value="outro">Outro</option>
+          </select>
+        </div>
+
+        <label class="campo-checkbox" id="ponto-deam-wrapper" hidden>
+          <input type="checkbox" id="ponto-deam" name="deam">
+          <span>É uma Delegacia de Atendimento à Mulher (DEAM)</span>
+        </label>
+
+        <div class="campo">
+          <label for="ponto-nome">Nome do local</label>
+          <input type="text" id="ponto-nome" name="nome" placeholder="Ex.: 12ª DP — Copacabana" required>
+        </div>
+
+        <fieldset class="seletor-local">
+          <legend>Onde fica</legend>
+
+          <button type="button" class="btn btn-primario btn-bloco" id="ponto-usar-localizacao">
+            <span data-icone="mira" data-tamanho="18" aria-hidden="true"></span> Usar minha localização
+          </button>
+
+          <div class="local-resumo" id="ponto-local-escolhido" role="status" hidden></div>
+
+          <div class="mini-mapa" id="ponto-mini-mapa"
+               role="img" aria-label="Mapa de conferência do local escolhido"></div>
+          <p class="seletor-local__dica">Confira o endereço acima. O local será salvo neste ponto.</p>
+
+          <details class="seletor-local__ajuste" id="ponto-ajuste">
+            <summary>Não é aqui? Corrigir o local</summary>
+
+            <div class="seletor-local__busca">
+              <label class="sr-only" for="ponto-busca-local">Pesquisar endereço</label>
+              <input type="search" id="ponto-busca-local"
+                     placeholder="Digite: rua, número, cidade" autocomplete="off">
+              <div class="sugestoes" id="ponto-sugestoes" hidden></div>
+            </div>
+
+            <p class="seletor-local__dica">
+              Ou arraste o pino no mapa acima até o ponto certo.
+            </p>
+          </details>
+        </fieldset>
+
+        <div class="campo">
+          <label for="ponto-endereco">Endereço</label>
+          <input type="text" id="ponto-endereco" name="endereco" placeholder="Rua, número, bairro">
+        </div>
+
+        <div class="campo">
+          <label for="ponto-telefone">Telefone <span class="texto-secundario">(opcional)</span></label>
+          <input type="tel" id="ponto-telefone" name="telefone" placeholder="(21) 0000-0000">
+        </div>
+
+        <div class="campo">
+          <label for="ponto-horario">Horário de funcionamento <span class="texto-secundario">(opcional)</span></label>
+          <input type="text" id="ponto-horario" name="horario" placeholder="Ex.: 24 horas / Seg a sex, 8h às 18h">
+        </div>
+
+        <div class="campo">
+          <label for="ponto-descricao">Descrição</label>
+          <textarea id="ponto-descricao" name="descricao" placeholder="O que este local oferece?"></textarea>
+        </div>
+
+        <div class="campo">
+          <label for="ponto-extra">Informações adicionais <span class="texto-secundario">(opcional)</span></label>
+          <input type="text" id="ponto-extra" name="extra" placeholder="Ex.: entrada pela lateral, acessível">
+        </div>
+
+        <button type="submit" class="btn btn-primario btn-bloco">SALVAR LOCAL</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: MENU ================= -->
+  <div class="modal" id="modal-menu" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-menu" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-menu">Menu</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <p class="texto-secundario" style="margin-bottom:16px;">
+        Conectada como <strong id="nome-usuaria">...</strong>
+      </p>
+      <a class="modal__opcao" href="perfil.html">
+        <span class="modal__opcao__icone" data-icone="perfil" data-tamanho="24" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Meu perfil</span></span>
+      </a>
+      <button type="button" class="btn btn-secundario btn-bloco" data-acao="sair">Sair da conta</button>
+    </div>
+  </div>
+
+  <!-- ================= SCRIPTS ================= -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script type="module" src="../js/app.js"></script>
+  <script type="module">
+    import { abrirModal } from '../js/ui.js';
+    document.getElementById('botao-menu')
+      ?.addEventListener('click', () => abrirModal('modal-menu'));
+    document.getElementById('botao-notificacoes')
+      ?.addEventListener('click', () => { window.location.href = 'alertas.html'; });
+  </script>
+</body>
+</html>

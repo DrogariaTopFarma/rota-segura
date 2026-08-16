@@ -1,174 +1,353 @@
-/* ============================================================
-   ROTA SEGURA — map.js
-   Mapa interativo (Leaflet + OpenStreetMap, sem chave de API).
-   Suporta: marcadores de relatos (tamanho por densidade de
-   relatos no ponto), marcadores institucionais (delegacias em
-   rosa, pontos de apoio em verde/azul) e escolha manual de ponto.
-   ============================================================ */
+/* ============================================================================
+   ROTA SEGURA — Mapa (Leaflet + OpenStreetMap)
+   Tela de CONSULTA: mostra o que existe registrado sobre os locais.
+   Não traça rota, não inicia viagem (isso é o Bloco 2).
 
-const CORES_POR_NIVEL = {
-  seguro: '#4C9A6E',
-  atencao: '#D99C3F',
-  alerta: '#C9505F'
+   Regra de performance: carregamos apenas os dados dentro do retângulo
+   visível do mapa (bounding box), nunca a base inteira.
+   ============================================================================ */
+
+import { supabase } from './supabase.js';
+import { APP_CONFIG } from './config.js';
+import { pinoMapa, icone } from './icons.js';
+import { toast, escapar, formatarDataHora, distanciaMetros } from './ui.js';
+import {
+  obterPosicao, acompanharPosicao, mensagemDoMotivo,
+  descreverPrecisao, precisaoRuim
+} from './geolocation.js';
+
+/* ------------------------------------------------------------- Rótulos --- */
+export const ROTULOS_RELATO = {
+  assedio_verbal: 'Assédio verbal',
+  assedio_fisico: 'Assédio físico',
+  perseguicao: 'Perseguição',
+  rua_pouco_iluminada: 'Rua pouco iluminada',
+  local_isolado: 'Local isolado',
+  outro: 'Outro'
 };
 
-const COR_DELEGACIA = '#D6428C';
-const COR_APOIO = '#2E9E8F';
+const ROTULOS_PONTO = {
+  ponto_apoio: 'Ponto de apoio',
+  farmacia: 'Farmácia',
+  hospital: 'Hospital',
+  comercio_24h: 'Comércio 24h',
+  ponto_onibus: 'Ponto de ônibus',
+  outro: 'Outro'
+};
 
+/* --------------------------------------------------------------- Estado --- */
 let mapa = null;
-let marcadoresRelatos = [];
-let marcadoresInstituicoes = [];
-let marcadorTemporario = null;
-let aoClicarNoMapaCallback = null;
+let camadas = {};
+let marcadorUsuario = null;
+let circuloPrecisao = null;
+let marcadorBusca = null;
+let pararWatch = null;
+let ultimaPosicao = null;
+let carregando = false;
+const ouvintes = [];
 
-export function inicializarMapa(containerId, { lat = -22.9068, lng = -43.1729, zoom = 12 } = {}) {
-  if (mapa) return mapa;
+/* Controle do aviso de precisão.
+   BUG QUE ISTO CORRIGE: o aviso era redesenhado a cada leitura do GPS
+   (o watchPosition dispara várias vezes por minuto), então ele reaparecia
+   sozinho para sempre e não tinha como fechar. Agora: mostra no máximo uma
+   vez, some sozinho depois de alguns segundos, e tem botão de fechar que
+   vale para o resto da sessão. */
+let avisoPrecisaoDispensado = false;
+let avisoPrecisaoJaMostrado = false;
+let temporizadorAviso = null;
 
-  mapa = L.map(containerId).setView([lat, lng], zoom);
+/** Permite que outros módulos saibam quando os relatos foram recarregados. */
+export function aoAtualizarRelatos(fn) { ouvintes.push(fn); }
+
+export function mapaAtual() { return mapa; }
+export function posicaoUsuario() { return ultimaPosicao; }
+
+/* ---------------------------------------------------------- Ícones Leaflet */
+function divIcon(nomeIcone, cor) {
+  return L.divIcon({
+    html: pinoMapa(nomeIcone, cor),
+    className: '',
+    iconSize: [34, 42],
+    iconAnchor: [17, 41],
+    popupAnchor: [0, -36]
+  });
+}
+
+const ICONES = {
+  relato_alto: () => divIcon('escudo', '#D32F2F'),
+  relato: () => divIcon('escudo', '#E83D67'),
+  iluminacao: () => divIcon('lampada', '#F4A261'),
+  ponto_apoio: () => divIcon('escudo', '#4CAF7D'),
+  hospital: () => divIcon('hospital', '#4CAF7D'),
+  farmacia: () => divIcon('hospital', '#4CAF7D'),
+  comercio_24h: () => divIcon('predio', '#7C5CBF'),
+  ponto_onibus: () => divIcon('onibus', '#7C5CBF'),
+  delegacia: () => divIcon('predio', '#7C5CBF'),
+  busca: () => divIcon('pino', '#2D2430')
+};
+
+/* ------------------------------------------------------------ Inicializar */
+export function criarMapa(idElemento = 'mapa') {
+  mapa = L.map(idElemento, {
+    zoomControl: true,
+    attributionControl: true
+  }).setView(APP_CONFIG.centroPadrao, APP_CONFIG.zoomPadrao);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; colaboradores do <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    maxZoom: 19
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap'
   }).addTo(mapa);
 
-  mapa.on('click', (e) => {
-    if (aoClicarNoMapaCallback) aoClicarNoMapaCallback(e.latlng);
-  });
-
-  setTimeout(() => mapa.invalidateSize(), 200);
-  return mapa;
-}
-
-export function invalidarTamanhoDoMapa() {
-  if (mapa) mapa.invalidateSize();
-}
-
-export function obterInstanciaMapa() {
-  return mapa;
-}
-
-/* ---------------------------------------------------------- */
-/* Ícones                                                       */
-/* ---------------------------------------------------------- */
-
-/** Tamanho do pino cresce com o número de relatos ("heatmap visual"). */
-function calcularTamanho(totalRelatos) {
-  const base = 16;
-  const incremento = Math.min(totalRelatos - 1, 6) * 4; // até +24px
-  return base + incremento;
-}
-
-function criarIconeRelato(nivelSeguranca, totalRelatos) {
-  const cor = CORES_POR_NIVEL[nivelSeguranca] || '#7C4DBF';
-  const tamanho = calcularTamanho(totalRelatos);
-  const mostrarContador = totalRelatos > 1;
-
-  return L.divIcon({
-    className: 'mapa-pin',
-    html: `
-      <span class="mapa-pin-dot" style="background:${cor};width:${tamanho}px;height:${tamanho}px;">
-        ${mostrarContador ? `<span class="mapa-pin-contador">${totalRelatos}</span>` : ''}
-      </span>`,
-    iconSize: [tamanho, tamanho],
-    iconAnchor: [tamanho / 2, tamanho / 2],
-    popupAnchor: [0, -tamanho / 2]
-  });
-}
-
-function criarIconeInstituicao(tipo) {
-  const cor = tipo === 'delegacia' ? COR_DELEGACIA : COR_APOIO;
-  // Escudo simples em SVG para delegacias; casa/coração para pontos de apoio.
-  const caminho =
-    tipo === 'delegacia'
-      ? 'M12 2 3 6v6c0 5 3.8 9 9 10 5.2-1 9-5 9-10V6l-9-4Z'
-      : 'M12 21s-7-4.35-9.5-8.5C.7 8.9 2.4 5.5 6 5.5c2 0 3.3 1 4 2 .7-1 2-2 4-2 3.6 0 5.3 3.4 3.5 7-2.5 4.15-9.5 8.5-9.5 8.5Z';
-
-  return L.divIcon({
-    className: 'mapa-pin-instituicao',
-    html: `
-      <span class="mapa-pin-instituicao-corpo" style="background:${cor};">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="#fff"><path d="${caminho}"/></svg>
-      </span>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-    popupAnchor: [0, -14]
-  });
-}
-
-/* ---------------------------------------------------------- */
-/* Marcadores de relatos                                        */
-/* ---------------------------------------------------------- */
-
-/**
- * pontos: array de { representante, totalRelatos, relatos, localKey }
- * onAbrirDetalhes(ponto): chamado ao clicar no pino.
- */
-export function renderizarPontos(pontos, { onAbrirDetalhes } = {}) {
-  marcadoresRelatos.forEach((m) => mapa.removeLayer(m));
-  marcadoresRelatos = [];
-
-  pontos.forEach((ponto) => {
-    const { representante, totalRelatos } = ponto;
-    const marker = L.marker([representante.latitude, representante.longitude], {
-      icon: criarIconeRelato(representante.nivel_seguranca, totalRelatos)
-    }).addTo(mapa);
-
-    marker.on('click', () => onAbrirDetalhes && onAbrirDetalhes(ponto));
-    marcadoresRelatos.push(marker);
-  });
-}
-
-/* ---------------------------------------------------------- */
-/* Marcadores institucionais (delegacias / pontos de apoio)     */
-/* ---------------------------------------------------------- */
-
-export function renderizarInstituicoes(instituicoes, { onSelecionar } = {}) {
-  marcadoresInstituicoes.forEach((m) => mapa.removeLayer(m));
-  marcadoresInstituicoes = [];
-
-  instituicoes.forEach((inst) => {
-    const marker = L.marker([inst.latitude, inst.longitude], { icon: criarIconeInstituicao(inst.tipo) })
-      .addTo(mapa)
-      .bindPopup(
-        `<strong>${escaparHtml(inst.nome)}</strong><br>${escaparHtml(inst.endereco || '')}` +
-        (inst.telefone ? `<br>📞 ${escaparHtml(inst.telefone)}` : '')
-      );
-
-    if (onSelecionar) marker.on('click', () => onSelecionar(inst));
-    marcadoresInstituicoes.push(marker);
-  });
-}
-
-export function centralizarEm(lat, lng, zoom = 15) {
-  if (mapa) mapa.setView([lat, lng], zoom);
-}
-
-/** Ativa o "modo escolher no mapa": o próximo clique define lat/lng. */
-export function ativarEscolhaDeLocal(callback) {
-  aoClicarNoMapaCallback = (latlng) => {
-    posicionarMarcadorTemporario(latlng);
-    callback(latlng);
+  camadas = {
+    relatos: L.layerGroup().addTo(mapa),
+    pontos: L.layerGroup().addTo(mapa),
+    delegacias: L.layerGroup().addTo(mapa)
   };
+
+  // Recarrega os dados sempre que a pessoa arrasta ou dá zoom
+  let timer;
+  mapa.on('moveend zoomend', () => {
+    clearTimeout(timer);
+    timer = setTimeout(carregarDadosDaAreaVisivel, 350);
+  });
+
+  return mapa;
 }
 
-export function posicionarMarcadorTemporario(latlng) {
-  if (marcadorTemporario) mapa.removeLayer(marcadorTemporario);
-  marcadorTemporario = L.marker(latlng, { icon: criarIconeRelato('atencao', 1) }).addTo(mapa);
-}
+/* ------------------------------------------------- Localização do usuário */
+export async function localizarUsuario({ silencioso = false } = {}) {
+  const aviso = document.getElementById('mapa-aviso');
+  try {
+    const pos = await obterPosicao({ precisaoDesejada: 25, tempoMaximo: 15000 });
+    ultimaPosicao = pos;
+    desenharUsuario(pos);
+    mapa.setView([pos.lat, pos.lng], APP_CONFIG.zoomPadrao);
+    if (aviso && !precisaoRuim(pos.precisao)) aviso.hidden = true;
+    mostrarAvisoDePrecisao(pos.precisao);
 
-export function desativarEscolhaDeLocal() {
-  aoClicarNoMapaCallback = null;
-}
-
-export function limparMarcadorTemporario() {
-  if (marcadorTemporario) {
-    mapa.removeLayer(marcadorTemporario);
-    marcadorTemporario = null;
+    // Acompanha em tempo real (útil quando a pessoa está andando)
+    if (!pararWatch) {
+      pararWatch = acompanharPosicao(
+        (p) => {
+          // Só redesenha se andou mais de 8 m ou se a precisão melhorou.
+          // Sem isto, o mapa piscava a cada leitura do GPS.
+          const anterior = ultimaPosicao;
+          const mudouMuito =
+            !anterior ||
+            distanciaMetros(anterior.lat, anterior.lng, p.lat, p.lng) > 8 ||
+            p.precisao < anterior.precisao * 0.7;
+          ultimaPosicao = p;
+          if (mudouMuito) desenharUsuario(p);
+        },
+        () => {}
+      );
+    }
+    return pos;
+  } catch (erro) {
+    const texto = mensagemDoMotivo(erro.motivo);
+    if (aviso) { aviso.textContent = texto; aviso.hidden = false; }
+    if (!silencioso) toast(texto, 'erro', 6000);
+    return null;
   }
 }
 
-function escaparHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str == null ? '' : String(str);
-  return div.innerHTML;
+function desenharUsuario({ lat, lng, precisao }) {
+  if (marcadorUsuario) mapa.removeLayer(marcadorUsuario);
+  if (circuloPrecisao) mapa.removeLayer(circuloPrecisao);
+
+  // O raio é a precisão REAL informada pelo navegador.
+  // Antes havia um limite de 300 m aqui, que escondia de você o quanto a
+  // localização estava ruim. Círculo grande = navegador chutando pelo Wi-Fi.
+  circuloPrecisao = L.circle([lat, lng], {
+    radius: precisao || 60,
+    color: '#E83D67',
+    fillColor: '#E83D67',
+    fillOpacity: 0.12,
+    weight: 1
+  }).addTo(mapa);
+
+  marcadorUsuario = L.circleMarker([lat, lng], {
+    radius: 8,
+    color: '#FFFFFF',
+    weight: 3,
+    fillColor: '#2F6BFF',
+    fillOpacity: 1
+  }).addTo(mapa).bindPopup(
+    `<div class="popup__tipo">Você está aqui</div>
+     <div class="popup__meta">${escapar(descreverPrecisao(precisao))}</div>`
+  );
 }
+
+/**
+ * Avisa UMA VEZ quando o navegador não sabe direito onde você está.
+ * Some sozinho em 12 segundos e tem botão de fechar definitivo.
+ */
+function mostrarAvisoDePrecisao(precisao) {
+  const aviso = document.getElementById('mapa-aviso');
+  if (!aviso) return;
+
+  // Você já fechou este aviso: respeitamos e não insistimos mais.
+  if (avisoPrecisaoDispensado) { aviso.hidden = true; return; }
+
+  if (!precisaoRuim(precisao)) {
+    aviso.hidden = true;
+    return;
+  }
+
+  // Já mostramos uma vez nesta sessão: não repetimos.
+  if (avisoPrecisaoJaMostrado) return;
+  avisoPrecisaoJaMostrado = true;
+
+  aviso.innerHTML = `
+    <div class="mapa-aviso__texto">
+      <strong>Localização aproximada</strong> — ${escapar(descreverPrecisao(precisao))}.
+      Em notebook o navegador usa o Wi-Fi, não o GPS. No celular a precisão é bem melhor.
+    </div>
+    <button type="button" class="mapa-aviso__fechar" aria-label="Fechar aviso">
+      ${icone('fechar', 16)}
+    </button>`;
+  aviso.hidden = false;
+
+  aviso.querySelector('.mapa-aviso__fechar')?.addEventListener('click', () => {
+    avisoPrecisaoDispensado = true;
+    aviso.hidden = true;
+    clearTimeout(temporizadorAviso);
+  });
+
+  clearTimeout(temporizadorAviso);
+  temporizadorAviso = setTimeout(() => { aviso.hidden = true; }, 12000);
+}
+
+export function recentralizar() {
+  if (ultimaPosicao) {
+    mapa.setView([ultimaPosicao.lat, ultimaPosicao.lng], APP_CONFIG.zoomPadrao);
+  } else {
+    localizarUsuario();
+  }
+}
+
+/* --------------------------------------- Carregar dados da área visível --- */
+export async function carregarDadosDaAreaVisivel() {
+  if (!mapa || carregando) return;
+  carregando = true;
+
+  const b = mapa.getBounds();
+  const sul = b.getSouth(), norte = b.getNorth();
+  const oeste = b.getWest(), leste = b.getEast();
+
+  try {
+    const [relatos, pontos, delegacias] = await Promise.all([
+      supabase.from('reports')
+        .select('id,type,description,address,lat,lng,occurred_at,attention_level,status,created_at')
+        .gte('lat', sul).lte('lat', norte)
+        .gte('lng', oeste).lte('lng', leste)
+        .order('occurred_at', { ascending: false })
+        .limit(200),
+
+      supabase.from('support_points')
+        .select('id,type,name,address,lat,lng,phone,description,opening_hours,status')
+        .gte('lat', sul).lte('lat', norte)
+        .gte('lng', oeste).lte('lng', leste)
+        .limit(200),
+
+      supabase.from('police_stations')
+        .select('id,name,address,lat,lng,phone,is_women_only,opening_hours,status')
+        .gte('lat', sul).lte('lat', norte)
+        .gte('lng', oeste).lte('lng', leste)
+        .limit(100)
+    ]);
+
+    if (relatos.error) throw relatos.error;
+    if (pontos.error) throw pontos.error;
+    if (delegacias.error) throw delegacias.error;
+
+    desenharRelatos(relatos.data || []);
+    desenharPontos(pontos.data || []);
+    desenharDelegacias(delegacias.data || []);
+
+    ouvintes.forEach((fn) => fn(relatos.data || []));
+  } catch (erro) {
+    console.error(erro);
+    toast('Não foi possível carregar os dados. Tente novamente.', 'erro');
+  } finally {
+    carregando = false;
+  }
+}
+
+/* ------------------------------------------------------------ Desenhos --- */
+function desenharRelatos(lista) {
+  camadas.relatos.clearLayers();
+  lista.forEach((r) => {
+    let tipoIcone = 'relato';
+    if (r.type === 'rua_pouco_iluminada') tipoIcone = 'iluminacao';
+    else if (r.attention_level === 'alto') tipoIcone = 'relato_alto';
+
+    const pendente = r.status === 'pending'
+      ? '<div class="popup__meta">Em análise pela moderação</div>' : '';
+
+    L.marker([r.lat, r.lng], { icon: ICONES[tipoIcone](), alt: ROTULOS_RELATO[r.type] || 'Relato' })
+      .bindPopup(`
+        <div class="popup__tipo">${escapar(ROTULOS_RELATO[r.type] || 'Relato')}</div>
+        <div class="popup__meta">${escapar(formatarDataHora(r.occurred_at))}</div>
+        <div class="popup__meta">${escapar(r.address || 'Endereço não informado')}</div>
+        ${r.description ? `<div class="popup__desc">${escapar(r.description)}</div>` : ''}
+        ${pendente}
+      `)
+      .addTo(camadas.relatos);
+  });
+}
+
+function desenharPontos(lista) {
+  camadas.pontos.clearLayers();
+  lista.forEach((p) => {
+    const criador = ICONES[p.type] || ICONES.ponto_apoio;
+    L.marker([p.lat, p.lng], { icon: criador(), alt: p.name })
+      .bindPopup(`
+        <div class="popup__tipo">${escapar(p.name)}</div>
+        <div class="popup__meta">${escapar(ROTULOS_PONTO[p.type] || 'Ponto de apoio')}</div>
+        <div class="popup__meta">${escapar(p.address || '')}</div>
+        ${p.phone ? `<div class="popup__desc">Telefone: ${escapar(p.phone)}</div>` : ''}
+        ${p.opening_hours ? `<div class="popup__meta">${escapar(p.opening_hours)}</div>` : ''}
+        ${p.description ? `<div class="popup__desc">${escapar(p.description)}</div>` : ''}
+      `)
+      .addTo(camadas.pontos);
+  });
+}
+
+function desenharDelegacias(lista) {
+  camadas.delegacias.clearLayers();
+  lista.forEach((d) => {
+    L.marker([d.lat, d.lng], { icon: ICONES.delegacia(), alt: d.name })
+      .bindPopup(`
+        <div class="popup__tipo">${escapar(d.name)}</div>
+        <div class="popup__meta">${d.is_women_only ? 'Delegacia da Mulher' : 'Delegacia'}</div>
+        <div class="popup__meta">${escapar(d.address || '')}</div>
+        ${d.phone ? `<div class="popup__desc">Telefone: ${escapar(d.phone)}</div>` : ''}
+        ${d.opening_hours ? `<div class="popup__meta">${escapar(d.opening_hours)}</div>` : ''}
+      `)
+      .addTo(camadas.delegacias);
+  });
+}
+
+/* ------------------------------------------------- Marcador da pesquisa --- */
+export function marcarLocalPesquisado(lat, lng, titulo) {
+  if (marcadorBusca) mapa.removeLayer(marcadorBusca);
+  marcadorBusca = L.marker([lat, lng], { icon: ICONES.busca(), alt: titulo })
+    .addTo(mapa)
+    .bindPopup(`<div class="popup__tipo">Local pesquisado</div><div class="popup__meta">${escapar(titulo)}</div>`)
+    .openPopup();
+  mapa.setView([lat, lng], APP_CONFIG.zoomBusca);
+}
+
+/* ------------------------------------------------------------- Realtime --- */
+export function ligarRealtimeRelatos() {
+  supabase
+    .channel('relatos-mapa')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reports' }, () => {
+      carregarDadosDaAreaVisivel();
+    })
+    .subscribe();
+}
+
+/* --------------------------------------------------------------- Limpeza --- */
+window.addEventListener('beforeunload', () => { if (pararWatch) pararWatch(); });

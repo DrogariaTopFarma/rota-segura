@@ -1,0 +1,20 @@
+# Nunca envie chaves privadas para o GitHub
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+service_role*
+secrets/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Node (caso você use algum servidor local)
+node_modules/
+npm-debug.log*

@@ -1,0 +1,104 @@
+/* ============================================================
+   ROTA SEGURA — Telas de autenticação e boas-vindas
+   ============================================================ */
+
+.auth-body {
+  background: linear-gradient(170deg, var(--rosa-bebe) 0%, var(--rosa-claro) 100%);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--esp-5);
+}
+
+.auth-caixa {
+  width: 100%;
+  max-width: 420px;
+  background: var(--branco);
+  border-radius: var(--raio-xl);
+  box-shadow: var(--sombra-lg);
+  padding: var(--esp-8) var(--esp-6);
+}
+
+.auth-marca {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--esp-2);
+  margin-bottom: var(--esp-6);
+}
+
+.auth-marca__escudo {
+  width: 64px; height: 64px;
+  border-radius: 22px;
+  background: var(--rosa-bebe);
+  color: var(--rosa-magenta);
+  display: flex; align-items: center; justify-content: center;
+}
+
+.auth-marca__nome {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.auth-marca__slogan {
+  font-size: var(--fs-sm);
+  color: var(--texto-secundario);
+}
+
+.auth-titulo {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  margin-bottom: var(--esp-1);
+}
+.auth-subtitulo {
+  font-size: var(--fs-sm);
+  color: var(--texto-secundario);
+  margin-bottom: var(--esp-5);
+}
+
+.auth-rodape {
+  text-align: center;
+  margin-top: var(--esp-5);
+  font-size: var(--fs-sm);
+  color: var(--texto-secundario);
+}
+
+.auth-links {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--esp-4);
+  font-size: var(--fs-sm);
+  flex-wrap: wrap;
+  gap: var(--esp-2);
+}
+
+.senha-wrapper { position: relative; }
+.senha-wrapper input { padding-right: 48px; }
+.senha-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--texto-secundario);
+  padding: 6px;
+  display: flex;
+}
+
+/* Tela inicial (index.html) */
+.boas-vindas {
+  text-align: center;
+}
+.boas-vindas h1 {
+  font-size: var(--fs-2xl);
+  margin-bottom: var(--esp-3);
+  letter-spacing: -0.02em;
+}
+.boas-vindas p {
+  color: var(--texto-secundario);
+  font-size: var(--fs-md);
+  margin-bottom: var(--esp-6);
+}
+.boas-vindas .btn + .btn { margin-top: var(--esp-3); }

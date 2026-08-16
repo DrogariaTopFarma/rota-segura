@@ -1,0 +1,69 @@
+/* ============================================================
+   ROTA SEGURA — Design System (tokens)
+   Todas as cores, raios, sombras e espaçamentos do projeto.
+   NUNCA escreva cor "na mão" em outro arquivo: use var(--...)
+   ============================================================ */
+
+:root {
+  /* ---------- Paleta ---------- */
+  --rosa-magenta: #E83D67;
+  --rosa-magenta-escuro: #D81B60;
+  --rosa-bebe: #FFF0F3;
+  --rosa-claro: #FCE4EC;
+  --branco: #FFFFFF;
+  --cinza-muito-claro: #F8F9FA;
+  --texto-principal: #2D2430;
+  --texto-secundario: #777777;
+  --verde: #4CAF7D;
+  --amarelo: #F4A261;
+  --vermelho: #D32F2F;
+
+  /* ---------- Derivadas ---------- */
+  --borda: #ECECEF;
+  --overlay: rgba(45, 36, 48, 0.45);
+  --verde-suave: #E8F6EE;
+  --amarelo-suave: #FDF1E5;
+  --vermelho-suave: #FBEAEA;
+  --roxo: #7C5CBF;
+  --roxo-suave: #F1ECFB;
+
+  /* ---------- Tipografia ---------- */
+  --fonte: 'Poppins', 'Nunito', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --fs-xs: 0.75rem;   /* 12px */
+  --fs-sm: 0.8125rem; /* 13px */
+  --fs-md: 0.9375rem; /* 15px */
+  --fs-lg: 1.0625rem; /* 17px */
+  --fs-xl: 1.375rem;  /* 22px */
+  --fs-2xl: 1.75rem;  /* 28px */
+
+  /* ---------- Raios ---------- */
+  --raio-sm: 12px;
+  --raio-md: 16px;
+  --raio-lg: 20px;
+  --raio-xl: 24px;
+  --raio-full: 999px;
+
+  /* ---------- Sombras ---------- */
+  --sombra-sm: 0 2px 8px rgba(45, 36, 48, 0.06);
+  --sombra-md: 0 6px 20px rgba(45, 36, 48, 0.08);
+  --sombra-lg: 0 12px 32px rgba(45, 36, 48, 0.12);
+  --sombra-rosa: 0 8px 20px rgba(232, 61, 103, 0.32);
+
+  /* ---------- Espaçamento ---------- */
+  --esp-1: 4px;
+  --esp-2: 8px;
+  --esp-3: 12px;
+  --esp-4: 16px;
+  --esp-5: 20px;
+  --esp-6: 24px;
+  --esp-8: 32px;
+
+  /* ---------- Layout ---------- */
+  --altura-bottom-nav: 72px;
+  --largura-app: 480px;
+  --z-mapa: 1;
+  --z-flutuante: 500;
+  --z-nav: 900;
+  --z-modal: 1000;
+  --z-toast: 1100;
+}

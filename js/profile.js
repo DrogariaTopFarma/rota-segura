@@ -14,7 +14,7 @@ import {
   prepararModais, prepararTrocaDeModal, abrirModal, fecharModal, toast, escapar, formatarDataHora,
   botaoCarregando, htmlEstadoVazio, htmlCarregando, mostrarMensagem, limparMensagem
 } from './ui.js';
-import { marcarItemAtivo } from './nav.js';
+import { marcarItemAtivo, atualizarBadgeNotificacoes, ligarRealtimeBadgeNotificacoes } from './nav.js';
 import { renderizarLista } from './reports.js';
 import { prepararNotificacoes } from './notifications.js';
 
@@ -446,8 +446,10 @@ async function iniciar() {
     carregarMeusRelatos(),
     carregarMinhasPublicacoes(),
     carregarHistoricoRotas(),
-    carregarContatos()
+    carregarContatos(),
+    atualizarBadgeNotificacoes()
   ]);
+  ligarRealtimeBadgeNotificacoes();
 }
 
 document.addEventListener('DOMContentLoaded', iniciar);

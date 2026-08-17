@@ -621,6 +621,10 @@ begin
     alter publication supabase_realtime add table public.posts;
   exception when duplicate_object then null;
   end;
+  begin
+    alter publication supabase_realtime add table public.notifications;
+  exception when duplicate_object then null;
+  end;
 end $$;
 
 

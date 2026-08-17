@@ -8,7 +8,7 @@
 import { exigirLogin, iniciarAuth } from './auth.js';
 import { aplicarIcones } from './icons.js';
 import { prepararModais, prepararTrocaDeModal, abrirModal } from './ui.js';
-import { marcarItemAtivo } from './nav.js';
+import { marcarItemAtivo, atualizarBadgeNotificacoes, ligarRealtimeBadgeNotificacoes } from './nav.js';
 import { prepararNotificacoes } from './notifications.js';
 import {
   carregarFeed, prepararFiltrosDeComunidade, ligarRealtimePosts,
@@ -38,8 +38,9 @@ async function iniciar() {
   prepararFiltrosDeComunidade();
   prepararFormularioPublicacao({ aoPublicar: () => carregarFeed() });
 
-  await carregarFeed();
+  await Promise.all([carregarFeed(), atualizarBadgeNotificacoes()]);
   ligarRealtimePosts();
+  ligarRealtimeBadgeNotificacoes();
 }
 
 document.addEventListener('DOMContentLoaded', iniciar);

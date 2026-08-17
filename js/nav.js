@@ -40,3 +40,16 @@ export async function atualizarBadgeNotificacoes() {
   badge.textContent = count > 9 ? '9+' : String(count);
   badge.hidden = false;
 }
+
+/** Atualiza o sino sozinho quando uma notificação nova chega (curtida
+    recebida etc.) — sem isso, o número só mudava recarregando a página
+    inteira. O RLS de notifications já garante que só chegam eventos da
+    própria usuária, então não precisa filtrar nada aqui. */
+export function ligarRealtimeBadgeNotificacoes() {
+  supabase
+    .channel('notificacoes-badge')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, () => {
+      atualizarBadgeNotificacoes();
+    })
+    .subscribe();
+}

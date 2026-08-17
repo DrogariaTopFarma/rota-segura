@@ -15,7 +15,7 @@ import { prepararFormularioPonto, seletorDeLocalDoPonto } from './support-points
 import { prepararFormularioPublicacao } from './community.js';
 import { prepararNotificacoes } from './notifications.js';
 import { prepararBusca } from './search.js';
-import { marcarItemAtivo, prepararBotaoCentral, atualizarBadgeNotificacoes } from './nav.js';
+import { marcarItemAtivo, prepararBotaoCentral, atualizarBadgeNotificacoes, ligarRealtimeBadgeNotificacoes } from './nav.js';
 
 async function iniciar() {
   // 1. Ícones SVG em todo lugar que tem data-icone
@@ -38,13 +38,21 @@ async function iniciar() {
   document.getElementById('botao-recentralizar')
     ?.addEventListener('click', recentralizar);
 
-  // 5. Localização (não bloqueia o resto se falhar)
-  await localizarUsuario({ silencioso: true });
+  // 5 e 6. BUG DE PERFORMANCE QUE ISTO CORRIGE: antes, os relatos/pontos de
+  // apoio/delegacias só começavam a carregar DEPOIS do GPS responder — e o
+  // GPS pode levar até 15s (obterPosicao usa tempoMaximo: 15000). Isso fazia
+  // o mapa parecer travado bem no primeiro acesso, com a tela vazia por até
+  // 15 segundos, mesmo o mapa não precisando saber sua localização exata pra
+  // mostrar os dados da área padrão (Rio de Janeiro). Agora os dados carregam
+  // na hora, com a área padrão; o GPS roda em paralelo, e quando responde,
+  // o próprio mapa recentra sozinho — o que já dispara moveend e recarrega
+  // os dados pra área nova automaticamente (listener já ligado em criarMapa).
+  localizarUsuario({ silencioso: true });
 
-  // 6. Dados
   await carregarDadosDaAreaVisivel();
   await carregarListaRelatos();
   await atualizarBadgeNotificacoes();
+  ligarRealtimeBadgeNotificacoes();
 
   // 7. Formulários e busca
   prepararBusca();

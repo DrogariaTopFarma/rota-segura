@@ -112,7 +112,7 @@ function prepararSeletorDeModo() {
 /* -------------------------------------------------------------- Mapa --- */
 function garantirMapa() {
   if (mapa) return mapa;
-  mapa = L.map('rota-mapa', { zoomControl: true, attributionControl: true })
+  mapa = L.map('rota-mapa', { zoomControl: true, attributionControl: true, renderer: L.canvas() })
     .setView(APP_CONFIG.centroPadrao, APP_CONFIG.zoomPadrao);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
     subdomains: 'abcd',

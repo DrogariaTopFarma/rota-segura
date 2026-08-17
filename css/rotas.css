@@ -1,0 +1,213 @@
+/* ============================================================
+   ROTA SEGURA — Tela 2: Rotas e Navegação ativa (Bloco 2)
+   ============================================================ */
+
+#app-rotas {
+  max-width: var(--largura-app);
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: var(--esp-5) var(--esp-4) calc(var(--altura-bottom-nav) + var(--esp-5));
+}
+
+/* ---------------- Cabeçalho ---------------- */
+.topo-rota {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-4);
+}
+.topo-rota__titulo { font-size: var(--fs-xl); font-weight: 700; letter-spacing: -0.02em; }
+.topo-rota__subtitulo { font-size: var(--fs-xs); color: var(--texto-secundario); margin-top: 2px; }
+
+/* ---------------- Faixa "modo teste" (simulação de GPS) ---------------- */
+.faixa-teste {
+  background: var(--roxo);
+  color: var(--branco);
+  text-align: center;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  padding: 8px var(--esp-4);
+  border-radius: var(--raio-md);
+  margin-bottom: var(--esp-4);
+}
+
+/* ---------------- Card origem / destino ---------------- */
+.rota-origem-destino {
+  position: relative;
+  padding: var(--esp-4);
+  margin-bottom: var(--esp-4);
+}
+
+.rota-ponto {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  padding: 6px 0;
+}
+.rota-ponto + .rota-ponto {
+  border-top: 1px solid var(--borda);
+  margin-top: 4px;
+}
+
+.rota-ponto__marcador {
+  flex-shrink: 0;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.rota-ponto__marcador--origem { background: rgba(47, 107, 255, 0.12); color: #2F6BFF; }
+.rota-ponto__marcador--destino { background: var(--rosa-bebe); color: var(--rosa-magenta); }
+
+.rota-ponto__campo { flex: 1; min-width: 0; }
+.rota-ponto__campo label {
+  display: block;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--texto-secundario);
+  margin-bottom: 2px;
+}
+.rota-ponto__valor {
+  font-size: var(--fs-md);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rota-ponto__campo input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: var(--fs-md);
+  font-weight: 500;
+  padding: 0;
+}
+.rota-ponto__campo input::placeholder { color: var(--texto-secundario); font-weight: 400; }
+
+.rota-dica-origem {
+  font-size: var(--fs-xs);
+  color: var(--texto-secundario);
+  text-align: center;
+  margin: 0 0 var(--esp-4);
+  line-height: 1.45;
+}
+
+/* Botão de trocar origem/destino: flutua na borda direita do card */
+.rota-inverter {
+  position: absolute;
+  right: var(--esp-3);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: var(--rosa-bebe);
+  color: var(--rosa-magenta-escuro);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: var(--sombra-sm);
+}
+.rota-inverter:hover { background: var(--rosa-claro); }
+
+/* ---------------- Mapa ---------------- */
+.rota-mapa-wrapper {
+  margin: 0 0 var(--esp-4);
+}
+#rota-mapa {
+  height: 42vh;
+  min-height: 280px;
+  width: 100%;
+  background: var(--cinza-muito-claro);
+}
+
+/* ---------------- Card da rota calculada ---------------- */
+.rota-card { margin-bottom: var(--esp-4); }
+.rota-card[hidden] { display: none; }
+
+.rota-card__cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.rota-card__icone { color: var(--rosa-magenta); display: flex; flex-shrink: 0; }
+.rota-card__titulo { font-weight: 700; font-size: var(--fs-lg); flex: 1; }
+
+.rota-card__resumo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-3);
+  margin-top: var(--esp-2);
+}
+.rota-card__numeros { font-size: var(--fs-lg); font-weight: 700; }
+.rota-card__observacoes { margin-top: var(--esp-2); }
+.rota-card__observacao {
+  font-size: var(--fs-xs);
+  color: var(--texto-secundario);
+  margin-top: 3px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.rota-card__aviso {
+  font-size: var(--fs-xs);
+  color: var(--texto-secundario);
+  border-top: 1px solid var(--borda);
+  margin-top: var(--esp-3);
+  padding-top: var(--esp-3);
+  line-height: 1.5;
+}
+.rota-card #rota-btn-iniciar { margin-top: var(--esp-4); }
+
+/* ---------------- Painel SOS ---------------- */
+.rota-sos {
+  background: var(--rosa-bebe);
+  border: 1.5px solid var(--rosa-claro);
+  border-radius: var(--raio-lg);
+  margin-bottom: var(--esp-4);
+}
+.rota-sos__botao {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  width: 100%;
+  padding: var(--esp-4);
+  text-align: left;
+  color: var(--rosa-magenta-escuro);
+}
+.rota-sos__botao > span[data-icone] { flex-shrink: 0; }
+.rota-sos__texto { flex: 1; font-size: var(--fs-xs); color: var(--texto-principal); }
+.rota-sos__label { display: block; font-weight: 700; font-size: var(--fs-md); color: var(--rosa-magenta-escuro); margin-top: 2px; }
+.rota-sos__seta { flex-shrink: 0; transform: rotate(180deg); opacity: .5; }
+
+/* ---------------- Navegação ativa ---------------- */
+.rota-navegacao[hidden] { display: none; }
+.rota-navegacao__linha {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--esp-3);
+}
+.rota-navegacao__destino { font-size: var(--fs-sm); color: var(--texto-secundario); margin-bottom: var(--esp-1); }
+.rota-navegacao__distancia { font-size: var(--fs-2xl); font-weight: 700; }
+.rota-navegacao__tempo { font-size: var(--fs-sm); color: var(--texto-secundario); }
+.rota-navegacao__acoes { display: flex; gap: var(--esp-3); margin-top: var(--esp-4); }
+.rota-navegacao__acoes .btn { flex: 1; }
+
+.rota-navegacao__aviso-previa {
+  font-size: var(--fs-xs);
+  color: #B26A22;
+  background: var(--amarelo-suave);
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin-top: var(--esp-3);
+  line-height: 1.45;
+}
+.rota-navegacao__aviso-previa[hidden] { display: none; }
+
+/* .bottom-nav já define display:flex — sem isto, o atributo [hidden] sozinho
+   não conseguiria escondê-la (empate de especificidade CSS). */
+.bottom-nav[hidden] { display: none; }
+
+/* ---------------- Modal "saiu da rota" / confirmações ---------------- */
+.rota-modal__texto { font-size: var(--fs-md); margin-bottom: var(--esp-4); line-height: 1.5; }
+.rota-modal__acoes { display: flex; flex-direction: column; gap: var(--esp-3); }

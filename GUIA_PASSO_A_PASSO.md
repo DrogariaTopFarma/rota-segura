@@ -1,4 +1,4 @@
-# Guia passo a passo — Rota Segura (Bloco 1)
+# Guia passo a passo — Rota Segura (Blocos 1 e 2)
 
 Este guia parte do zero. Não presume que você já usou terminal, Supabase, GitHub ou VS Code.
 Faça uma etapa por vez e só avance depois do teste de cada uma dar certo.
@@ -22,6 +22,9 @@ Faça uma etapa por vez e só avance depois do teste de cada uma dar certo.
 - [Etapa 8 — Publicar no GitHub Pages](#etapa-8--publicar-no-github-pages)
 - [Etapa 9 — Ajustar o Supabase para o site publicado](#etapa-9--ajustar-o-supabase-para-o-site-publicado)
 - [Etapa 10 — Localização: erro do aparelho x limite do serviço](#etapa-10--localização-entendendo-o-que-é-erro-e-o-que-é-limite-do-serviço)
+- [Etapa 11 — Bloco 2: criar a conta e a chave no OpenRouteService](#etapa-11--bloco-2-criar-a-conta-e-a-chave-no-openrouteservice)
+- [Etapa 12 — Bloco 2: publicar a Edge Function no Supabase](#etapa-12--bloco-2-publicar-a-edge-function-no-supabase)
+- [Etapa 13 — Bloco 2: testar rotas e navegação ativa](#etapa-13--bloco-2-testar-rotas-e-navegação-ativa)
 - [Sobre o .env (leia antes de procurar por ele)](#sobre-o-env-leia-antes-de-procurar-por-ele)
 - [Dicionário rápido](#dicionário-rápido)
 
@@ -695,7 +698,7 @@ Se o mapa principal já sabia onde você está, o preenchimento é instantâneo.
 **Regra 2 — pesquisar na tela principal não define nada.** O que você pesquisou lá é consulta.
 O formulário sempre começa do zero e busca a sua localização de verdade.
 
-A tela do formulário fica nesta ordem:
+A tela do formulário de **relato** fica nesta ordem:
 
 1. Botão rosa **Usar minha localização** — para refazer a busca se quiser
 2. Cartão verde **"Usando sua localização atual"**, com o endereço e as coordenadas
@@ -705,6 +708,12 @@ A tela do formulário fica nesta ordem:
 
 Se o GPS falhar ou for negado, o cartão explica o motivo e o bloco de correção abre sozinho,
 com o campo de pesquisa já em foco.
+
+No formulário de **ponto de apoio**, a busca fica sempre visível: é o próprio campo
+**"Endereço"**, logo abaixo do mapinha de conferência. Digitar ali mostra sugestões e escolher
+uma move o pino — não é mais preciso abrir nada escondido. (Antes esse campo era só texto
+solto e não movia o pino; foi por isso que relatos e pontos ficavam salvos na localização atual
+mesmo depois de digitar outra rua.)
 
 **Como testar:**
 1. Clique no **+** → **Cadastrar relato**.
@@ -717,28 +726,27 @@ com o campo de pesquisa já em foco.
 
 ### 10.3 — "A pesquisa não acha número, só rua"
 
-**Por que acontece.** O OpenStreetMap é feito por voluntários. No Brasil, a maioria das ruas
-está mapeada, mas **a maioria dos números de casa não está**. Quando você procura
-"Rua da Paz, 120" e o número 120 não existe na base, a busca volta vazia. Nenhum serviço
-gratuito resolve isso por completo — o Google cobra justamente por ter essa base própria.
+**Por que acontece.** O mapa por trás da busca (OpenStreetMap) é feito por voluntários. No
+Brasil, a maioria das ruas está mapeada, mas **a maioria dos números de casa não está**.
+Quando você procura "Rua da Paz, 120" e o número 120 não existe na base, não tem serviço
+gratuito que invente esse dado — o Google cobra justamente por ter uma base própria mais
+completa.
 
-**O que o app faz agora**, em cascata, sem você perceber:
-
-1. **Busca estruturada**: separa `120` de `Rua da Paz` e manda em campos diferentes, que é o
-   formato que o serviço entende melhor.
-2. **Busca em texto livre**: do jeito que você digitou.
-3. **Busca só a rua**, sem o número — e marca o resultado com a etiqueta laranja
-   **"sem número exato"**.
-
-Além disso, a busca agora usa a **área que você está vendo no mapa** para priorizar os
-resultados. Antes, "Rua da Paz" competia com ruas de mesmo nome do país inteiro.
-
-Quando o resultado é aproximado, o pino cai no meio da rua e o cartão avisa:
+**O que o app faz.** A busca (arquivo `js/geocoding.js`) usa o **Photon**, da Komoot — ele
+entende sozinho "rua, número" no mesmo campo de texto, prioriza o que está perto da área que
+você está vendo no mapa, e devolve o que existir: com número exato quando a base tem, ou só a
+rua quando não tem. Quando falta o número, o resultado vem marcado com a etiqueta laranja
+**"sem número exato"**, o pino cai no meio da rua, e o cartão avisa:
 *"O número exato não existe no mapa. O pino está na rua — arraste até o ponto certo."*
 Arrastar o pino resolve, e a coordenada salva é a certa.
 
+> **Por que Photon e não outro serviço mais conhecido (Nominatim)?** O Nominatim — o serviço
+> "oficial" do OpenStreetMap — proíbe explicitamente buscas "enquanto você digita" como a
+> deste app, e bloqueia quem usa dessa forma. O Photon é feito exatamente para isso. Os dois
+> são gratuitos e usam a mesma base de mapa por baixo, então a diferença é só essa.
+
 **Como testar:**
-- `Avenida Atlântica, 1702, Rio de Janeiro` → deve achar com número (essa via é bem mapeada).
+- `Avenida Paulista, 1578, São Paulo` → deve achar com número exato (via bem mapeada).
 - Uma rua residencial do seu bairro com número → provavelmente vem com a etiqueta
   "sem número exato". ✅ É o comportamento esperado: escolha, arraste o pino, pronto.
 
@@ -771,6 +779,251 @@ precisão melhora de verdade. Antes ele piscava a cada leitura do GPS.
 | A precisão do GPS não melhora nunca | Navegador sem permissão de alta precisão, ou dentro de prédio | No celular: Configurações → Localização → Alta precisão. Teste ao ar livre |
 | A faixa amarela reaparece depois de fechada | Você recarregou a página | Normal: o "fechei este aviso" vale por sessão. Feche de novo |
 | O formulário abre e não preenche o endereço | GPS negado para o site | Clique no cadeado ao lado do endereço no navegador → Localização → Permitir |
+
+---
+
+## Etapa 11 — Bloco 2: criar a conta e a chave no OpenRouteService
+
+O Bloco 2 (rotas e navegação) calcula o caminho a pé entre dois pontos usando um serviço
+chamado **OpenRouteService**. Ele é gratuito, mas exige uma chave pessoal (um código que
+identifica quem está usando). Sem essa chave, o botão de calcular rota não funciona.
+
+### O que fazer, clique por clique
+
+**11.1 — Criar a conta**
+
+1. Vá em `https://openrouteservice.org` e clique em **Sign in** (ou **Sign up**) no canto
+   superior direito.
+2. Preencha e-mail e senha (ou entre com Google/GitHub, se aparecer essa opção) e confirme
+   o e-mail que eles mandarem.
+3. **Não pede cartão de crédito.** Se em algum momento pedirem, pare e me avise — não é o
+   fluxo esperado do plano gratuito.
+
+**11.2 — Gerar a chave (token)**
+
+1. Depois de logada, vá para o **Dashboard** (painel) do OpenRouteService —
+   normalmente em `https://openrouteservice.org/dev/#/home`.
+2. Procure a seção de **Tokens** (ou **API Keys**). Deve ter um formulário simples pedindo
+   um nome para o token (pode ser algo como `rota-segura`) e o **tipo de plano** —
+   escolha o gratuito (**Standard** ou **Free**).
+3. Clique em **Create Token** (ou **Request token**).
+4. Aparece uma chave — uma sequência longa de letras e números. Clique no ícone de copiar
+   ao lado dela, ou selecione o texto todo com o mouse e copie (`Ctrl+C`).
+5. **Cole essa chave em algum lugar seguro por enquanto** (um bloco de notas, por exemplo).
+   Você vai usá-la na Etapa 12, dentro do Supabase — **nunca** em `js/config.js` nem em
+   nenhum arquivo que vá para o GitHub.
+
+**11.3 — Conferir o limite gratuito**
+
+Na mesma tela do token (ou em **Plans**/**Pricing**), veja quantas requisições por dia o
+plano gratuito permite. O número exato pode mudar com o tempo, mas para uso pessoal —
+testando o app, calculando algumas rotas por dia — o plano gratuito é bem mais do que
+suficiente.
+
+### Como testar se deu certo
+
+Por enquanto, o teste é visual: você tem uma chave copiada e sabe que a conta está ativa.
+O teste de verdade (a chave calculando uma rota) acontece na Etapa 12, depois de ligar essa
+chave à Edge Function do Supabase.
+
+### Erros mais comuns nesta etapa
+
+| Erro | Causa | Solução |
+|---|---|---|
+| Não chega e-mail de confirmação | Foi para o spam, ou demora | Confira a caixa de spam. Espere alguns minutos e tente reenviar |
+| Não aparece opção de gerar token | Conta ainda não confirmou o e-mail | Confirme o e-mail primeiro |
+| Pede cartão de crédito | Você pode estar num plano diferente do gratuito | Procure especificamente pelo plano **Standard**/**Free** |
+| Perdi a chave depois de fechar a tela | O token some da visualização depois de gerado, por segurança | Normal em muitos serviços assim. Gere um novo token — o antigo continua funcionando, ou você pode revogá-lo |
+
+---
+
+## Etapa 12 — Bloco 2: publicar a Edge Function no Supabase
+
+A chave do OpenRouteService **não pode** aparecer no código do site (ele é público, qualquer
+pessoa vendo o código-fonte no navegador leria a chave). Por isso, quem fala com o
+OpenRouteService é uma **Edge Function** — um pequeno programa que roda dentro do Supabase,
+não no navegador da usuária. O site pede a rota para essa função; a função (que conhece a
+chave, guardada em segredo) pede a rota para o OpenRouteService; a resposta volta pelo mesmo
+caminho, sem a chave nunca aparecer no navegador.
+
+Você vai criar essa função **direto pelo site do Supabase**, sem instalar nada no computador.
+
+### O que fazer, clique por clique
+
+**12.1 — Abrir a área de Edge Functions**
+
+1. No painel do Supabase, com seu projeto aberto, olhe o **menu lateral esquerdo**.
+2. Clique em **Edge Functions**.
+
+**12.2 — Criar a função**
+
+1. Clique no botão **Deploy a new function** (ou **Create a new function**).
+2. Escolha a opção **Via Editor** (editar direto no navegador — nada de terminal).
+3. Em **Name** (nome da função), digite exatamente: `calcular-rota`
+   (o site chama a função por esse nome — se digitar diferente, precisa avisar para eu
+   ajustar o código do site também).
+4. Um editor de código abre, já com um exemplo pronto.
+
+**12.3 — Colar o código**
+
+1. No VS Code, abra o arquivo `supabase/functions/calcular-rota/index.ts` do projeto.
+2. Selecione tudo (`Ctrl+A`) e copie (`Ctrl+C`).
+3. Volte para o editor do Supabase, selecione todo o código de exemplo que já estava lá
+   (`Ctrl+A`) e cole por cima (`Ctrl+V`), substituindo tudo.
+
+**12.4 — Configurar o secret (a chave, guardada em segredo)**
+
+1. Ainda em **Edge Functions**, procure por **Secrets** (ou **Manage secrets** /
+   **Edge Function Secrets**) — geralmente uma aba ou um link perto do topo da página.
+2. Clique em **Add new secret** (ou **New secret**).
+3. Em **Name**, digite exatamente: `ORS_API_KEY`
+4. Em **Value**, cole a chave do OpenRouteService que você copiou na Etapa 11.
+5. Clique em **Save** (Salvar).
+
+> Repare que o nome do secret (`ORS_API_KEY`) precisa ser **idêntico** ao que o código em
+> `index.ts` procura (`Deno.env.get('ORS_API_KEY')`). Maiúsculas/minúsculas importam.
+
+**12.5 — Publicar**
+
+1. Volte para o editor da função (`calcular-rota`).
+2. Clique em **Deploy function** (ou **Deploy**), geralmente no canto inferior direito
+   do editor.
+3. Espere a mensagem de sucesso (10 a 30 segundos).
+
+**12.6 — Testar direto no Supabase, antes de mexer no site**
+
+1. Na página da função, procure o botão/aba **Test** (ou **Invoke**).
+2. No corpo da requisição (**Body**, em formato JSON), cole:
+   ```json
+   { "origem": { "lat": -22.9068, "lng": -43.1729 }, "destino": { "lat": -22.9519, "lng": -43.2105 } }
+   ```
+3. Clique em **Send request** (ou **Run**/**Invoke**).
+4. ✅ Esperado: uma resposta com `distanciaM`, `duracaoS` e uma lista `geometria` cheia de
+   pares de números. Isso confirma que a função, o secret e a chave do OpenRouteService
+   estão todos certos.
+
+### Como testar se deu certo
+
+- O teste do passo 12.6 respondeu com números, sem a palavra `erro`. ✅
+
+### Erros mais comuns nesta etapa
+
+| Erro | Causa | Solução |
+|---|---|---|
+| `"O serviço de rotas não está configurado"` | O secret `ORS_API_KEY` não foi salvo, ou o nome está diferente | Repita o passo 12.4, conferindo o nome letra por letra |
+| `"A chave do serviço de rotas não foi aceita"` | A chave colada no secret está errada ou incompleta | Volte ao OpenRouteService, copie a chave de novo com cuidado (sem espaços antes/depois) |
+| `"Muitas rotas calculadas em pouco tempo"` | Bateu no limite de requisições do plano gratuito | Espere um pouco. Se acontecer sempre, confira o limite atual na Etapa 11.3 |
+| `"Não encontramos um caminho a pé entre esses dois pontos"` | Os pontos estão em ilhas separadas, ou muito longe um do outro para uma caminhada | Teste com dois pontos mais próximos, na mesma cidade |
+| Erro de CORS no console do navegador (F12) | A função não devolveu os cabeçalhos de CORS | Confira se colou o arquivo `index.ts` **inteiro**, sem cortar nada no começo/fim |
+| `401` ao chamar pelo site (não pelo teste do Supabase) | Você não está logada no app, ou a sessão expirou | Faça login de novo em `login.html` |
+
+---
+
+## Etapa 13 — Bloco 2: testar rotas e navegação ativa
+
+### O que fazer, clique por clique
+
+**13.1 — Testar o cálculo de rota**
+
+1. Com o Live Server rodando (Etapa 6), abra `pages/rotas.html` (ou clique em **Rotas** na
+   barra de baixo do app, já logada).
+2. O navegador vai pedir permissão de localização — clique em **Permitir**.
+3. ✅ Esperado: o campo **Meu local** preenche sozinho com seu endereço, e o rótulo acima
+   dele muda para **"Localização atual"**.
+4. No campo **Destino**, digite um endereço qualquer da sua cidade e escolha uma sugestão.
+5. ✅ Esperado: em alguns segundos aparece uma linha rosa no mapa ligando os dois pontos, e
+   um cartão embaixo com o tempo e a distância (ex.: "12 min (850 m)").
+
+**13.1.1 — Testar a partida digitada manualmente (sem depender do GPS)**
+
+1. No campo **Meu local**, apague o texto e digite outro endereço (rua, número e cidade) —
+   o mesmo jeito de buscar do campo Destino.
+2. Escolha uma sugestão. ✅ Esperado: o rótulo acima muda para **"Endereço de partida"**, o
+   pino no mapa fica azul (diferente do círculo que marca sua posição real), e a rota é
+   recalculada a partir desse ponto.
+3. Negue a permissão de localização (ou teste num navegador/aba sem GPS) e recarregue a
+   página. ✅ Esperado: o campo mostra uma mensagem clara de que não achou sua localização,
+   mas continua digitável — buscar um endereço manualmente funciona normalmente mesmo sem GPS.
+4. Com uma partida digitada (não pelo GPS), clique em **Iniciar**. ✅ Esperado: o título muda
+   para **"Prévia da rota"**, aparece um aviso amarelo explicando que não há acompanhamento
+   de GPS em tempo real, e o pino não se move sozinho (porque não é a sua posição de verdade).
+
+**13.2 — Testar o botão SOS**
+
+1. Toque no painel rosa **"SOS emergência"**.
+2. ✅ Esperado (até o Bloco 3 existir): uma mensagem explicando que ainda não há contato de
+   emergência cadastrado, com os telefones 190/180 como alternativa. Isso é o comportamento
+   correto por enquanto — o cadastro de contatos chega no Bloco 3.
+
+**13.3 — Testar a navegação sem sair andando por aí (modo simulado de teste)**
+
+> Não confunda com a "Prévia da rota" da 13.1.1: aquela é uma funcionalidade real (para quando
+> você digita a partida em vez de usar o GPS). Este `?simular=1` aqui é só uma ferramenta de
+> teste para você exercitar a detecção de "saiu da rota"/"chegada" sem sair andando — e exige
+> uma partida por GPS (ou clique no mapa) para fazer sentido.
+
+Para testar "sair da rota" e "chegar ao destino" de verdade, você precisaria literalmente
+andar pela rua. Para testar sentada, o app tem um modo de simulação — **só para teste, nunca
+ativo sozinho**.
+
+1. Depois de calcular uma rota (passo 13.1), olhe o endereço na barra do navegador. Se for,
+   por exemplo, `http://127.0.0.1:5500/pages/rotas.html`, adicione `?simular=1` no final:
+   `http://127.0.0.1:5500/pages/rotas.html?simular=1` e aperte Enter.
+2. ✅ Esperado: aparece uma faixa roxa no topo escrito **"MODO TESTE — GPS simulado"**.
+3. Refaça a busca de destino (passo 13.1) e clique em **Iniciar**.
+4. Toque em pontos do mapa, **seguindo mais ou menos a linha da rota**. A cada toque, o
+   ponto azul (sua posição simulada) pula para lá, e a distância restante no cartão atualiza.
+5. Agora toque bem longe da linha da rota (num bairro diferente, por exemplo) **duas vezes
+   seguidas**. ✅ Esperado: aparece o aviso **"Você saiu da rota"**, com os botões
+   **CONTINUAR NA ROTA ATUAL** e **ESCOLHER OUTRA ROTA**. O app não recalcula sozinho.
+6. Toque bem perto do destino. ✅ Esperado: aparece **"Você chegou ao destino"**.
+
+**13.4 — Testar o encerramento manual**
+
+1. Calcule uma rota, clique em **Iniciar**.
+2. Toque em **Encerrar rota** → aparece a confirmação **"Encerrar rota?"**.
+3. Toque em **CONTINUAR** → ✅ a navegação continua normalmente.
+4. Toque em **Encerrar rota** de novo → **ENCERRAR** → ✅ volta para a tela de planejamento.
+
+**13.5 — Testar a navegação de verdade (opcional, mas recomendado ao menos uma vez)**
+
+Sem o `?simular=1` na URL, saia para uma caminhada curta e real com o celular. Confirme que
+o ponto azul acompanha você de verdade e que a distância restante diminui.
+
+**13.6 — Publicar as novidades no GitHub Pages**
+
+Se você já publicou o Bloco 1 (Etapa 8), **não precisa configurar o GitHub Pages de novo** —
+é só enviar os arquivos novos:
+
+1. No VS Code: **Terminal → New Terminal**.
+2. Rode, um de cada vez:
+   ```
+   git add .
+   git commit -m "Bloco 2: rotas e navegacao"
+   git push
+   ```
+3. Espere 1 a 3 minutos e recarregue `https://SEU-USUARIO.github.io/rota-segura/` com
+   `Ctrl+Shift+R`.
+
+> O secret `ORS_API_KEY` mora no Supabase, não no GitHub — não precisa reconfigurar nada
+> ligado a ele ao publicar.
+
+### Como testar se deu certo
+
+- Rota calculada e desenhada no mapa. ✅
+- Botão Iniciar leva para a tela de navegação (sem voltar sozinho para o Mapa). ✅
+- Modo simulado mostra o aviso de "saiu da rota" e de "chegada". ✅
+- Site publicado mostra a Tela 2 funcionando igual ao localhost. ✅
+
+### Erros mais comuns nesta etapa
+
+| Erro | Causa | Solução |
+|---|---|---|
+| "Meu local" fica em "Buscando localização..." para sempre | Permissão de localização negada, ou GPS indisponível | Clique no cadeado ao lado do endereço no navegador → Localização → Permitir, e toque no botão de mira para tentar de novo |
+| O cartão da rota mostra uma mensagem de erro | Falha ao chamar a Edge Function, ou o OpenRouteService não achou caminho | Confira a Etapa 12 (função publicada, secret certo). Tente dois pontos mais próximos |
+| A faixa "MODO TESTE" não aparece | Faltou o `?simular=1` exatamente no final da URL, ou tem outro `?algo=` antes | Confira se a URL termina com `?simular=1` (sem espaços) |
+| Tocar no mapa no modo simulado não move o ponto azul | Você tocou antes de clicar em **Iniciar** | O toque só simula GPS depois que a navegação está ativa |
+| A barra de navegação (Mapa/Rotas/Alertas/Perfil) não some durante a navegação | Cache do navegador com CSS antigo | `Ctrl+Shift+R` para recarregar sem cache |
 
 ---
 
@@ -822,3 +1075,8 @@ vá em **Project Settings → API → service_role → Revoke / Generate new key
 | **Push** | Enviar seus commits para o GitHub |
 | **GitHub Pages** | Serviço gratuito que transforma seu repositório em site no ar |
 | **Console (F12)** | Painel do navegador onde aparecem os erros. Seu melhor amigo quando algo não funciona |
+| **OpenRouteService** | Serviço gratuito (Bloco 2) que calcula uma rota a pé entre dois pontos |
+| **Edge Function** | Um pequeno programa que roda no Supabase, não no navegador — usado para esconder a chave do OpenRouteService |
+| **Secret / variável de ambiente** | Um valor guardado em segredo no servidor (aqui, a chave do OpenRouteService), que o código nunca expõe |
+| **GeoJSON** | Formato padrão para descrever pontos, linhas e áreas geográficas — é como a Edge Function recebe a rota do OpenRouteService |
+| **watchPosition** | Função do navegador que avisa a cada nova leitura de GPS, usada para acompanhar você durante a navegação ativa |

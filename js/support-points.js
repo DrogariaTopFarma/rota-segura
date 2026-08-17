@@ -25,11 +25,10 @@ export function prepararFormularioPonto() {
 
   seletor = criarSeletorLocal({
     mapa: 'ponto-mini-mapa',
-    busca: 'ponto-busca-local',
+    busca: 'ponto-endereco',
     sugestoes: 'ponto-sugestoes',
     resumo: 'ponto-local-escolhido',
-    botaoGps: 'ponto-usar-localizacao',
-    ajuste: 'ponto-ajuste'
+    botaoGps: 'ponto-usar-localizacao'
   });
 
   form.tipo.addEventListener('change', () => {

@@ -14,7 +14,8 @@
 @media (min-width: 700px) {
   :root { --largura-app: 620px; }
 
-  .app-shell {
+  .app-shell,
+  #app-rotas {
     box-shadow: var(--sombra-lg);
     border-radius: var(--raio-xl);
     margin: var(--esp-5) auto;
@@ -22,7 +23,8 @@
     overflow: hidden;
   }
 
-  #mapa { height: 52vh; }
+  #mapa,
+  #rota-mapa { height: 52vh; }
 
   .bottom-nav {
     border-radius: 0 0 var(--raio-xl) var(--raio-xl);
@@ -70,6 +72,17 @@
 
   .secao-relatos, .resultado-busca { margin: 0 0 var(--esp-4); }
   .secao-relatos { position: sticky; top: var(--esp-5); }
+
+  /* Tela 2 não tem lista ao lado do mapa — fica uma coluna central, só mais larga */
+  #app-rotas {
+    max-width: 640px;
+    border-radius: var(--raio-xl);
+    background: var(--rosa-bebe);
+    padding-top: var(--esp-3);
+    padding-bottom: var(--esp-8);
+    margin: var(--esp-6) auto;
+  }
+  #rota-mapa { height: 480px; }
 
   /* A bottom navigation vira uma barra fixa centralizada e compacta */
   .bottom-nav {

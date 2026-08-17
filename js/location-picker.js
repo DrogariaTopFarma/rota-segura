@@ -55,6 +55,15 @@ export function criarSeletorLocal(ids) {
   let local = null;      // { lat, lng, nome, origem, precisao, aproximado }
   let buscandoGps = false;
 
+  // BUG QUE ISTO CORRIGE: a localização por GPS é pedida sozinha assim que o
+  // formulário abre e pode levar até 15s para responder. Se você pesquisar e
+  // escolher uma rua ANTES do GPS terminar, a resposta do GPS chegava DEPOIS
+  // e sobrescrevia sua escolha sem avisar — o relato/ponto acabava salvo no
+  // lugar errado. Cada ação (pesquisa, arraste, clique no mapa, GPS) reserva
+  // um número aqui; se uma ação mais nova já aconteceu quando uma mais velha
+  // termina, a mais velha é descartada.
+  let ultimaAcao = 0;
+
   /* ------------------------------------------------------- Mini-mapa ----- */
   function garantirMapa() {
     if (!elMapa) return null;
@@ -84,6 +93,7 @@ export function criarSeletorLocal(ids) {
 
   /* --------------------------------------------------- Definir o local --- */
   async function moverPino(lat, lng, origem, extras = {}) {
+    const minhaAcao = ++ultimaAcao;
     const m = garantirMapa();
 
     if (m) {
@@ -118,7 +128,7 @@ export function criarSeletorLocal(ids) {
 
     if (!extras.nome) {
       const endereco = await enderecoDeCoordenadas(lat, lng);
-      if (local && local.lat === lat && local.lng === lng) {
+      if (minhaAcao === ultimaAcao) {
         local.nome = endereco;
         desenharResumo();
       }
@@ -191,14 +201,19 @@ export function criarSeletorLocal(ids) {
   async function localizar({ automatico = false } = {}) {
     if (buscandoGps) return;
     buscandoGps = true;
+    const minhaAcao = ++ultimaAcao; // reserva a vez ANTES de esperar o GPS (que pode demorar)
 
     if (elGps) botaoCarregando(elGps, true, 'Buscando localização...');
     desenharResumo({ procurandoGps: true });
 
     try {
       const pos = await obterPosicao({ precisaoDesejada: 25, tempoMaximo: 15000 });
+      // Enquanto esperava, você já pesquisou, arrastou o pino ou clicou no
+      // mapa? Essa escolha mais nova vale mais do que o GPS atrasado.
+      if (minhaAcao !== ultimaAcao) return;
       await moverPino(pos.lat, pos.lng, 'gps', { precisao: pos.precisao });
     } catch (err) {
+      if (minhaAcao !== ultimaAcao) return;
       local = null;
       desenharResumo({ erro: mensagemDoMotivo(err.motivo) });
       // Sem GPS, a pessoa precisa do campo de busca à mão: abrimos sozinho.
@@ -249,7 +264,9 @@ export function criarSeletorLocal(ids) {
           const r = resultados[Number(btn.dataset.i)];
           moverPino(r.lat, r.lng, 'busca', { nome: r.curto, aproximado: r.aproximado });
           elSugestoes.hidden = true;
-          elBusca.value = '';
+          // Mantém o endereço escolhido escrito no campo (em vez de limpar) —
+          // em formulários como o de ponto de apoio, esse texto é o que é salvo.
+          elBusca.value = r.curto;
         });
       });
     } catch {
@@ -273,6 +290,7 @@ export function criarSeletorLocal(ids) {
     localizar,
 
     limpar: () => {
+      ultimaAcao++; // invalida qualquer busca de GPS/endereço ainda em andamento
       local = null;
       if (marcador && mapa) { mapa.removeLayer(marcador); marcador = null; }
       if (elBusca) elBusca.value = '';

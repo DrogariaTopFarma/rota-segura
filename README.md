@@ -1,8 +1,8 @@
-# Rota Segura — Bloco 1: Fundação
+# Rota Segura — Blocos 1 e 2
 
 Plataforma colaborativa de segurança para mulheres em deslocamentos urbanos.
-Este repositório contém o **Bloco 1**: arquitetura, banco de dados, autenticação e a
-**Tela 1 — Mapa de consulta**.
+Este repositório contém o **Bloco 1** (arquitetura, banco de dados, autenticação e a
+**Tela 1 — Mapa de consulta**) e o **Bloco 2** (**Tela 2 — Rotas e navegação ativa**).
 
 > Começando do zero? Leia o **[GUIA_PASSO_A_PASSO.md](GUIA_PASSO_A_PASSO.md)** — ele explica
 > cada clique no Supabase, no VS Code e no GitHub.
@@ -25,11 +25,21 @@ Este repositório contém o **Bloco 1**: arquitetura, banco de dados, autentica�
 - Atualização em tempo real quando um relato novo é criado
 - Estados de loading, erro, vazio e permissão negada em todas as funcionalidades
 - Row Level Security cobrindo as 9 tabelas
+- **Tela 2 — cálculo de rota a pé** via OpenRouteService, chamado por uma Supabase Edge
+  Function para a chave nunca ficar exposta no site. Origem por GPS **ou** digitada à mão
+  (mesma busca do destino) — as duas continuam funcionando mesmo sem permissão de localização
+- Card da rota anotado só com dados reais da plataforma (relatos e pontos de apoio próximos
+  ao trajeto, também marcados no mapa) — nunca inventa iluminação ou movimento que o banco não tem
+- **Navegação ativa** com GPS real quando a origem é a localização atual: aviso (sem recálculo
+  automático) ao sair da rota, detecção de chegada e encerramento manual. Quando a origem foi
+  digitada, mostra a rota como prévia em vez de fingir um GPS que não existe — inclui também
+  um modo de simulação só para teste (`?simular=1`)
 
-## Ainda não faz parte deste bloco
+## Ainda não faz parte deste repositório
 
-- Traçado de rota e navegação (Bloco 2)
-- Feed da Comunidade, curtidas e perfil completo (Bloco 3)
+- Feed da Comunidade, curtidas e perfil completo, incluindo cadastro de contatos de
+  emergência (Bloco 3) — o botão SOS da Tela 2 já existe, mas avisa que precisa do Bloco 3
+  até essa tela existir
 
 ---
 
@@ -44,7 +54,7 @@ rota-segura/
 │   ├── recuperar-senha.html
 │   ├── nova-senha.html
 │   ├── mapa.html              TELA 1 — mapa de consulta
-│   ├── rotas.html             placeholder (Bloco 2)
+│   ├── rotas.html             TELA 2 — rotas e navegação ativa
 │   ├── alertas.html           placeholder (Bloco 3)
 │   └── perfil.html            placeholder (Bloco 3)
 ├── css/
@@ -53,6 +63,7 @@ rota-segura/
 │   ├── components.css         botões, cards, modais, nav, toasts
 │   ├── auth.css               telas de login/cadastro
 │   ├── map.css                tela do mapa
+│   ├── rotas.css              tela de rotas e navegação ativa
 │   └── responsive.css         breakpoints
 ├── js/
 │   ├── config.js              ⚠️ SUAS CHAVES VÃO AQUI
@@ -65,11 +76,16 @@ rota-segura/
 │   ├── search.js              barra de pesquisa da Tela 1
 │   ├── reports.js             lista e formulário de relatos
 │   ├── support-points.js      formulário de pontos de apoio e delegacias
+│   ├── routes.js              TELA 2 — origem/destino, cálculo de rota, card de segurança
+│   ├── navigation.js          navegação ativa: GPS real, saiu da rota, chegada
+│   ├── emergency.js           SOS: link do WhatsApp com localização
 │   ├── nav.js                 bottom navigation e notificações
 │   ├── ui.js                  toasts, modais, loading, formatação
 │   ├── icons.js               ícones SVG (nenhum emoji)
 │   ├── placeholder.js         telas dos próximos blocos
 │   └── app.js                 ponto de entrada da Tela 1
+├── supabase/functions/
+│   └── calcular-rota/index.ts Edge Function: fala com o OpenRouteService, esconde a chave
 ├── sql/schema.sql             banco completo, pronto para colar no Supabase
 ├── assets/
 ├── .gitignore
@@ -87,7 +103,11 @@ rota-segura/
 5. **Authentication → URL Configuration** → adicione `http://127.0.0.1:5500/**` em Redirect URLs.
 6. Abra `index.html` com a extensão **Live Server** do VS Code.
 
-Cada passo está detalhado clique por clique no [GUIA_PASSO_A_PASSO.md](GUIA_PASSO_A_PASSO.md).
+Isso já deixa o **Bloco 1** (login + mapa) funcionando. Para o **Bloco 2** (rotas), falta
+criar uma conta gratuita no OpenRouteService e publicar a Edge Function
+`supabase/functions/calcular-rota` pelo Dashboard do Supabase — sem terminal, tudo pelo
+navegador. Cada passo está detalhado clique por clique no
+[GUIA_PASSO_A_PASSO.md](GUIA_PASSO_A_PASSO.md) (Etapas 11 e 12).
 
 ---
 
@@ -137,4 +157,6 @@ por `default 'pending'` nessas tabelas.
 ## Créditos de dados
 
 Mapa: © colaboradores do OpenStreetMap. Geocodificação: [Photon](https://photon.komoot.io), da Komoot,
-também construído sobre dados do OpenStreetMap. Use com moderação — é um serviço público gratuito.
+também construído sobre dados do OpenStreetMap. Cálculo de rotas:
+[OpenRouteService](https://openrouteservice.org), da HeiGIT. Use todos com moderação — são
+serviços públicos gratuitos.

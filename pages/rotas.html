@@ -4,27 +4,126 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#E83D67">
-  <title>Rotas — Rota Segura</title>
+  <title>Sua rota segura — Rota Segura</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 
+  <!-- Leaflet (mapa) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+
   <link rel="stylesheet" href="../css/variables.css">
   <link rel="stylesheet" href="../css/global.css">
   <link rel="stylesheet" href="../css/components.css">
   <link rel="stylesheet" href="../css/map.css">
+  <link rel="stylesheet" href="../css/rotas.css">
   <link rel="stylesheet" href="../css/responsive.css">
 </head>
 <body>
-  <main class="placeholder-tela">
-    <div class="placeholder-tela__icone" data-icone="rotas" data-tamanho="34" aria-hidden="true"></div>
-    <h1>Rotas seguras</h1>
-    <p class="texto-secundario">Aqui você vai escolher origem e destino e receber o caminho mais iluminado e movimentado. Chega no Bloco 2.</p>
-    <a class="btn btn-primario" href="mapa.html">Voltar ao mapa</a>
-  </main>
+  <div id="app-rotas">
 
-  <nav class="bottom-nav" aria-label="Navegação principal">
+    <!-- Só aparece com ?simular=1 na URL — nunca em uso normal -->
+    <div class="faixa-teste" id="faixa-teste" hidden>
+      MODO TESTE — GPS simulado. Toque no mapa para "andar".
+    </div>
+
+    <!-- ================= CABEÇALHO ================= -->
+    <header class="topo-rota">
+      <button type="button" class="btn-icone" id="rota-voltar" aria-label="Voltar ao mapa">
+        <span data-icone="voltar" data-tamanho="20" aria-hidden="true"></span>
+      </button>
+      <div>
+        <h1 class="topo-rota__titulo" id="rota-titulo">Sua rota segura</h1>
+        <p class="topo-rota__subtitulo" id="rota-subtitulo">Escolhemos o caminho mais seguro para você.</p>
+      </div>
+    </header>
+
+    <!-- ================= PLANEJAMENTO ================= -->
+    <div id="painel-planejamento">
+      <form class="card rota-origem-destino" id="form-rota" role="search">
+        <div class="rota-ponto">
+          <span class="rota-ponto__marcador rota-ponto__marcador--origem">
+            <span data-icone="mira" data-tamanho="14" aria-hidden="true"></span>
+          </span>
+          <div class="rota-ponto__campo campo--busca">
+            <label id="rota-origem-label" for="rota-origem-texto">Meu local</label>
+            <input type="search" id="rota-origem-texto" placeholder="Buscando localização..." autocomplete="off">
+            <div class="sugestoes" id="rota-origem-sugestoes" hidden></div>
+          </div>
+          <button type="button" class="btn-icone" id="rota-atualizar-origem" aria-label="Usar minha localização atual">
+            <span data-icone="mira" data-tamanho="16" aria-hidden="true"></span>
+          </button>
+        </div>
+
+        <div class="rota-ponto">
+          <span class="rota-ponto__marcador rota-ponto__marcador--destino">
+            <span data-icone="bandeira" data-tamanho="14" aria-hidden="true"></span>
+          </span>
+          <div class="rota-ponto__campo campo--busca">
+            <label class="sr-only" for="rota-destino">Destino</label>
+            <input type="search" id="rota-destino" placeholder="Digite o destino" autocomplete="off">
+            <div class="sugestoes" id="rota-sugestoes" hidden></div>
+          </div>
+        </div>
+
+        <button type="button" class="rota-inverter" id="rota-inverter" aria-label="Inverter origem e destino">
+          <span data-icone="trocar" data-tamanho="18" aria-hidden="true"></span>
+        </button>
+      </form>
+
+      <p class="rota-dica-origem">
+        Toque na mira para usar sua localização atual, ou digite outro endereço em "Meu local"
+        para partir de um lugar diferente.
+      </p>
+    </div>
+
+    <!-- O mapa fica FORA dos painéis de planejamento/navegação — precisa
+         continuar visível nos dois, para acompanhar o trajeto durante a
+         navegação em vez de sumir junto com o formulário. -->
+    <div class="mapa-wrapper rota-mapa-wrapper">
+      <div id="rota-mapa" role="img" aria-label="Mapa com a rota calculada"></div>
+    </div>
+
+    <div class="card rota-card" id="rota-card" hidden></div>
+
+    <!-- ================= NAVEGAÇÃO ATIVA ================= -->
+    <div class="card rota-navegacao" id="painel-navegacao" hidden>
+      <div class="rota-navegacao__destino" id="navegacao-destino">Indo para —</div>
+      <div class="rota-navegacao__linha">
+        <span class="rota-navegacao__distancia" id="navegacao-distancia">— m</span>
+        <span class="rota-navegacao__tempo" id="navegacao-tempo">restantes</span>
+      </div>
+      <div class="rota-navegacao__aviso-previa" id="navegacao-aviso-previa" hidden>
+        Prévia da rota — sem acompanhamento por GPS em tempo real, porque a partida foi
+        digitada manualmente.
+      </div>
+      <div class="rota-navegacao__acoes">
+        <button type="button" class="btn btn-secundario" id="navegacao-recentralizar">
+          <span data-icone="mira" data-tamanho="18" aria-hidden="true"></span> Recentralizar
+        </button>
+        <button type="button" class="btn btn-secundario" id="navegacao-encerrar">
+          <span data-icone="fechar" data-tamanho="18" aria-hidden="true"></span> Encerrar rota
+        </button>
+      </div>
+    </div>
+
+    <!-- ================= SOS (visível o tempo todo) ================= -->
+    <div class="rota-sos" id="rota-sos">
+      <button type="button" class="rota-sos__botao" id="rota-sos-botao">
+        <span data-icone="sos" data-tamanho="26" aria-hidden="true"></span>
+        <span class="rota-sos__texto">
+          Em caso de emergência, use o botão abaixo:
+          <span class="rota-sos__label">SOS emergência</span>
+        </span>
+        <span data-icone="voltar" data-tamanho="16" aria-hidden="true" class="rota-sos__seta"></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= BOTTOM NAVIGATION ================= -->
+  <nav class="bottom-nav" id="rota-bottom-nav" aria-label="Navegação principal">
     <a class="bottom-nav__item" href="mapa.html">
       <span data-icone="mapa" data-tamanho="22" aria-hidden="true"></span>
       <span class="bottom-nav__rotulo">Mapa</span>
@@ -46,6 +145,66 @@
     </a>
   </nav>
 
-  <script type="module" src="../js/placeholder.js"></script>
+  <!-- ================= MODAL: SAIU DA ROTA ================= -->
+  <div class="modal" id="modal-saiu-rota" role="dialog" aria-modal="true" aria-labelledby="titulo-saiu-rota" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-saiu-rota">Você saiu da rota</h2>
+      </div>
+      <p class="rota-modal__texto">Você deseja escolher outra rota?</p>
+      <div class="rota-modal__acoes">
+        <button type="button" class="btn btn-primario btn-bloco" id="btn-continuar-rota">CONTINUAR NA ROTA ATUAL</button>
+        <button type="button" class="btn btn-secundario btn-bloco" id="btn-escolher-outra-rota">ESCOLHER OUTRA ROTA</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: CHEGADA ================= -->
+  <div class="modal" id="modal-chegada" role="dialog" aria-modal="true" aria-labelledby="titulo-chegada" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-chegada">Você chegou ao destino</h2>
+      </div>
+      <p class="rota-modal__texto">Esperamos que sua caminhada tenha sido tranquila.</p>
+      <button type="button" class="btn btn-primario btn-bloco" id="btn-concluir-chegada">CONCLUIR</button>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: ENCERRAR MANUALMENTE ================= -->
+  <div class="modal" id="modal-encerrar-rota" role="dialog" aria-modal="true" aria-labelledby="titulo-encerrar-rota" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-encerrar-rota">Encerrar rota?</h2>
+      </div>
+      <p class="rota-modal__texto">Isso para o acompanhamento da sua caminhada.</p>
+      <div class="rota-modal__acoes">
+        <button type="button" class="btn btn-secundario btn-bloco" data-fechar>CONTINUAR</button>
+        <button type="button" class="btn btn-primario btn-bloco" id="btn-confirmar-encerrar">ENCERRAR</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: SOS SEM CONTATO ================= -->
+  <div class="modal" id="modal-sos-sem-contato" role="dialog" aria-modal="true" aria-labelledby="titulo-sos-sem-contato" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-sos-sem-contato">Nenhum contato de emergência</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <p class="rota-modal__texto">
+        O botão SOS avisa um contato de confiança pelo WhatsApp, com sua localização — mas
+        você ainda não cadastrou nenhum contato de emergência. O cadastro de contatos chega
+        no Bloco 3 (tela de Perfil). Por enquanto, em caso de emergência real, ligue para o
+        190 (Polícia) ou 180 (Central de Atendimento à Mulher).
+      </p>
+    </div>
+  </div>
+
+  <!-- ================= SCRIPTS ================= -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script type="module" src="../js/routes.js"></script>
 </body>
 </html>

@@ -285,27 +285,17 @@
 
           <div class="mini-mapa" id="ponto-mini-mapa"
                role="img" aria-label="Mapa de conferência do local escolhido"></div>
-          <p class="seletor-local__dica">Confira o endereço acima. O local será salvo neste ponto.</p>
-
-          <details class="seletor-local__ajuste" id="ponto-ajuste">
-            <summary>Não é aqui? Corrigir o local</summary>
-
-            <div class="seletor-local__busca">
-              <label class="sr-only" for="ponto-busca-local">Pesquisar endereço</label>
-              <input type="search" id="ponto-busca-local"
-                     placeholder="Digite: rua, número, cidade" autocomplete="off">
-              <div class="sugestoes" id="ponto-sugestoes" hidden></div>
-            </div>
-
-            <p class="seletor-local__dica">
-              Ou arraste o pino no mapa acima até o ponto certo.
-            </p>
-          </details>
+          <p class="seletor-local__dica">
+            Confira o endereço acima, digite outro no campo "Endereço" logo abaixo, ou arraste
+            o pino no mapa até o ponto certo.
+          </p>
         </fieldset>
 
-        <div class="campo">
+        <div class="campo campo--busca">
           <label for="ponto-endereco">Endereço</label>
-          <input type="text" id="ponto-endereco" name="endereco" placeholder="Rua, número, bairro">
+          <input type="text" id="ponto-endereco" name="endereco"
+                 placeholder="Digite a rua e o número para buscar" autocomplete="off">
+          <div class="sugestoes" id="ponto-sugestoes" hidden></div>
         </div>
 
         <div class="campo">

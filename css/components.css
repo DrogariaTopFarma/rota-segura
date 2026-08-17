@@ -124,6 +124,8 @@
 
 /* ---------------- Formulários ---------------- */
 .campo { margin-bottom: var(--esp-4); }
+/* Campo com lista de sugestões de endereço embaixo (ex.: "Endereço" do ponto de apoio) */
+.campo--busca { position: relative; }
 
 .campo label {
   display: block;

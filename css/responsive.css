@@ -68,7 +68,11 @@
   .busca { margin: 0 var(--esp-6) var(--esp-5); max-width: 620px; }
 
   .mapa-wrapper { margin: 0; }
-  #mapa { height: 620px; }
+  /* min(), não um valor fixo: em notebooks comuns (1280x800, 1366x768) um
+     mapa de 620px empurrava o botão de recentralizar (canto do mapa) pra
+     baixo da bottom-nav flutuante, sobrepondo os dois. Com vh, o mapa
+     encolhe em telas mais baixas e cresce até 620px em telas mais altas. */
+  #mapa { height: min(620px, 58vh); }
 
   .secao-relatos, .resultado-busca { margin: 0 0 var(--esp-4); }
   .secao-relatos { position: sticky; top: var(--esp-5); }
@@ -94,4 +98,13 @@
   }
 
   .app-shell { padding-bottom: calc(var(--altura-bottom-nav) + var(--esp-8)); }
+
+  /* Comunidade e Perfil não têm o grid de duas colunas do mapa — sem isto,
+     herdavam o max-width:1240px da Tela 1 e viravam uma faixa enorme e vazia
+     em notebook/desktop. Ficam com a mesma largura de coluna central que a
+     Tela 2 (#app-rotas) já usa. */
+  .app-shell.app-shell--simples {
+    max-width: 640px;
+    padding-top: var(--esp-3);
+  }
 }

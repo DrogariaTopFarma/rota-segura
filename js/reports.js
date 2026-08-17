@@ -27,6 +27,8 @@ export function seletorDeLocalDoRelato() { return seletor; }
 /* 1. LISTA "Relatos de segurança"                                            */
 /* ========================================================================== */
 
+// Sem "Ver todos": a lista já mostra tudo aqui mesmo (limite técnico alto
+// só pra nunca travar a tela numa conta com centenas de relatos).
 export async function carregarListaRelatos() {
   const lista = document.getElementById('lista-relatos');
   if (!lista) return;
@@ -37,7 +39,7 @@ export async function carregarListaRelatos() {
     .from('reports')
     .select('id,type,address,occurred_at,attention_level,status')
     .order('occurred_at', { ascending: false })
-    .limit(6);
+    .limit(100);
 
   if (error) {
     lista.innerHTML = `<div class="mensagem mensagem--erro">Não foi possível carregar os dados. Tente novamente.</div>`;

@@ -106,6 +106,20 @@ export function prepararModais() {
   });
 }
 
+/** Botões [data-trocar-modal="idDoModal"]: fecha o modal em que o botão está
+    (o mais próximo na árvore) e abre outro — usado pelos itens do menu que
+    levam a outro painel (Notificações, Termos, Privacidade). Diferente do
+    fluxo de "o que deseja cadastrar", que sempre parte do mesmo modal. */
+export function prepararTrocaDeModal() {
+  document.querySelectorAll('[data-trocar-modal]').forEach((botao) => {
+    botao.addEventListener('click', () => {
+      const atual = botao.closest('.modal');
+      if (atual) fecharModal(atual.id);
+      setTimeout(() => abrirModal(botao.dataset.trocarModal), 120);
+    });
+  });
+}
+
 /* ---------------------------------------------------------- Formatação --- */
 export function escapar(texto) {
   const div = document.createElement('div');

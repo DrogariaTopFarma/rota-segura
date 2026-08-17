@@ -85,14 +85,17 @@ export function prepararBusca() {
   async function selecionar(local) {
     sugestoes.hidden = true;
     input.value = local.curto || local.nome;
-    marcarLocalPesquisado(local.lat, local.lng, local.nome);
+    marcarLocalPesquisado(local.lat, local.lng, local.nome, { aproximado: local.aproximado });
     await contarRelatosProximos(local, resultado);
   }
 }
 
-function mostrarResultado(container, titulo, texto) {
+function mostrarResultado(container, titulo, texto, { aproximado = false } = {}) {
   if (!container) return;
-  container.innerHTML = `<strong>${escapar(titulo)}</strong><span>${escapar(texto)}</span>`;
+  const aviso = aproximado
+    ? '<div class="resultado-busca__aviso">Localização aproximada — o número exato não está mapeado.</div>'
+    : '';
+  container.innerHTML = `<strong>${escapar(titulo)}</strong><span>${escapar(texto)}</span>${aviso}`;
   container.hidden = false;
 }
 
@@ -109,9 +112,10 @@ async function contarRelatosProximos(local, container) {
     .limit(300);
 
   const titulo = local.nome.split(',').slice(0, 3).join(',');
+  const opcoes = { aproximado: local.aproximado };
 
   if (error) {
-    mostrarResultado(container, titulo, 'Não foi possível carregar os dados. Tente novamente.');
+    mostrarResultado(container, titulo, 'Não foi possível carregar os dados. Tente novamente.', opcoes);
     return;
   }
 
@@ -125,5 +129,5 @@ async function contarRelatosProximos(local, container) {
       ? '1 relato registrado a até 500 m deste local.'
       : `${proximos.length} relatos registrados a até 500 m deste local.`;
 
-  mostrarResultado(container, titulo, texto);
+  mostrarResultado(container, titulo, texto, opcoes);
 }

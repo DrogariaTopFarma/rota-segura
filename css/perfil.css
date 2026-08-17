@@ -1,0 +1,64 @@
+/* ============================================================
+   ROTA SEGURA — Tela de Perfil (Bloco 3)
+   ============================================================ */
+
+/* ---------------- Cartão de perfil ---------------- */
+.perfil-cartao {
+  margin: var(--esp-5) var(--esp-4) 0;
+  display: flex;
+  align-items: center;
+  gap: var(--esp-4);
+}
+
+.perfil-cartao__avatar {
+  flex-shrink: 0;
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  background: var(--rosa-bebe);
+  color: var(--rosa-magenta);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.perfil-cartao__avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.perfil-cartao__info { min-width: 0; }
+.perfil-cartao__nome { font-size: var(--fs-lg); font-weight: 700; }
+.perfil-cartao__email,
+.perfil-cartao__telefone { font-size: var(--fs-sm); color: var(--texto-secundario); margin-top: 2px; }
+.perfil-cartao__desde { font-size: var(--fs-xs); color: var(--texto-secundario); margin-top: 6px; }
+
+/* ---------------- Seções (Editar perfil, Meus relatos, Contatos...) ---------------- */
+.secao-perfil {
+  margin: var(--esp-5) var(--esp-4) 0;
+  background: var(--branco);
+  border-radius: var(--raio-lg);
+  box-shadow: var(--sombra-md);
+  padding: var(--esp-5);
+  scroll-margin-top: var(--esp-5);
+}
+.secao-perfil__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--esp-4);
+}
+.secao-perfil__titulo { font-size: var(--fs-lg); font-weight: 600; }
+.secao-perfil:last-of-type { margin-bottom: var(--esp-5); }
+
+.config-subtitulo {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--texto-secundario);
+  margin-bottom: var(--esp-3);
+}
+
+/* ---------------- Contatos de emergência ---------------- */
+.contato-acoes {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  align-self: center;
+}
+/* Um pouco menor que o .btn-icone padrão (44px) pra caber os dois lado a
+   lado no card, mas ainda dentro da área mínima confortável de toque. */
+.contato-acoes .btn-icone { width: 40px; height: 40px; }

@@ -82,7 +82,14 @@ export function criarSeletorLocal(ids) {
       tap: true
     }).setView(APP_CONFIG.centroPadrao, APP_CONFIG.zoomPadrao);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(mapa);
+    // Sem attributionControl próprio (mini-mapa de conferência, 165px de
+    // altura) — o crédito à OpenStreetMap/CARTO já aparece no mapa principal
+    // da mesma página (mapa.html), que sempre está visível junto com este.
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      subdomains: 'abcd',
+      maxZoom: 20,
+      detectRetina: true
+    }).addTo(mapa);
     L.control.zoom({ position: 'bottomright' }).addTo(mapa);
 
     mapa.on('click', (e) => moverPino(e.latlng.lat, e.latlng.lng, 'manual'));

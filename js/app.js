@@ -5,13 +5,15 @@
 
 import { exigirLogin, iniciarAuth } from './auth.js';
 import { aplicarIcones } from './icons.js';
-import { prepararModais, abrirModal, fecharModal, toast } from './ui.js';
+import { prepararModais, prepararTrocaDeModal, abrirModal, fecharModal } from './ui.js';
 import {
   criarMapa, localizarUsuario, carregarDadosDaAreaVisivel,
   recentralizar, ligarRealtimeRelatos, posicaoUsuario
 } from './map.js';
 import { carregarListaRelatos, prepararFormularioRelato, seletorDeLocalDoRelato } from './reports.js';
 import { prepararFormularioPonto, seletorDeLocalDoPonto } from './support-points.js';
+import { prepararFormularioPublicacao } from './community.js';
+import { prepararNotificacoes } from './notifications.js';
 import { prepararBusca } from './search.js';
 import { marcarItemAtivo, prepararBotaoCentral, atualizarBadgeNotificacoes } from './nav.js';
 
@@ -26,8 +28,10 @@ async function iniciar() {
   // 3. Peças de interface
   iniciarAuth();
   prepararModais();
+  prepararTrocaDeModal();
   marcarItemAtivo();
   prepararBotaoCentral();
+  prepararNotificacoes();
 
   // 4. Mapa
   criarMapa('mapa');
@@ -46,6 +50,7 @@ async function iniciar() {
   prepararBusca();
   prepararFormularioRelato();
   prepararFormularioPonto();
+  prepararFormularioPublicacao();
 
   // 8. Atualização em tempo real quando alguém cria um relato
   ligarRealtimeRelatos();
@@ -64,7 +69,9 @@ async function iniciar() {
       const destino = botao.dataset.abrir;
 
       if (destino === 'modal-publicacao') {
-        toast('As publicações da Comunidade chegam no Bloco 3.', 'info');
+        // Diferente de relato/ponto: localização é opcional aqui, então não
+        // pede GPS sozinho — só abre o formulário.
+        setTimeout(() => abrirModal(destino), 120);
         return;
       }
 

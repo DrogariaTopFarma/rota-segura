@@ -63,14 +63,22 @@ export function mapaAtual() { return mapa; }
 export function posicaoUsuario() { return ultimaPosicao; }
 
 /* ---------------------------------------------------------- Ícones Leaflet */
+// Um L.divIcon é só uma "receita" (imutável) — o mesmo objeto pode ser
+// reaproveitado em vários marcadores. Sem este cache, toda vez que a área
+// visível recarregava, cada marcador remontava do zero a mesma string SVG.
+const cacheDeIcones = new Map();
 function divIcon(nomeIcone, cor) {
-  return L.divIcon({
-    html: pinoMapa(nomeIcone, cor),
-    className: '',
-    iconSize: [34, 42],
-    iconAnchor: [17, 41],
-    popupAnchor: [0, -36]
-  });
+  const chave = `${nomeIcone}:${cor}`;
+  if (!cacheDeIcones.has(chave)) {
+    cacheDeIcones.set(chave, L.divIcon({
+      html: pinoMapa(nomeIcone, cor),
+      className: '',
+      iconSize: [34, 42],
+      iconAnchor: [17, 41],
+      popupAnchor: [0, -36]
+    }));
+  }
+  return cacheDeIcones.get(chave);
 }
 
 const ICONES = {
@@ -93,12 +101,20 @@ export function criarMapa(idElemento = 'mapa') {
     attributionControl: true
   }).setView(APP_CONFIG.centroPadrao, APP_CONFIG.zoomPadrao);
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap'
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    subdomains: 'abcd',
+    maxZoom: 20,
+    detectRetina: true,
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> ' +
+      '&copy; <a href="https://carto.com/attributions">CARTO</a>'
   }).addTo(mapa);
 
   camadas = {
+    // Fica ABAIXO de relatos/pontos/delegacias de propósito (adicionada
+    // primeiro): é um fundo de contexto, os pinos continuam por cima e
+    // clicáveis (os círculos são interactive:false, não capturam clique).
+    densidade: L.layerGroup().addTo(mapa),
     relatos: L.layerGroup().addTo(mapa),
     pontos: L.layerGroup().addTo(mapa),
     delegacias: L.layerGroup().addTo(mapa)
@@ -152,30 +168,47 @@ export async function localizarUsuario({ silencioso = false } = {}) {
 }
 
 function desenharUsuario({ lat, lng, precisao }) {
-  if (marcadorUsuario) mapa.removeLayer(marcadorUsuario);
-  if (circuloPrecisao) mapa.removeLayer(circuloPrecisao);
-
   // O raio é a precisão REAL informada pelo navegador.
   // Antes havia um limite de 300 m aqui, que escondia de você o quanto a
   // localização estava ruim. Círculo grande = navegador chutando pelo Wi-Fi.
-  circuloPrecisao = L.circle([lat, lng], {
-    radius: precisao || 60,
-    color: '#E83D67',
-    fillColor: '#E83D67',
-    fillOpacity: 0.12,
-    weight: 1
-  }).addTo(mapa);
+  const raio = precisao || 60;
 
-  marcadorUsuario = L.circleMarker([lat, lng], {
-    radius: 8,
-    color: '#FFFFFF',
-    weight: 3,
-    fillColor: '#2F6BFF',
-    fillOpacity: 1
-  }).addTo(mapa).bindPopup(
-    `<div class="popup__tipo">Você está aqui</div>
-     <div class="popup__meta">${escapar(descreverPrecisao(precisao))}</div>`
-  );
+  // BUG DE PERFORMANCE QUE ISTO CORRIGE: cada leitura do GPS removia e
+  // recriava os dois desenhos do zero, mesmo só precisando mover um pouco —
+  // isso reflow/repinta o mapa a cada atualização (o watchPosition dispara
+  // várias vezes por minuto) e deixava o mapa "travando" no computador.
+  // Agora só move/redimensiona os desenhos já existentes.
+  if (circuloPrecisao) {
+    circuloPrecisao.setLatLng([lat, lng]);
+    circuloPrecisao.setRadius(raio);
+  } else {
+    circuloPrecisao = L.circle([lat, lng], {
+      radius: raio,
+      color: '#E83D67',
+      fillColor: '#E83D67',
+      fillOpacity: 0.12,
+      weight: 1
+    }).addTo(mapa);
+  }
+
+  if (marcadorUsuario) {
+    marcadorUsuario.setLatLng([lat, lng]);
+    marcadorUsuario.setPopupContent(
+      `<div class="popup__tipo">Você está aqui</div>
+       <div class="popup__meta">${escapar(descreverPrecisao(precisao))}</div>`
+    );
+  } else {
+    marcadorUsuario = L.circleMarker([lat, lng], {
+      radius: 8,
+      color: '#FFFFFF',
+      weight: 3,
+      fillColor: '#2F6BFF',
+      fillOpacity: 1
+    }).addTo(mapa).bindPopup(
+      `<div class="popup__tipo">Você está aqui</div>
+       <div class="popup__meta">${escapar(descreverPrecisao(precisao))}</div>`
+    );
+  }
 }
 
 /**
@@ -275,8 +308,23 @@ export async function carregarDadosDaAreaVisivel() {
 }
 
 /* ------------------------------------------------------------ Desenhos --- */
+/** Círculo suave sob cada relato: onde há vários próximos, as manchas se
+    sobrepõem e a área fica visivelmente "mais vermelha" — dá pra perceber
+    concentração de relatos num relance, sem precisar abrir cada pino.
+    interactive:false para nunca atrapalhar o clique nos marcadores. */
+function desenharManchaDeRelato(r) {
+  L.circle([r.lat, r.lng], {
+    radius: 90,
+    stroke: false,
+    fillColor: '#D32F2F',
+    fillOpacity: 0.08,
+    interactive: false
+  }).addTo(camadas.densidade);
+}
+
 function desenharRelatos(lista) {
   camadas.relatos.clearLayers();
+  camadas.densidade.clearLayers();
   lista.forEach((r) => {
     let tipoIcone = 'relato';
     if (r.type === 'rua_pouco_iluminada') tipoIcone = 'iluminacao';
@@ -294,6 +342,8 @@ function desenharRelatos(lista) {
         ${pendente}
       `)
       .addTo(camadas.relatos);
+
+    desenharManchaDeRelato(r);
   });
 }
 
@@ -330,11 +380,14 @@ function desenharDelegacias(lista) {
 }
 
 /* ------------------------------------------------- Marcador da pesquisa --- */
-export function marcarLocalPesquisado(lat, lng, titulo) {
+export function marcarLocalPesquisado(lat, lng, titulo, { aproximado = false } = {}) {
   if (marcadorBusca) mapa.removeLayer(marcadorBusca);
+  const aviso = aproximado
+    ? '<div class="popup__meta popup__meta--atencao">Localização aproximada — o número exato não está mapeado.</div>'
+    : '';
   marcadorBusca = L.marker([lat, lng], { icon: ICONES.busca(), alt: titulo })
     .addTo(mapa)
-    .bindPopup(`<div class="popup__tipo">Local pesquisado</div><div class="popup__meta">${escapar(titulo)}</div>`)
+    .bindPopup(`<div class="popup__tipo">Local pesquisado</div><div class="popup__meta">${escapar(titulo)}</div>${aviso}`)
     .openPopup();
   mapa.setView([lat, lng], APP_CONFIG.zoomBusca);
 }

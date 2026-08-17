@@ -25,6 +25,7 @@ Faça uma etapa por vez e só avance depois do teste de cada uma dar certo.
 - [Etapa 11 — Bloco 2: criar a conta e a chave no OpenRouteService](#etapa-11--bloco-2-criar-a-conta-e-a-chave-no-openrouteservice)
 - [Etapa 12 — Bloco 2: publicar a Edge Function no Supabase](#etapa-12--bloco-2-publicar-a-edge-function-no-supabase)
 - [Etapa 13 — Bloco 2: testar rotas e navegação ativa](#etapa-13--bloco-2-testar-rotas-e-navegação-ativa)
+- [Etapa 14 — Bloco 3: comunidade, perfil e contatos de emergência](#etapa-14--bloco-3-comunidade-perfil-e-contatos-de-emergência)
 - [Sobre o .env (leia antes de procurar por ele)](#sobre-o-env-leia-antes-de-procurar-por-ele)
 - [Dicionário rápido](#dicionário-rápido)
 
@@ -753,6 +754,24 @@ Arrastar o pino resolve, e a coordenada salva é a certa.
 **Dica de digitação:** sempre inclua a cidade. `Rua X, 120, Niterói` funciona muito melhor
 que `Rua X, 120`.
 
+**Correção testada nesta versão: número "puxando" a busca para a cidade errada.**
+Em testes reais, descobrimos que quando o texto tem rua + número + cidade, e existe um bairro
+de nome parecido em OUTRA cidade, o Photon (e o Nominatim, também testado) às vezes devolvia
+o bairro errado na frente da rua certa — exemplo real testado: `Rua Augusta, 500, São Paulo`
+devolvia um bairro chamado "Vila Augusta" em Guarulhos, em vez da Rua Augusta de verdade, em
+São Paulo. A causa: o número junto ao texto confundia a busca. A correção (em
+`js/geocoding.js`) faz duas buscas quando você digita um número — uma com o número, uma só
+com a rua — e usa a segunda para conferir se a cidade da primeira bate. Se não bater, aquele
+resultado é descartado. Testei essa correção contra vários endereços reais do Rio (rua longa,
+rua com número, bairro, CEP) antes e depois da mudança — nenhum deles piorou, e o caso que
+falhava passou a funcionar.
+
+**O aviso "localização aproximada" agora acompanha sua escolha.** Antes, esse aviso só
+aparecia na lista de sugestões e sumia assim que você escolhia um resultado. Agora ele
+continua visível depois — no balão do pino no mapa (Tela 1), no cartãozinho abaixo da busca
+(Tela 1) e como uma observação a mais no cartão da rota (Tela 2, quando a partida ou o
+destino escolhidos forem aproximados).
+
 ### 10.4 — "O aviso de localização aproximada não sai mais da tela"
 
 Era um bug, e a causa era esta: o aviso era redesenhado toda vez que o GPS mandava uma leitura
@@ -768,6 +787,26 @@ Corrigido em três frentes:
 
 De quebra, o mapa só redesenha o ponto azul quando você anda mais de 8 metros ou quando a
 precisão melhora de verdade. Antes ele piscava a cada leitura do GPS.
+
+### 10.5 — Novo visual do mapa (CARTO Voyager)
+
+O mapa das Telas 1 e 2 (e os mini-mapas dos formulários de relato/ponto de apoio) mudaram de
+aparência: em vez do estilo colorido padrão do OpenStreetMap, agora usam o estilo **Voyager**,
+da **CARTO** — fundo claro, quarteirões em bege bem diferenciado das ruas brancas, avenidas
+principais destacadas. Os dados por trás continuam sendo do OpenStreetMap (mesmas ruas, mesma
+precisão); só o desenho dos ladrilhos do mapa é diferente.
+
+Testamos primeiro o estilo **Positron** (ainda mais claro, quase branco) mas, de perto — no
+zoom que você realmente usa pra andar pela rua —, ele ficava claro demais: dava pra ver as
+ruas, mas não dava pra distinguir um quarteirão do outro. O Voyager resolve isso mantendo o
+visual limpo (sem os ícones e cores do OpenStreetMap padrão) só que com contraste suficiente
+pra ler o mapa de relance. Os pinos coloridos do app (rosa, vermelho, verde) continuam bem
+legíveis por cima dos dois — nenhum dos dois usa filtro de cor.
+
+**Não precisa configurar nada.** Assim como o Photon, a CARTO é gratuita, não pede cadastro
+nem chave de API — é só uma troca de endereço de imagem dentro do código (`js/map.js`,
+`js/routes.js`, `js/location-picker.js`). Se algum dia esse serviço sair do ar, o mapa mais
+simples do OpenStreetMap continua funcionando como alternativa (é só trocar a URL de volta).
 
 ### Erros mais comuns desta etapa
 
@@ -1031,6 +1070,98 @@ Se você já publicou o Bloco 1 (Etapa 8), **não precisa configurar o GitHub Pa
 | Tocar no mapa no modo simulado não move o ponto azul | Você tocou antes de clicar em **Iniciar** | O toque só simula GPS depois que a navegação está ativa |
 | A barra de navegação (Mapa/Rotas/Alertas/Perfil) não some durante a navegação | Cache do navegador com CSS antigo | `Ctrl+Shift+R` para recarregar sem cache |
 
+**13.7 — Novidade: "Compartilhar rota"**
+
+Durante a navegação ativa, além do SOS já existente, agora tem um botão **"Compartilhar rota
+com meu contato"**. A diferença: o SOS é pra quando algo já deu errado ("preciso de ajuda
+agora"); o Compartilhar é preventivo — avisa pra onde você está indo e onde você está *antes*
+de qualquer coisa acontecer. Os dois precisam de pelo menos um contato de emergência cadastrado
+(Perfil → Contatos de emergência); sem isso, abrem o mesmo aviso explicando e já oferecem um
+botão para cadastrar na hora.
+
+Como testar: inicie uma navegação (Etapa 13.4), toque em "Compartilhar rota com meu contato".
+✅ Abre uma aba do WhatsApp com uma mensagem tranquila (não de emergência) e sua localização.
+Se você ainda não tiver contato cadastrado, ✅ aparece o aviso com o botão "Cadastrar contato
+agora", que já leva pro lugar certo.
+
+---
+
+## Etapa 14 — Bloco 3: comunidade, perfil e contatos de emergência
+
+**Boa notícia: esta etapa não pede nenhuma conta nova, chave nova ou secret novo.** A Tela 3
+(Comunidade), o Perfil completo e os contatos de emergência usam só o Supabase que você já
+configurou lá na Etapa 1-2 — as tabelas (`posts`, `post_likes`, `notifications`,
+`emergency_contacts`) e o espaço de armazenamento de imagens já vieram prontos no
+`sql/schema.sql` desde o início.
+
+**Só uma coisa pode precisar de ação sua:** se você criou seu banco *antes* deste bloco ser
+adicionado ao projeto, existe um pequeno pedaço novo de SQL (o aviso automático de "alguém
+curtiu sua publicação"). Rodar o `sql/schema.sql` de novo é seguro — ele não apaga nada que já
+existe, só adiciona o que falta:
+
+1. Abra o **SQL Editor** do Supabase → **New query**.
+2. Cole o conteúdo atual (inteiro) de `sql/schema.sql` → **Run**.
+3. Deve aparecer "Success. No rows returned" — se o banco já tinha tudo, nada muda; se faltava
+   algo, foi criado agora.
+
+### Como testar cada parte
+
+**Comunidade (aba "Alertas" da barra inferior, agora com o título "Comunidade"):**
+1. Toque no **+**. Preencha categoria, título e texto. Deixe localização e imagem de fora por
+   enquanto → **PUBLICAR**. ✅ A publicação aparece no topo do feed na hora.
+2. Toque nos filtros (Todos/Alertas/Dicas/Apoio/Notícias) → ✅ o feed troca para mostrar só
+   aquela categoria.
+3. Toque no coração de uma publicação → ✅ o número sobe e o coração fica rosa. Toque de novo
+   → ✅ descurte (número volta a descer). Tente curtir duas vezes rápido — o banco já impede
+   duplicar, então nada de estranho acontece.
+4. Cadastre outra publicação, agora abrindo "Adicionar localização (opcional)" e tocando em
+   "Usar minha localização", e escolhendo uma imagem pequena. ✅ Publicação mostra o endereço e
+   a foto.
+
+**Perfil:**
+1. Abra a aba **Perfil**. ✅ Nome, e-mail, telefone e data de cadastro aparecem certos.
+2. Em "Editar perfil", troque o nome/telefone e envie uma foto → **SALVAR ALTERAÇÕES**. ✅ O
+   cartão no topo atualiza com a nova foto e nome.
+3. Role até "Meus relatos"/"Minhas publicações"/"Histórico de rotas" → ✅ mostram só o que
+   *você* cadastrou (teste criando um relato na Tela 1 e voltando aqui).
+
+**Contatos de emergência:**
+1. Em "Contatos de emergência", toque no **+**, preencha nome e telefone → **SALVAR CONTATO**.
+   ✅ Aparece na lista.
+2. Toque no lápis para editar, ou na lixeira para excluir (com confirmação). ✅ Funciona.
+3. Vá até a **Tela de Rotas** e toque no botão **SOS**. ✅ Agora que existe um contato, abre o
+   WhatsApp com sua localização — antes disso (sem contato nenhum), ele mostrava só o aviso
+   explicando que faltava cadastrar um.
+
+**Notificações:** hoje a única notificação gerada automaticamente é "alguém curtiu sua
+publicação" — e ela nunca aparece se você curtir sua *própria* publicação (de propósito, senão
+toda curtida sua geraria um aviso pra você mesma). Para testar de verdade, você precisa de
+**duas contas**: publique algo com a Conta A, curta com a Conta B, e veja o sino da Conta A
+ganhar o número vermelho. Ao abrir o sino, a notificação é marcada como lida e o número some.
+
+**Menu (ícone ☰ no cabeçalho):** confira que "Meus relatos" e "Contatos de emergência" levam
+até a seção certa do Perfil, que "Termos de uso" e "Privacidade" abrem o texto, e que "Sair da
+conta" desloga de verdade.
+
+### Como testar se deu certo
+
+- Publicar, filtrar e curtir/descurtir funcionam e refletem no banco (recarregue a página e
+  confira que o estado se mantém). ✅
+- Perfil edita de verdade (nome/telefone/foto) e as três listas mostram só dados seus. ✅
+- Contatos de emergência: adicionar, editar e excluir funcionam; o SOS da Tela 2 passa a
+  funcionar depois de cadastrar o primeiro contato. ✅
+- Sino mostra um número quando há notificação não lida e some depois de abrir. ✅
+
+### Erros mais comuns nesta etapa
+
+| Erro | Causa | Solução |
+|---|---|---|
+| Publicação não aparece no feed depois de "Publicar" | Sessão expirou, ou erro de rede | Veja a mensagem no topo do formulário; tente de novo |
+| Curtida não conta | Você já tinha curtido antes (o banco impede curtir 2x) | Isso é o esperado — descurta e curta de novo se quiser testar |
+| Botão SOS continua avisando "nenhum contato" mesmo depois de cadastrar | Cadastrou na Conta errada, ou não salvou | Confira se o contato aparece na lista em Perfil → Contatos de emergência |
+| Sino nunca mostra número | Curtidas testadas só com a própria conta (não gera aviso de propósito) | Teste com duas contas diferentes, como explicado acima |
+| Erro ao subir foto de perfil/publicação | Arquivo maior que 5 MB, ou formato que não é imagem | Use uma foto menor ou em JPG/PNG |
+
 ---
 
 ## Sobre o .env (leia antes de procurar por ele)
@@ -1072,7 +1203,8 @@ vá em **Project Settings → API → service_role → Revoke / Generate new key
 | **Trigger (gatilho)** | Comando que o banco executa sozinho quando algo acontece (ex.: criar o perfil quando alguém se cadastra) |
 | **Bucket** | Pasta de arquivos no Storage |
 | **Leaflet** | Biblioteca que desenha o mapa na tela |
-| **OpenStreetMap** | Mapa gratuito e colaborativo, usado como base |
+| **OpenStreetMap** | Mapa gratuito e colaborativo, feito por voluntários — é a base de dados por trás de tudo (ruas, bairros, endereços) |
+| **CARTO / Voyager** | Empresa que pega os dados do OpenStreetMap e desenha ladrilhos (tiles) prontos com um visual mais limpo. "Voyager" é o estilo claro que o Rota Segura usa — quarteirões e ruas com bom contraste, mesmos dados do OpenStreetMap por baixo, só a aparência é diferente |
 | **Photon** | Serviço gratuito (da Komoot, com dados do OpenStreetMap) que transforma endereço em coordenadas (e o contrário) |
 | **Geocodificação** | Transformar "Rua da Paz, 100" em latitude e longitude |
 | **Bounding box** | O retângulo que você está vendo no mapa. Usamos para buscar só os dados dessa área |
@@ -1086,3 +1218,6 @@ vá em **Project Settings → API → service_role → Revoke / Generate new key
 | **Secret / variável de ambiente** | Um valor guardado em segredo no servidor (aqui, a chave do OpenRouteService), que o código nunca expõe |
 | **GeoJSON** | Formato padrão para descrever pontos, linhas e áreas geográficas — é como a Edge Function recebe a rota do OpenRouteService |
 | **watchPosition** | Função do navegador que avisa a cada nova leitura de GPS, usada para acompanhar você durante a navegação ativa |
+| **Gatilho (trigger, de novo)** | O Bloco 3 usa um para avisar a autora de uma publicação quando alguém curte — sem isso, ninguém saberia que recebeu uma curtida |
+| **RLS de novo (Row Level Security)** | As mesmas regras do Bloco 1, agora também cobrindo `posts`, `post_likes`, `notifications` — é o que garante que só você vê seus próprios contatos de emergência, por exemplo |
+| **Storage / bucket** | O "HD" do Supabase para arquivos. Avatar e foto de publicação usam o mesmo bucket `rota-segura` que os relatos já usavam desde o Bloco 1 |

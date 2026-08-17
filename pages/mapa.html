@@ -69,6 +69,10 @@
             <span data-icone="mira" data-tamanho="22" aria-hidden="true"></span>
           </button>
         </div>
+        <p class="mapa-legenda">
+          <span class="mapa-legenda__mancha" aria-hidden="true"></span>
+          Áreas mais avermelhadas concentram mais relatos registrados.
+        </p>
 
         <div class="resultado-busca" id="resultado-busca" role="status" hidden></div>
       </div>
@@ -77,7 +81,6 @@
       <section class="secao-relatos" aria-labelledby="titulo-relatos">
         <div class="secao-relatos__topo">
           <h2 class="secao-relatos__titulo" id="titulo-relatos">Relatos de segurança</h2>
-          <a href="alertas.html" class="btn-texto">Ver todos</a>
         </div>
         <div id="lista-relatos"></div>
       </section>
@@ -323,6 +326,86 @@
     </div>
   </div>
 
+  <!-- ================= MODAL: PUBLICAÇÃO (Comunidade) ================= -->
+  <div class="modal" id="modal-publicacao" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-publicacao" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-publicacao">Cadastrar publicação</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+
+      <div id="mensagem-publicacao" class="mensagem" hidden></div>
+
+      <form id="form-publicacao" novalidate>
+        <div class="campo">
+          <label for="publicacao-categoria">Categoria</label>
+          <select id="publicacao-categoria" name="categoria" required>
+            <option value="">Selecione</option>
+            <option value="alerta">Alerta</option>
+            <option value="dica">Dica</option>
+            <option value="apoio">Apoio</option>
+            <option value="noticia">Notícia</option>
+          </select>
+        </div>
+
+        <div class="campo">
+          <label for="publicacao-titulo">Título</label>
+          <input type="text" id="publicacao-titulo" name="titulo" placeholder="Um resumo curto" required>
+        </div>
+
+        <div class="campo">
+          <label for="publicacao-conteudo">Texto</label>
+          <textarea id="publicacao-conteudo" name="conteudo"
+                    placeholder="O que você quer compartilhar com a comunidade?" required></textarea>
+        </div>
+
+        <details class="seletor-local__ajuste" id="publicacao-local-detalhes">
+          <summary>Adicionar localização <span class="texto-secundario">(opcional)</span></summary>
+
+          <button type="button" class="btn btn-secundario btn-bloco" id="publicacao-usar-localizacao">
+            <span data-icone="mira" data-tamanho="18" aria-hidden="true"></span> Usar minha localização
+          </button>
+
+          <div class="local-resumo" id="publicacao-local-escolhido" role="status" hidden></div>
+
+          <div class="mini-mapa" id="publicacao-mini-mapa"
+               role="img" aria-label="Mapa de conferência do local escolhido"></div>
+
+          <div class="seletor-local__busca">
+            <label class="sr-only" for="publicacao-busca-local">Pesquisar endereço</label>
+            <input type="search" id="publicacao-busca-local"
+                   placeholder="Ou digite: rua, número, cidade" autocomplete="off">
+            <div class="sugestoes" id="publicacao-sugestoes" hidden></div>
+          </div>
+        </details>
+
+        <div class="campo">
+          <label for="publicacao-imagem">Imagem <span class="texto-secundario">(opcional, até 5 MB)</span></label>
+          <input type="file" id="publicacao-imagem" name="imagem" accept="image/*">
+        </div>
+
+        <button type="submit" class="btn btn-primario btn-bloco">PUBLICAR</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: NOTIFICAÇÕES ================= -->
+  <div class="modal" id="modal-notificacoes" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-notificacoes" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-notificacoes">Notificações</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div id="notificacoes-lista"></div>
+    </div>
+  </div>
+
   <!-- ================= MODAL: MENU ================= -->
   <div class="modal" id="modal-menu" role="dialog" aria-modal="true"
        aria-labelledby="titulo-modal-menu" hidden>
@@ -333,14 +416,90 @@
           <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
         </button>
       </div>
-      <p class="texto-secundario" style="margin-bottom:16px;">
-        Conectada como <strong id="nome-usuaria">...</strong>
-      </p>
+      <p class="menu-saudacao">Conectada como <strong id="nome-usuaria">...</strong></p>
+
       <a class="modal__opcao" href="perfil.html">
-        <span class="modal__opcao__icone" data-icone="perfil" data-tamanho="24" aria-hidden="true"></span>
+        <span class="modal__opcao__icone" data-icone="perfil" data-tamanho="22" aria-hidden="true"></span>
         <span><span class="modal__opcao__titulo">Meu perfil</span></span>
       </a>
-      <button type="button" class="btn btn-secundario btn-bloco" data-acao="sair">Sair da conta</button>
+      <a class="modal__opcao" href="perfil.html#relatos">
+        <span class="modal__opcao__icone" data-icone="escudo" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Meus relatos</span></span>
+      </a>
+      <a class="modal__opcao" href="perfil.html#contatos">
+        <span class="modal__opcao__icone" data-icone="telefone" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Contatos de emergência</span></span>
+      </a>
+      <button type="button" class="modal__opcao" data-trocar-modal="modal-notificacoes">
+        <span class="modal__opcao__icone" data-icone="sino" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Notificações</span></span>
+      </button>
+      <a class="modal__opcao" href="perfil.html#configuracoes">
+        <span class="modal__opcao__icone" data-icone="engrenagem" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Configurações</span></span>
+      </a>
+      <button type="button" class="modal__opcao" data-trocar-modal="modal-termos">
+        <span class="modal__opcao__icone" data-icone="documento" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Termos de uso</span></span>
+      </button>
+      <button type="button" class="modal__opcao" data-trocar-modal="modal-privacidade">
+        <span class="modal__opcao__icone" data-icone="cadeado" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Privacidade</span></span>
+      </button>
+
+      <button type="button" class="btn btn-secundario btn-bloco menu-sair" data-acao="sair">Sair da conta</button>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: TERMOS DE USO ================= -->
+  <div class="modal" id="modal-termos" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-termos" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-termos">Termos de uso</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <p class="modal__texto">
+        O Rota Segura é um projeto educacional de segurança urbana para mulheres. Ao usar a
+        plataforma, você concorda em: usar a plataforma de boa fé; não publicar conteúdo falso,
+        ofensivo ou que exponha outras pessoas sem consentimento; e respeitar as demais usuárias
+        da comunidade.
+      </p>
+      <p class="modal__texto">
+        Relatos, pontos de apoio, delegacias e publicações que você cadastra ficam visíveis para
+        outras usuárias autenticadas — é assim que a plataforma ajuda outras mulheres a se
+        planejarem. Você pode excluir seus próprios contatos de emergência a qualquer momento
+        pela tela de Perfil.
+      </p>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: PRIVACIDADE ================= -->
+  <div class="modal" id="modal-privacidade" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-privacidade" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-privacidade">Privacidade</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <p class="modal__texto">
+        Seus dados de conta (nome, e-mail, telefone, avatar) ficam armazenados no Supabase,
+        protegidos por regras de acesso (Row Level Security) — por exemplo, seus contatos de
+        emergência só podem ser vistos por você.
+      </p>
+      <p class="modal__texto">
+        A localização usada pelo botão SOS é lida na hora e nunca é salva em nosso banco de
+        dados. Relatos, pontos de apoio e publicações que você cadastra ficam visíveis para
+        outras usuárias logadas, porque esse é o propósito da plataforma.
+      </p>
+      <p class="modal__texto">
+        Você pode editar seus dados e excluir seus contatos de emergência a qualquer momento
+        pela tela de Perfil.
+      </p>
     </div>
   </div>
 
@@ -349,11 +508,11 @@
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script type="module" src="../js/app.js"></script>
   <script type="module">
+    // O sino agora abre a central de notificações (modal-notificacoes),
+    // ligado em prepararNotificacoes() dentro de app.js — nada a fazer aqui.
     import { abrirModal } from '../js/ui.js';
     document.getElementById('botao-menu')
       ?.addEventListener('click', () => abrirModal('modal-menu'));
-    document.getElementById('botao-notificacoes')
-      ?.addEventListener('click', () => { window.location.href = 'alertas.html'; });
   </script>
 </body>
 </html>

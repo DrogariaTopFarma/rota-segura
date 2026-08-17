@@ -28,12 +28,14 @@ export function formatarTelefoneParaWhatsApp(telefone) {
 }
 
 /**
- * Pega a localização atual e retorna a URL do wa.me pronta para abrir.
- * Rejeita a Promise com uma mensagem amigável em caso de erro/permissão negada.
+ * Pega a localização atual e monta a URL do wa.me pronta para abrir, com a
+ * mensagem que a chamadora decidir. Reaproveitado tanto pelo SOS (mensagem de
+ * emergência) quanto pelo "Compartilhar rota" (mensagem tranquila, avisando
+ * pra onde você está indo) — só o texto muda, o resto do fluxo é idêntico.
  */
-export function obterLinkDeEmergencia(contatoEmergencia) {
+function construirLinkDeWhatsApp(contato, montarMensagem) {
   return new Promise((resolve, reject) => {
-    const numero = formatarTelefoneParaWhatsApp(contatoEmergencia);
+    const numero = formatarTelefoneParaWhatsApp(contato);
     if (!numero) {
       reject(new Error('Cadastre um contato de emergência no seu perfil antes de usar este botão.'));
       return;
@@ -48,14 +50,12 @@ export function obterLinkDeEmergencia(contatoEmergencia) {
       (posicao) => {
         const { latitude, longitude } = posicao.coords;
         const linkMapa = `https://www.google.com/maps?q=${latitude},${longitude}`;
-        const mensagem =
-          `🚨 Preciso de ajuda agora. Esta é a minha localização em tempo real: ${linkMapa}`;
-        const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`;
+        const url = `https://wa.me/${numero}?text=${encodeURIComponent(montarMensagem(linkMapa))}`;
         resolve({ url, latitude, longitude });
       },
       (erro) => {
         const mensagens = {
-          1: 'Permissão de localização negada. Ative a localização do navegador para usar o botão de emergência.',
+          1: 'Permissão de localização negada. Ative a localização do navegador para usar este botão.',
           2: 'Não foi possível obter sua localização agora. Tente novamente em instantes.',
           3: 'A busca pela sua localização demorou demais. Tente novamente.'
         };
@@ -64,4 +64,28 @@ export function obterLinkDeEmergencia(contatoEmergencia) {
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   });
+}
+
+/**
+ * Pega a localização atual e retorna a URL do wa.me pronta para abrir.
+ * Rejeita a Promise com uma mensagem amigável em caso de erro/permissão negada.
+ */
+export function obterLinkDeEmergencia(contatoEmergencia) {
+  return construirLinkDeWhatsApp(
+    contatoEmergencia,
+    (linkMapa) => `🚨 Preciso de ajuda agora. Esta é a minha localização em tempo real: ${linkMapa}`
+  );
+}
+
+/**
+ * Diferente do SOS: não é uma emergência, é avisar antes de qualquer coisa
+ * acontecer — "vou pra tal lugar, aqui está onde estou agora". Pensado pra
+ * quem quer compartilhar o trajeto com alguém de confiança por precaução,
+ * não só pedir ajuda depois que algo já deu errado.
+ */
+export function obterLinkDeCompartilhamento(contato, nomeDestino) {
+  return construirLinkDeWhatsApp(
+    contato,
+    (linkMapa) => `Oi! Só avisando que estou a caminho de ${nomeDestino}. Minha localização agora: ${linkMapa}`
+  );
 }

@@ -34,14 +34,21 @@ const ICONE_CONTEXTO = {
   ponto_onibus: () => divIconContexto('onibus', '#7C5CBF'),
   delegacia: () => divIconContexto('predio', '#7C5CBF')
 };
+// Um L.divIcon é imutável e pode ser reaproveitado em vários marcadores —
+// evita remontar a mesma string SVG do zero a cada marcador desenhado.
+const cacheDeIcones = new Map();
 function divIconContexto(nomeIcone, cor) {
-  return L.divIcon({
-    html: pinoMapa(nomeIcone, cor),
-    className: '',
-    iconSize: [34, 42],
-    iconAnchor: [17, 41],
-    popupAnchor: [0, -36]
-  });
+  const chave = `${nomeIcone}:${cor}`;
+  if (!cacheDeIcones.has(chave)) {
+    cacheDeIcones.set(chave, L.divIcon({
+      html: pinoMapa(nomeIcone, cor),
+      className: '',
+      iconSize: [34, 42],
+      iconAnchor: [17, 41],
+      popupAnchor: [0, -36]
+    }));
+  }
+  return cacheDeIcones.get(chave);
 }
 
 let mapa = null;
@@ -107,9 +114,13 @@ function garantirMapa() {
   if (mapa) return mapa;
   mapa = L.map('rota-mapa', { zoomControl: true, attributionControl: true })
     .setView(APP_CONFIG.centroPadrao, APP_CONFIG.zoomPadrao);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap'
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    subdomains: 'abcd',
+    maxZoom: 20,
+    detectRetina: true,
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> ' +
+      '&copy; <a href="https://carto.com/attributions">CARTO</a>'
   }).addTo(mapa);
   camadaContexto = L.layerGroup().addTo(mapa);
   return mapa;
@@ -214,7 +225,7 @@ function prepararBuscas() {
     sugestoes: document.getElementById('rota-origem-sugestoes'),
     aoEscolher: (r) => {
       tokenOrigem++; // escolha manual sempre vence uma leitura de GPS atrasada
-      origem = { lat: r.lat, lng: r.lng, nome: r.curto, fonte: 'manual' };
+      origem = { lat: r.lat, lng: r.lng, nome: r.curto, fonte: 'manual', aproximado: r.aproximado };
       document.getElementById('rota-origem-label').textContent = 'Endereço de partida';
       desenharOrigem();
       tentarCalcularRota();
@@ -225,7 +236,7 @@ function prepararBuscas() {
     input: document.getElementById('rota-destino'),
     sugestoes: document.getElementById('rota-sugestoes'),
     aoEscolher: (r) => {
-      destino = { lat: r.lat, lng: r.lng, nome: r.curto };
+      destino = { lat: r.lat, lng: r.lng, nome: r.curto, aproximado: r.aproximado };
       desenharDestino();
       tentarCalcularRota();
     }
@@ -282,9 +293,9 @@ function inverterOrigemDestino() {
   const antigoDestino = destino;
   // O que era destino vira origem "digitada" — destino nunca veio do GPS,
   // então isso está sempre correto, não importa de onde a origem antiga veio.
-  destino = origem ? { lat: origem.lat, lng: origem.lng, nome: origem.nome } : null;
+  destino = origem ? { lat: origem.lat, lng: origem.lng, nome: origem.nome, aproximado: origem.aproximado } : null;
   origem = antigoDestino
-    ? { lat: antigoDestino.lat, lng: antigoDestino.lng, nome: antigoDestino.nome, fonte: 'manual' }
+    ? { lat: antigoDestino.lat, lng: antigoDestino.lng, nome: antigoDestino.nome, fonte: 'manual', aproximado: antigoDestino.aproximado }
     : null;
 
   document.getElementById('rota-origem-texto').value = origem?.nome || '';
@@ -346,8 +357,19 @@ async function calcularRota() {
   const contexto = await buscarContextoDaRota(data.geometria);
   if (meuToken !== tokenRota) return;
 
+  // O aviso de "número exato não mapeado" some da lista de sugestões assim
+  // que você escolhe o endereço — mantemos ele visível aqui, no card da rota,
+  // pra não perder essa informação depois de escolhida.
+  const avisosDeLocal = [];
+  if (origem?.aproximado) {
+    avisosDeLocal.push({ icone: 'pino', texto: 'A partida é aproximada — o número exato do endereço não está mapeado.' });
+  }
+  if (destino?.aproximado) {
+    avisosDeLocal.push({ icone: 'pino', texto: 'O destino é aproximado — o número exato do endereço não está mapeado.' });
+  }
+
   desenharContextoDaRota(contexto);
-  desenharCardRota(data, contexto.observacoes);
+  desenharCardRota(data, [...avisosDeLocal, ...contexto.observacoes]);
   salvarHistoricoRota(data).catch((erro) => console.error('Não foi possível salvar o histórico da rota:', erro));
 }
 
@@ -567,10 +589,22 @@ function voltarAoPlanejamento() {
 
 /* ------------------------------------------------------------------ SOS --- */
 async function acionarSos() {
+  // BUG DE CONFIABILIDADE QUE ISTO CORRIGE: abrir a aba só depois de esperar
+  // o Supabase e o GPS (tudo assíncrono) faz vários navegadores tratarem
+  // window.open como pop-up não solicitado e BLOQUEAR silenciosamente — bem
+  // no botão que mais precisa funcionar. Abrir a aba em branco JÁ no clique
+  // (ainda síncrono) e só trocar a URL dela depois evita isso.
+  // IMPORTANTE: sem a flag "noopener" aqui — com ela, window.open() devolve
+  // null (testado ao vivo) e a gente perde a referência pra poder navegar a
+  // aba depois. Em vez disso, zeramos w.opener manualmente: mesma proteção
+  // de segurança (o wa.me não consegue acessar esta página de volta), sem
+  // perder a referência.
+  const janela = window.open('', '_blank');
+  if (janela) janela.opener = null;
   try {
     const { data: sessao } = await supabase.auth.getUser();
     const user = sessao?.user;
-    if (!user) return;
+    if (!user) { janela?.close(); return; }
 
     const { data: contatos, error } = await supabase
       .from('emergency_contacts')
@@ -582,13 +616,16 @@ async function acionarSos() {
     if (error) throw error;
 
     if (!contatos || !contatos.length) {
+      janela?.close();
       abrirModal('modal-sos-sem-contato');
       return;
     }
 
     const { url } = await obterLinkDeEmergencia(contatos[0].phone);
-    window.open(url, '_blank', 'noopener');
+    if (janela) janela.location.href = url;
+    else window.open(url, '_blank', 'noopener');
   } catch (erro) {
+    janela?.close();
     toast(erro.message || 'Não foi possível acionar o SOS agora.', 'erro', 6000);
   }
 }

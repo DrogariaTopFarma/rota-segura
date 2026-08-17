@@ -14,16 +14,121 @@
   <link rel="stylesheet" href="../css/global.css">
   <link rel="stylesheet" href="../css/components.css">
   <link rel="stylesheet" href="../css/map.css">
+  <link rel="stylesheet" href="../css/perfil.css">
   <link rel="stylesheet" href="../css/responsive.css">
 </head>
 <body>
-  <main class="placeholder-tela">
-    <div class="placeholder-tela__icone" data-icone="perfil" data-tamanho="34" aria-hidden="true"></div>
-    <h1>Seu perfil</h1>
-    <p class="texto-secundario">Seus dados, contatos de emergência e histórico de relatos. Chega no Bloco 3.</p>
-    <a class="btn btn-primario" href="mapa.html">Voltar ao mapa</a>
-  </main>
+  <div class="app-shell app-shell--simples">
 
+    <!-- ================= CABEÇALHO ================= -->
+    <header class="topo">
+      <div>
+        <span class="topo__titulo">Seu perfil</span><br>
+        <span class="topo__slogan">Seus dados, sua segurança.</span>
+      </div>
+
+      <div class="topo__acoes">
+        <button type="button" class="topo__botao" id="botao-notificacoes" aria-label="Notificações">
+          <span data-icone="sino" data-tamanho="24" aria-hidden="true"></span>
+          <span class="badge" id="badge-notificacoes" hidden>0</span>
+        </button>
+        <button type="button" class="topo__botao" id="botao-menu" aria-label="Abrir menu">
+          <span data-icone="menu" data-tamanho="24" aria-hidden="true"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ================= CARTÃO DE PERFIL ================= -->
+    <section class="card perfil-cartao">
+      <div class="perfil-cartao__avatar" id="perfil-avatar"></div>
+      <div class="perfil-cartao__info">
+        <div class="perfil-cartao__nome" id="perfil-nome">...</div>
+        <div class="perfil-cartao__email" id="perfil-email"></div>
+        <div class="perfil-cartao__telefone" id="perfil-telefone"></div>
+        <div class="perfil-cartao__desde" id="perfil-desde"></div>
+      </div>
+    </section>
+
+    <!-- ================= EDITAR PERFIL ================= -->
+    <section class="secao-perfil">
+      <div class="secao-perfil__topo">
+        <h2 class="secao-perfil__titulo">Editar perfil</h2>
+      </div>
+      <div id="mensagem-perfil" class="mensagem" hidden></div>
+      <form id="form-editar-perfil" novalidate>
+        <div class="campo">
+          <label for="perfil-form-nome">Nome completo</label>
+          <input type="text" id="perfil-form-nome" name="nome" autocomplete="name" required>
+        </div>
+        <div class="campo">
+          <label for="perfil-form-telefone">Telefone</label>
+          <input type="tel" id="perfil-form-telefone" name="telefone" autocomplete="tel" placeholder="(21) 90000-0000">
+        </div>
+        <div class="campo">
+          <label for="perfil-form-avatar">Foto de perfil <span class="texto-secundario">(opcional, até 5 MB)</span></label>
+          <input type="file" id="perfil-form-avatar" name="avatar" accept="image/*">
+        </div>
+        <button type="submit" class="btn btn-primario btn-bloco">SALVAR ALTERAÇÕES</button>
+      </form>
+    </section>
+
+    <!-- ================= MEUS RELATOS ================= -->
+    <section class="secao-perfil" id="relatos">
+      <div class="secao-perfil__topo">
+        <h2 class="secao-perfil__titulo">Meus relatos</h2>
+      </div>
+      <div id="perfil-relatos-lista"></div>
+    </section>
+
+    <!-- ================= MINHAS PUBLICAÇÕES ================= -->
+    <section class="secao-perfil">
+      <div class="secao-perfil__topo">
+        <h2 class="secao-perfil__titulo">Minhas publicações</h2>
+      </div>
+      <div id="perfil-publicacoes-lista"></div>
+    </section>
+
+    <!-- ================= HISTÓRICO DE ROTAS ================= -->
+    <section class="secao-perfil">
+      <div class="secao-perfil__topo">
+        <h2 class="secao-perfil__titulo">Histórico de rotas</h2>
+      </div>
+      <div id="perfil-rotas-lista"></div>
+    </section>
+
+    <!-- ================= CONTATOS DE EMERGÊNCIA ================= -->
+    <section class="secao-perfil" id="contatos">
+      <div class="secao-perfil__topo">
+        <h2 class="secao-perfil__titulo">Contatos de emergência</h2>
+        <button type="button" class="btn-icone" id="perfil-novo-contato" aria-label="Adicionar contato de emergência">
+          <span data-icone="mais" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div id="perfil-contatos-lista"></div>
+    </section>
+
+    <!-- ================= CONFIGURAÇÕES ================= -->
+    <section class="secao-perfil" id="configuracoes">
+      <div class="secao-perfil__topo">
+        <h2 class="secao-perfil__titulo">Configurações</h2>
+      </div>
+      <h3 class="config-subtitulo">Alterar senha</h3>
+      <div id="mensagem-senha" class="mensagem" hidden></div>
+      <form id="form-trocar-senha" novalidate>
+        <div class="campo">
+          <label for="config-nova-senha">Nova senha</label>
+          <input type="password" id="config-nova-senha" name="novaSenha" autocomplete="new-password" required>
+        </div>
+        <div class="campo">
+          <label for="config-confirmar-senha">Confirmar nova senha</label>
+          <input type="password" id="config-confirmar-senha" name="confirmarSenha" autocomplete="new-password" required>
+        </div>
+        <button type="submit" class="btn btn-primario btn-bloco">SALVAR NOVA SENHA</button>
+      </form>
+    </section>
+  </div>
+
+  <!-- ================= BOTTOM NAVIGATION ================= -->
   <nav class="bottom-nav" aria-label="Navegação principal">
     <a class="bottom-nav__item" href="mapa.html">
       <span data-icone="mapa" data-tamanho="22" aria-hidden="true"></span>
@@ -46,6 +151,171 @@
     </a>
   </nav>
 
-  <script type="module" src="../js/placeholder.js"></script>
+  <!-- ================= MODAL: ADICIONAR/EDITAR CONTATO ================= -->
+  <div class="modal" id="modal-contato" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-contato" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-contato">Adicionar contato de emergência</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div id="mensagem-contato" class="mensagem" hidden></div>
+      <form id="form-contato" novalidate>
+        <div class="campo">
+          <label for="contato-nome">Nome</label>
+          <input type="text" id="contato-nome" name="nome" required>
+        </div>
+        <div class="campo">
+          <label for="contato-telefone">Telefone</label>
+          <input type="tel" id="contato-telefone" name="telefone" placeholder="(21) 90000-0000" required>
+        </div>
+        <div class="campo">
+          <label for="contato-relacionamento">Relação <span class="texto-secundario">(opcional)</span></label>
+          <input type="text" id="contato-relacionamento" name="relacionamento" placeholder="Ex.: mãe, amiga, irmã">
+        </div>
+        <label class="campo-checkbox">
+          <input type="checkbox" id="contato-principal" name="principal">
+          <span>Este é meu contato principal (usado pelo botão SOS)</span>
+        </label>
+        <button type="submit" class="btn btn-primario btn-bloco">SALVAR CONTATO</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: EXCLUIR CONTATO ================= -->
+  <div class="modal" id="modal-excluir-contato" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-excluir-contato" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-excluir-contato">Excluir contato?</h2>
+      </div>
+      <p class="modal__texto">Isso remove o contato da sua lista de emergência. Essa ação não pode ser desfeita.</p>
+      <div class="modal__acoes">
+        <button type="button" class="btn btn-secundario btn-bloco" data-fechar>CANCELAR</button>
+        <button type="button" class="btn btn-primario btn-bloco" id="btn-confirmar-excluir-contato">EXCLUIR</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: NOTIFICAÇÕES ================= -->
+  <div class="modal" id="modal-notificacoes" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-notificacoes" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-notificacoes">Notificações</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div id="notificacoes-lista"></div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: MENU ================= -->
+  <div class="modal" id="modal-menu" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-menu" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-menu">Menu</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <p class="menu-saudacao">Conectada como <strong id="nome-usuaria">...</strong></p>
+
+      <a class="modal__opcao" href="perfil.html">
+        <span class="modal__opcao__icone" data-icone="perfil" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Meu perfil</span></span>
+      </a>
+      <a class="modal__opcao" href="perfil.html#relatos">
+        <span class="modal__opcao__icone" data-icone="escudo" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Meus relatos</span></span>
+      </a>
+      <a class="modal__opcao" href="perfil.html#contatos">
+        <span class="modal__opcao__icone" data-icone="telefone" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Contatos de emergência</span></span>
+      </a>
+      <button type="button" class="modal__opcao" data-trocar-modal="modal-notificacoes">
+        <span class="modal__opcao__icone" data-icone="sino" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Notificações</span></span>
+      </button>
+      <a class="modal__opcao" href="perfil.html#configuracoes">
+        <span class="modal__opcao__icone" data-icone="engrenagem" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Configurações</span></span>
+      </a>
+      <button type="button" class="modal__opcao" data-trocar-modal="modal-termos">
+        <span class="modal__opcao__icone" data-icone="documento" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Termos de uso</span></span>
+      </button>
+      <button type="button" class="modal__opcao" data-trocar-modal="modal-privacidade">
+        <span class="modal__opcao__icone" data-icone="cadeado" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Privacidade</span></span>
+      </button>
+
+      <button type="button" class="btn btn-secundario btn-bloco menu-sair" data-acao="sair">Sair da conta</button>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: TERMOS DE USO ================= -->
+  <div class="modal" id="modal-termos" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-termos" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-termos">Termos de uso</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <p class="modal__texto">
+        O Rota Segura é um projeto educacional de segurança urbana para mulheres. Ao usar a
+        plataforma, você concorda em: usar a plataforma de boa fé; não publicar conteúdo falso,
+        ofensivo ou que exponha outras pessoas sem consentimento; e respeitar as demais usuárias
+        da comunidade.
+      </p>
+      <p class="modal__texto">
+        Relatos, pontos de apoio, delegacias e publicações que você cadastra ficam visíveis para
+        outras usuárias autenticadas — é assim que a plataforma ajuda outras mulheres a se
+        planejarem. Você pode excluir seus próprios contatos de emergência a qualquer momento
+        pela tela de Perfil.
+      </p>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: PRIVACIDADE ================= -->
+  <div class="modal" id="modal-privacidade" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-privacidade" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-privacidade">Privacidade</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <p class="modal__texto">
+        Seus dados de conta (nome, e-mail, telefone, avatar) ficam armazenados no Supabase,
+        protegidos por regras de acesso (Row Level Security) — por exemplo, seus contatos de
+        emergência só podem ser vistos por você.
+      </p>
+      <p class="modal__texto">
+        A localização usada pelo botão SOS é lida na hora e nunca é salva em nosso banco de
+        dados. Relatos, pontos de apoio e publicações que você cadastra ficam visíveis para
+        outras usuárias logadas, porque esse é o propósito da plataforma.
+      </p>
+      <p class="modal__texto">
+        Você pode editar seus dados e excluir seus contatos de emergência a qualquer momento
+        pela tela de Perfil.
+      </p>
+    </div>
+  </div>
+
+  <!-- ================= SCRIPTS ================= -->
+  <script type="module" src="../js/profile.js"></script>
+  <script type="module">
+    import { abrirModal } from '../js/ui.js';
+    document.getElementById('botao-menu')
+      ?.addEventListener('click', () => abrirModal('modal-menu'));
+  </script>
 </body>
 </html>

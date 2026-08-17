@@ -535,6 +535,47 @@ create policy "rotas_proprias_delete"
 
 
 -- ============================================================================
+-- 12.10 Gatilho: notificar a autora do post quando alguém curte (Bloco 3)
+--       Só gera notificação real quando existe um evento real (uma curtida).
+--       Pula autocurtida (curtir a própria publicação não gera notificação).
+-- ============================================================================
+create or replace function public.notificar_curtida()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  autor_id uuid;
+  nome_de_quem_curtiu text;
+begin
+  select user_id into autor_id from public.posts where id = new.post_id;
+  if autor_id is null or autor_id = new.user_id then
+    return new;
+  end if;
+
+  select coalesce(full_name, 'Alguém') into nome_de_quem_curtiu
+  from public.profiles where id = new.user_id;
+
+  insert into public.notifications (user_id, title, body, type, link)
+  values (
+    autor_id,
+    'Nova curtida na sua publicação',
+    nome_de_quem_curtiu || ' curtiu o que você publicou.',
+    'info',
+    'pages/alertas.html'
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_notificar_curtida on public.post_likes;
+create trigger trg_notificar_curtida
+  after insert on public.post_likes
+  for each row execute function public.notificar_curtida();
+
+
+-- ============================================================================
 -- 13. STORAGE — bucket para imagens de relatos e publicações
 -- ============================================================================
 insert into storage.buckets (id, name, public)

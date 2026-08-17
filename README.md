@@ -1,8 +1,10 @@
-# Rota Segura — Blocos 1 e 2
+# Rota Segura — Blocos 1, 2 e 3 (completo)
 
 Plataforma colaborativa de segurança para mulheres em deslocamentos urbanos.
-Este repositório contém o **Bloco 1** (arquitetura, banco de dados, autenticação e a
-**Tela 1 — Mapa de consulta**) e o **Bloco 2** (**Tela 2 — Rotas e navegação ativa**).
+Este repositório contém o projeto completo: **Bloco 1** (arquitetura, banco de dados,
+autenticação e a **Tela 1 — Mapa de consulta**), **Bloco 2** (**Tela 2 — Rotas e navegação
+ativa**) e **Bloco 3** (**Tela 3 — Comunidade**, Perfil, contatos de emergência, notificações
+e menu).
 
 > Começando do zero? Leia o **[GUIA_PASSO_A_PASSO.md](GUIA_PASSO_A_PASSO.md)** — ele explica
 > cada clique no Supabase, no VS Code e no GitHub.
@@ -13,10 +15,19 @@ Este repositório contém o **Bloco 1** (arquitetura, banco de dados, autentica�
 
 - Cadastro, login, logout e recuperação de senha reais (Supabase Auth)
 - Proteção de páginas: sem sessão, ninguém entra no mapa
-- Mapa Leaflet + OpenStreetMap com localização do usuário e círculo de precisão
+- Mapa Leaflet com o estilo CARTO Voyager (visual claro, quarteirões e ruas com contraste
+  legível de perto, combina com a identidade rosa do app) sobre dados do OpenStreetMap, com
+  localização do usuário e círculo de precisão
 - Marcadores SVG diferentes por tipo: relatos, iluminação, pontos de apoio, delegacias, ônibus
+- **Indicação visual de concentração de relatos**: cada relato desenha uma mancha vermelha
+  translúcida no mapa; onde há vários próximos, as manchas se sobrepõem e a área fica
+  visivelmente mais vermelha — dá pra perceber uma região com mais ocorrências num relance,
+  sem abrir cada pino (legenda explicando isso abaixo do mapa da Tela 1)
 - Busca de endereço com geocodificação real (Photon/OpenStreetMap), reconhecendo rua + número
-  e priorizando a área visível do mapa
+  e priorizando a área visível do mapa. Quando o texto tem rua + número + cidade, uma segunda
+  busca sem o número valida a cidade do resultado, evitando confundir bairros de nome parecido
+  em cidades diferentes. Quando o número exato não está mapeado, o aviso "localização
+  aproximada" continua visível mesmo depois de escolhido (não só na lista de sugestões)
 - Seletor de local com mini-mapa e pino arrastável nos formulários, independente da busca da tela
 - Precisão do GPS informada em metros, com aviso quando a localização está aproximada
 - Contagem de relatos num raio de 500 m do endereço pesquisado
@@ -35,12 +46,24 @@ Este repositório contém o **Bloco 1** (arquitetura, banco de dados, autentica�
   automático) ao sair da rota, detecção de chegada e encerramento manual. Quando a origem foi
   digitada, mostra a rota como prévia em vez de fingir um GPS que não existe — inclui também
   um modo de simulação só para teste (`?simular=1`)
-
-## Ainda não faz parte deste repositório
-
-- Feed da Comunidade, curtidas e perfil completo, incluindo cadastro de contatos de
-  emergência (Bloco 3) — o botão SOS da Tela 2 já existe, mas avisa que precisa do Bloco 3
-  até essa tela existir
+- **Compartilhar rota**: durante a navegação, um botão avisa seu contato de emergência pelo
+  WhatsApp para onde você está indo e sua localização atual — diferente do SOS (que é para uma
+  emergência já acontecendo), este é para avisar por precaução, antes de qualquer coisa
+  acontecer. Os dois botões abrem a aba do WhatsApp de um jeito que não é bloqueado como pop-up
+  pelo navegador (a aba abre no clique, ainda síncrona, e só recebe o link depois)
+- **Tela 3 — Comunidade**: feed real do banco com filtro por categoria (Alerta/Dica/Apoio/
+  Notícia), publicação com localização e imagem opcionais, e curtir/descurtir — de propósito,
+  sem comentários, resposta ou compartilhamento. O contador de curtidas é mantido pelo próprio
+  banco (gatilho), nunca calculado no navegador
+- **Perfil completo**: dados editáveis (nome, telefone, avatar via Storage), troca de senha,
+  "Meus relatos", "Minhas publicações" e "Histórico de rotas" vindos do banco
+- **Contatos de emergência** com adicionar/editar/excluir — é o que alimenta o botão SOS da
+  Tela 2 de verdade
+- **Central de notificações** (sino no cabeçalho, com contador de não lidas): hoje só gera
+  notificação real quando alguém curte sua publicação (via gatilho no banco) — nada fictício
+  só para preencher a tela
+- Menu expandido com Perfil, Meus relatos, Contatos de emergência, Notificações, Configurações
+  (troca de senha), Termos de uso e Privacidade
 
 ---
 
@@ -56,15 +79,17 @@ rota-segura/
 │   ├── nova-senha.html
 │   ├── mapa.html              TELA 1 — mapa de consulta
 │   ├── rotas.html             TELA 2 — rotas e navegação ativa
-│   ├── alertas.html           placeholder (Bloco 3)
-│   └── perfil.html            placeholder (Bloco 3)
+│   ├── alertas.html           TELA 3 — comunidade (feed, filtros, curtidas)
+│   └── perfil.html            Perfil, contatos de emergência, configurações
 ├── css/
 │   ├── variables.css          tokens do design system
 │   ├── global.css             reset e base
 │   ├── components.css         botões, cards, modais, nav, toasts
 │   ├── auth.css               telas de login/cadastro
-│   ├── map.css                tela do mapa
+│   ├── map.css                tela do mapa (e cabeçalho reaproveitado por alertas/perfil)
 │   ├── rotas.css              tela de rotas e navegação ativa
+│   ├── comunidade.css         feed, filtros e cartão de publicação da Tela 3
+│   ├── perfil.css             cartão de perfil, seções e contatos de emergência
 │   └── responsive.css         breakpoints
 ├── js/
 │   ├── config.js              ⚠️ SUAS CHAVES VÃO AQUI
@@ -80,10 +105,13 @@ rota-segura/
 │   ├── routes.js              TELA 2 — origem/destino, cálculo de rota, card de segurança
 │   ├── navigation.js          navegação ativa: GPS real, saiu da rota, chegada
 │   ├── emergency.js           SOS: link do WhatsApp com localização
-│   ├── nav.js                 bottom navigation e notificações
+│   ├── community.js           feed, filtros, curtir/descurtir, formulário de publicação
+│   ├── alertas.js             ponto de entrada da TELA 3 (Comunidade)
+│   ├── profile.js             ponto de entrada do Perfil: dados, listas, contatos, senha
+│   ├── notifications.js       central de notificações (modal do sino)
+│   ├── nav.js                 bottom navigation e contador do sino
 │   ├── ui.js                  toasts, modais, loading, formatação
 │   ├── icons.js               ícones SVG (nenhum emoji)
-│   ├── placeholder.js         telas dos próximos blocos
 │   └── app.js                 ponto de entrada da Tela 1
 ├── supabase/functions/
 │   └── calcular-rota/index.ts Edge Function: fala com o OpenRouteService, esconde a chave
@@ -108,7 +136,9 @@ Isso já deixa o **Bloco 1** (login + mapa) funcionando. Para o **Bloco 2** (rot
 criar uma conta gratuita no OpenRouteService e publicar a Edge Function
 `supabase/functions/calcular-rota` pelo Dashboard do Supabase — sem terminal, tudo pelo
 navegador. Cada passo está detalhado clique por clique no
-[GUIA_PASSO_A_PASSO.md](GUIA_PASSO_A_PASSO.md) (Etapas 11 e 12).
+[GUIA_PASSO_A_PASSO.md](GUIA_PASSO_A_PASSO.md) (Etapas 11 e 12). O **Bloco 3** (comunidade,
+perfil, contatos de emergência) **não precisa de nenhuma configuração extra** — as tabelas,
+o Storage e as regras de acesso já vêm no mesmo `sql/schema.sql` do passo 2.
 
 ---
 
@@ -116,15 +146,17 @@ navegador. Cada passo está detalhado clique por clique no
 
 | Tabela | Para que serve |
 |---|---|
-| `profiles` | Dados públicos do usuário. Criada automaticamente por trigger no cadastro |
-| `emergency_contacts` | Contatos de emergência (privado, só a dona vê) |
+| `profiles` | Dados públicos do usuário (nome, telefone, avatar). Criada automaticamente por
+  trigger no cadastro; editável na tela de Perfil |
+| `emergency_contacts` | Contatos de emergência (privado, só a dona vê) — CRUD completo na
+  tela de Perfil, usado de verdade pelo botão SOS |
 | `reports` | Relatos de segurança com coordenadas, tipo, nível de atenção e status |
 | `support_points` | Farmácias, hospitais, comércios 24h, pontos de ônibus |
 | `police_stations` | Delegacias, com marcação de DEAM |
-| `posts` | Publicações da comunidade (Bloco 3) |
+| `posts` | Publicações da comunidade — feed da Tela 3, com curtidas contadas em `likes_count` |
 | `post_likes` | Curtidas, com restrição de uma por pessoa por publicação |
-| `notifications` | Notificações do sino |
-| `route_history` | Histórico de rotas (Bloco 2) |
+| `notifications` | Notificações do sino — hoje geradas quando alguém curte sua publicação |
+| `route_history` | Histórico de rotas, mostrado na tela de Perfil |
 
 **Moderação:** `reports`, `support_points`, `police_stations` e `posts` têm o campo `status`
 com os valores `pending`, `approved` e `rejected`. No `schema.sql` o padrão é `approved` para
@@ -157,7 +189,8 @@ por `default 'pending'` nessas tabelas.
 
 ## Créditos de dados
 
-Mapa: © colaboradores do OpenStreetMap. Geocodificação: [Photon](https://photon.komoot.io), da Komoot,
-também construído sobre dados do OpenStreetMap. Cálculo de rotas:
-[OpenRouteService](https://openrouteservice.org), da HeiGIT. Use todos com moderação — são
-serviços públicos gratuitos.
+Mapa: © colaboradores do [OpenStreetMap](https://www.openstreetmap.org/copyright), com o
+estilo visual (tiles) Voyager da [CARTO](https://carto.com/attributions). Geocodificação:
+[Photon](https://photon.komoot.io), da Komoot, também construído sobre dados do OpenStreetMap.
+Cálculo de rotas: [OpenRouteService](https://openrouteservice.org), da HeiGIT. Use todos com
+moderação — são serviços públicos gratuitos.

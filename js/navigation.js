@@ -13,6 +13,8 @@
 import { acompanharPosicao, mensagemDoMotivo } from './geolocation.js';
 import { abrirModal, fecharModal, toast, distanciaMetros } from './ui.js';
 import { APP_CONFIG } from './config.js';
+import { supabase } from './supabase.js';
+import { obterLinkDeCompartilhamento } from './emergency.js';
 
 const LIMITE_FORA_DA_ROTA_M = 50;
 const LEITURAS_PARA_CONFIRMAR_SAIDA = 2;
@@ -64,6 +66,7 @@ export function iniciarNavegacao({ mapa: mapaRecebido, origem, destino, rota, ao
     }
   };
   document.getElementById('navegacao-encerrar').onclick = () => abrirModal('modal-encerrar-rota');
+  document.getElementById('navegacao-compartilhar').onclick = compartilharRota;
   ligarBotoesDosModais();
 
   if (modoPrevia) {
@@ -202,6 +205,50 @@ function ligarBotoesDosModais() {
     fecharModal('modal-encerrar-rota');
     encerrar();
   };
+}
+
+/** Avisa um contato de confiança pra onde você está indo — diferente do
+    SOS: aqui nada deu errado, é só precaução. Reaproveita o mesmo contato
+    de emergência e o mesmo modal de aviso "sem contato" que o SOS já usa,
+    já que a causa (nenhum contato cadastrado) é a mesma. */
+async function compartilharRota() {
+  const botao = document.getElementById('navegacao-compartilhar');
+  // Mesmo motivo do SOS (routes.js/acionarSos): abrir a aba só depois do
+  // Supabase/GPS resolverem faz o navegador bloquear como pop-up. Abre em
+  // branco já no clique, troca a URL quando o link estiver pronto. Sem
+  // "noopener" aqui — devolveria null e perderíamos a referência; w.opener
+  // é zerado manualmente em vez disso, com a mesma proteção.
+  const janela = window.open('', '_blank');
+  if (janela) janela.opener = null;
+  try {
+    botao.disabled = true;
+    const { data: sessao } = await supabase.auth.getUser();
+    const user = sessao?.user;
+    if (!user) { janela?.close(); return; }
+
+    const { data: contatos, error } = await supabase
+      .from('emergency_contacts')
+      .select('phone')
+      .eq('user_id', user.id)
+      .order('is_primary', { ascending: false })
+      .limit(1);
+    if (error) throw error;
+
+    if (!contatos || !contatos.length) {
+      janela?.close();
+      abrirModal('modal-sos-sem-contato');
+      return;
+    }
+
+    const { url } = await obterLinkDeCompartilhamento(contatos[0].phone, destinoAtual?.nome || 'meu destino');
+    if (janela) janela.location.href = url;
+    else window.open(url, '_blank', 'noopener');
+  } catch (erro) {
+    janela?.close();
+    toast(erro.message || 'Não foi possível compartilhar a rota agora.', 'erro', 6000);
+  } finally {
+    botao.disabled = false;
+  }
 }
 
 /* --------------------------------------- Modo de teste (GPS simulado) --- */

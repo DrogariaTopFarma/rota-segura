@@ -220,6 +220,7 @@
 .rota-navegacao__tempo { font-size: var(--fs-sm); color: var(--texto-secundario); }
 .rota-navegacao__acoes { display: flex; gap: var(--esp-3); margin-top: var(--esp-4); }
 .rota-navegacao__acoes .btn { flex: 1; }
+.rota-navegacao__compartilhar { margin-top: var(--esp-3); }
 
 .rota-navegacao__aviso-previa {
   font-size: var(--fs-xs);
@@ -238,4 +239,10 @@
 
 /* ---------------- Modal "saiu da rota" / confirmações ---------------- */
 .rota-modal__texto { font-size: var(--fs-md); margin-bottom: var(--esp-4); line-height: 1.5; }
+.rota-modal__texto--secundario {
+  margin-top: var(--esp-3);
+  margin-bottom: 0;
+  font-size: var(--fs-xs);
+  color: var(--texto-secundario);
+}
 .rota-modal__acoes { display: flex; flex-direction: column; gap: var(--esp-3); }

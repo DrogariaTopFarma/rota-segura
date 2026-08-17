@@ -25,9 +25,10 @@ Este repositório contém o **Bloco 1** (arquitetura, banco de dados, autentica�
 - Atualização em tempo real quando um relato novo é criado
 - Estados de loading, erro, vazio e permissão negada em todas as funcionalidades
 - Row Level Security cobrindo as 9 tabelas
-- **Tela 2 — cálculo de rota a pé** via OpenRouteService, chamado por uma Supabase Edge
-  Function para a chave nunca ficar exposta no site. Origem por GPS **ou** digitada à mão
-  (mesma busca do destino) — as duas continuam funcionando mesmo sem permissão de localização
+- **Tela 2 — cálculo de rota a pé ou de carro** (seletor de meio de transporte, como no Maps)
+  via OpenRouteService, chamado por uma Supabase Edge Function para a chave nunca ficar
+  exposta no site. Origem por GPS **ou** digitada à mão (mesma busca do destino) — as duas
+  continuam funcionando mesmo sem permissão de localização
 - Card da rota anotado só com dados reais da plataforma (relatos e pontos de apoio próximos
   ao trajeto, também marcados no mapa) — nunca inventa iluminação ou movimento que o banco não tem
 - **Navegação ativa** com GPS real quando a origem é a localização atual: aviso (sem recálculo

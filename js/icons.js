@@ -32,7 +32,9 @@ const CAMINHOS = {
   sos: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v5"/><path d="M12 16h.01"/>',
   vazio: '<circle cx="12" cy="12" r="9"/><path d="M8 15h8"/><path d="M9 9h.01"/><path d="M15 9h.01"/>',
   trocar: '<path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/>',
-  bandeira: '<path d="M4 22V4"/><path d="M4 4h14l-2.5 4L18 12H4"/>'
+  bandeira: '<path d="M4 22V4"/><path d="M4 4h14l-2.5 4L18 12H4"/>',
+  andando: '<circle cx="13" cy="4.5" r="1.8"/><path d="M9.5 21 11 14l-2-2 .5-4.5L12 6l2.5 1.5.5 4-2 2 1.5 7"/><path d="M14 10.5l3 2-1 3"/>',
+  carro: '<path d="M14 16H9m10 0h2v-3.5a2 2 0 0 0-.4-1.2L18 7.5a2 2 0 0 0-1.6-.8H7.5a2 2 0 0 0-1.8 1.1L4.4 11a2 2 0 0 0-.4 1.2V16h2"/><circle cx="7" cy="16.5" r="2"/><circle cx="17" cy="16.5" r="2"/>'
 };
 
 /**

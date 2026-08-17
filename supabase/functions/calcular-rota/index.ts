@@ -9,7 +9,7 @@
 // Supabase (Edge Functions -> Deploy a new function -> Via Editor). Passo a
 // passo completo na Etapa 12 do GUIA_PASSO_A_PASSO.md.
 //
-// Recebe:  { origem: {lat, lng}, destino: {lat, lng} }
+// Recebe:  { origem: {lat, lng}, destino: {lat, lng}, perfil?: "foot-walking" | "driving-car" }
 // Devolve: { distanciaM, duracaoS, geometria: [[lat,lng], ...] }
 // ============================================================================
 
@@ -18,6 +18,10 @@ const CABECALHOS_CORS: Record<string, string> = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
+
+// Só estes dois perfis do OpenRouteService são aceitos — nunca repassamos o
+// valor que chegou do navegador direto para a URL sem checar contra esta lista.
+const PERFIS_VALIDOS = new Set(["foot-walking", "driving-car"]);
 
 function respostaJson(corpo: unknown, status = 200): Response {
   return new Response(JSON.stringify(corpo), {
@@ -54,7 +58,7 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  let corpo: { origem?: unknown; destino?: unknown };
+  let corpo: { origem?: unknown; destino?: unknown; perfil?: unknown };
   try {
     corpo = await req.json();
   } catch {
@@ -65,10 +69,13 @@ Deno.serve(async (req: Request) => {
   if (!coordenadaValida(origem) || !coordenadaValida(destino)) {
     return respostaJson({ erro: "Origem e destino precisam ter lat e lng válidos." }, 400);
   }
+  const perfil = typeof corpo.perfil === "string" && PERFIS_VALIDOS.has(corpo.perfil)
+    ? corpo.perfil
+    : "foot-walking";
 
   try {
     const respostaOrs = await fetch(
-      "https://api.openrouteservice.org/v2/directions/foot-walking/geojson",
+      `https://api.openrouteservice.org/v2/directions/${perfil}/geojson`,
       {
         method: "POST",
         headers: {
@@ -112,8 +119,9 @@ Deno.serve(async (req: Request) => {
     const coordenadas = feature?.geometry?.coordinates;
 
     if (!feature || !resumo || !Array.isArray(coordenadas) || coordenadas.length < 2) {
+      const meioDeTransporte = perfil === "driving-car" ? "de carro" : "a pé";
       return respostaJson(
-        { erro: "Não encontramos um caminho a pé entre esses dois pontos." },
+        { erro: `Não encontramos um caminho ${meioDeTransporte} entre esses dois pontos.` },
         404
       );
     }

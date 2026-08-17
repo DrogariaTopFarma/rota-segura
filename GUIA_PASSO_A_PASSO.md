@@ -933,6 +933,12 @@ Você vai criar essa função **direto pelo site do Supabase**, sem instalar nad
 4. No campo **Destino**, digite um endereço qualquer da sua cidade e escolha uma sugestão.
 5. ✅ Esperado: em alguns segundos aparece uma linha rosa no mapa ligando os dois pontos, e
    um cartão embaixo com o tempo e a distância (ex.: "12 min (850 m)").
+6. Acima do formulário, toque em **"De carro"**. ✅ Esperado: a rota recalcula sozinha e o
+   tempo cai bastante em relação ao "A pé" — é o mesmo trajeto, mas por um perfil diferente
+   no OpenRouteService (`driving-car` em vez de `foot-walking`). Toque em "A pé" para voltar.
+   Se comparar com o Google Maps, compare sempre o mesmo meio de transporte dos dois lados
+   (o Maps mostra carro por padrão) — comparar "a pé" do app com "carro" do Maps dá números
+   bem diferentes, e isso é esperado, não é bug.
 
 **13.1.1 — Testar a partida digitada manualmente (sem depender do GPS)**
 

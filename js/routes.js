@@ -55,6 +55,7 @@ let destino = null;   // { lat, lng, nome }
 let rotaAtual = null; // { distanciaM, duracaoS, geometria }
 let tokenRota = 0;    // evita que uma resposta atrasada sobrescreva uma mais nova
 let tokenOrigem = 0;  // evita que uma leitura de GPS atrasada sobrescreva uma origem escolhida à mão
+let perfil = 'foot-walking'; // 'foot-walking' | 'driving-car'
 
 /* ------------------------------------------------------------ Inicializar */
 async function iniciar() {
@@ -76,6 +77,7 @@ async function iniciar() {
   document.getElementById('rota-atualizar-origem')?.addEventListener('click', () => buscarOrigemAtual());
   document.getElementById('rota-inverter')?.addEventListener('click', inverterOrigemDestino);
   document.getElementById('rota-sos-botao')?.addEventListener('click', acionarSos);
+  prepararSeletorDeModo();
   document.getElementById('botao-central')?.addEventListener('click', () => {
     toast('Para cadastrar, volte à tela do Mapa.', 'info');
     window.location.href = 'mapa.html';
@@ -86,6 +88,19 @@ async function iniciar() {
 }
 
 document.addEventListener('DOMContentLoaded', iniciar);
+
+/* ------------------------------------------------- Meio de transporte --- */
+function prepararSeletorDeModo() {
+  const botoes = [document.getElementById('rota-modo-pe'), document.getElementById('rota-modo-carro')];
+  botoes.forEach((botao) => {
+    botao?.addEventListener('click', () => {
+      if (botao.dataset.perfil === perfil) return; // já é o modo atual
+      perfil = botao.dataset.perfil;
+      botoes.forEach((b) => b?.setAttribute('aria-pressed', String(b === botao)));
+      tentarCalcularRota();
+    });
+  });
+}
 
 /* -------------------------------------------------------------- Mapa --- */
 function garantirMapa() {
@@ -301,7 +316,8 @@ async function calcularRota() {
   const { data, error } = await supabase.functions.invoke('calcular-rota', {
     body: {
       origem: { lat: origem.lat, lng: origem.lng },
-      destino: { lat: destino.lat, lng: destino.lng }
+      destino: { lat: destino.lat, lng: destino.lng },
+      perfil
     }
   });
 

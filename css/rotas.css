@@ -31,6 +31,34 @@
   margin-bottom: var(--esp-4);
 }
 
+/* ---------------- Seletor de meio de transporte ---------------- */
+.rota-modo {
+  display: flex;
+  gap: 4px;
+  background: var(--branco);
+  padding: 4px;
+  border-radius: var(--raio-full);
+  box-shadow: var(--sombra-sm);
+  margin-bottom: var(--esp-4);
+}
+.rota-modo__opcao {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--raio-full);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--texto-secundario);
+  transition: background .15s ease, color .15s ease;
+}
+.rota-modo__opcao[aria-pressed="true"] {
+  background: var(--rosa-magenta);
+  color: var(--branco);
+}
+
 /* ---------------- Card origem / destino ---------------- */
 .rota-origem-destino {
   position: relative;

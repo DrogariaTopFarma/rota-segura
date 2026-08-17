@@ -42,6 +42,15 @@
 
     <!-- ================= PLANEJAMENTO ================= -->
     <div id="painel-planejamento">
+      <div class="rota-modo" role="group" aria-label="Meio de transporte">
+        <button type="button" class="rota-modo__opcao" id="rota-modo-pe" data-perfil="foot-walking" aria-pressed="true">
+          <span data-icone="andando" data-tamanho="18" aria-hidden="true"></span> A pé
+        </button>
+        <button type="button" class="rota-modo__opcao" id="rota-modo-carro" data-perfil="driving-car" aria-pressed="false">
+          <span data-icone="carro" data-tamanho="18" aria-hidden="true"></span> De carro
+        </button>
+      </div>
+
       <form class="card rota-origem-destino" id="form-rota" role="search">
         <div class="rota-ponto">
           <span class="rota-ponto__marcador rota-ponto__marcador--origem">

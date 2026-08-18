@@ -153,14 +153,6 @@
   background: var(--cinza-muito-claro);
 }
 
-/* Suaviza o giro do mapa durante a navegação (plugin leaflet-rotate muda o
-   ângulo de forma instantânea, sem transição própria) — só a camada de
-   tiles/rota gira, não os ícones (ver comentário em navigation.js), então
-   esta transição não interfere no pan/zoom normal do Leaflet. */
-.leaflet-rotate-pane {
-  transition: transform 0.5s ease-out;
-}
-
 /* ---------------- Card da rota calculada ---------------- */
 .rota-card { margin-bottom: var(--esp-4); }
 .rota-card[hidden] { display: none; }
@@ -225,12 +217,13 @@
 /* ---------------- Navegação ativa ---------------- */
 .rota-navegacao[hidden] { display: none; }
 
-/* Seta de direção no mapa durante a navegação: gira suavemente (nunca
-   "pula") acompanhando o rumo calculado a partir do deslocamento real. */
+/* Seta de direção no mapa (fallback sem suporte a rotação de mapa): a
+   suavização do giro é feita em JS (animadorSeta, em navigation.js), quadro
+   a quadro, pelo caminho angular mais curto — uma transição CSS aqui
+   competiria com esses updates e travaria o movimento em vez de suavizar. */
 .navegacao-seta {
   width: 30px;
   height: 30px;
-  transition: transform 0.4s ease-out;
   transform-origin: center center;
 }
 .rota-navegacao__linha {

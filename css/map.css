@@ -109,12 +109,20 @@
 .sugestoes button:last-child { border-bottom: none; }
 .sugestoes button:hover { background: var(--rosa-bebe); }
 
-/* ---------------- Mapa ---------------- */
+/* ---------------- Mapa ----------------
+   Os tiles do mapa em si (Leaflet/CARTO) nunca levam filtro/tingimento de
+   cor — são dados reais de rua, e um overlay rosa por cima deixaria isso
+   ilegível. A identidade visual "rosa" do mapa vem de around dele: a
+   moldura, a sombra e os controles flutuantes por cima, não do mapa-base.
+   Isso importa especialmente em celular: muitos desses acentos só existiam
+   como `:hover`, que nunca é acionado por toque — então, na prática, nunca
+   apareciam pra quem usa o app no telefone. Agora são a cor "de repouso". */
 .mapa-wrapper {
   position: relative;
   margin: 0 var(--esp-4);
   border-radius: var(--raio-lg);
   overflow: hidden;
+  border: 2px solid var(--rosa-claro);
   box-shadow: var(--sombra-md);
 }
 #mapa {
@@ -132,11 +140,29 @@
   width: 44px; height: 44px;
   border-radius: 50%;
   background: var(--branco);
-  color: var(--texto-principal);
+  color: var(--rosa-magenta);
   display: flex; align-items: center; justify-content: center;
   box-shadow: var(--sombra-md);
 }
-.mapa-botao-recentralizar:hover { color: var(--rosa-magenta); }
+.mapa-botao-recentralizar:hover { color: var(--rosa-magenta-escuro); }
+
+/* Controle de zoom do Leaflet (+/-): por padrão vem sem nenhuma identidade
+   visual (cinza/branco genérico) — é um elemento que fica sempre em cima do
+   mapa, então vale a pena ele carregar a marca mesmo sem tocar nos tiles. */
+.leaflet-control-zoom {
+  border: none !important;
+  border-radius: var(--raio-md) !important;
+  overflow: hidden;
+  box-shadow: var(--sombra-md) !important;
+}
+.leaflet-control-zoom a {
+  color: var(--rosa-magenta) !important;
+  background: var(--branco) !important;
+}
+.leaflet-control-zoom a:hover {
+  color: var(--branco) !important;
+  background: var(--rosa-magenta) !important;
+}
 
 .mapa-legenda {
   display: flex;

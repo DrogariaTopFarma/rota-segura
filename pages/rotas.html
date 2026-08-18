@@ -104,10 +104,6 @@
         <span class="rota-navegacao__distancia" id="navegacao-distancia">— m</span>
         <span class="rota-navegacao__tempo" id="navegacao-tempo">restantes</span>
       </div>
-      <div class="rota-navegacao__aviso-previa" id="navegacao-aviso-previa" hidden>
-        Prévia da rota — sem acompanhamento por GPS em tempo real, porque a partida foi
-        digitada manualmente.
-      </div>
       <div class="rota-navegacao__acoes">
         <button type="button" class="btn btn-secundario" id="navegacao-recentralizar">
           <span data-icone="mira" data-tamanho="18" aria-hidden="true"></span> Recentralizar
@@ -222,6 +218,12 @@
   <!-- ================= SCRIPTS ================= -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <!-- Plugin de rotação do mapa (câmera "de frente", estilo navegação por GPS
+       de verdade): mantém tiles/rotas girando com o rumo, mas ícones/marcadores
+       ficam retos na tela sozinhos — sem isso, não dá pra rotacionar o mapa
+       com Leaflet puro. -->
+  <script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js"
+          integrity="sha256-+Qs8D9zbGHhw1CGR1C/Ty+hiG/oYv998Rs2DntIXIrY=" crossorigin=""></script>
   <script type="module" src="../js/routes.js"></script>
 </body>
 </html>

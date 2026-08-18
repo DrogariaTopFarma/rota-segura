@@ -303,6 +303,7 @@
   margin-bottom: var(--esp-4);
 }
 .modal__titulo { font-size: var(--fs-lg); font-weight: 600; }
+.modal__cabecalho-acoes { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 
 .modal__opcao {
   display: flex;

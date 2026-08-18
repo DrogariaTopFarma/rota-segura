@@ -135,15 +135,30 @@
 }
 .rota-inverter:hover { background: var(--rosa-claro); }
 
-/* ---------------- Mapa ---------------- */
+/* ---------------- Mapa ----------------
+   Mesmo tratamento do mapa da Tela 1 (.mapa-wrapper em map.css): cantos
+   arredondados + sombra, pra parecer um cartão da mesma identidade visual
+   em vez de um retângulo achado sem nada em volta. */
 .rota-mapa-wrapper {
+  position: relative;
   margin: 0 0 var(--esp-4);
+  border-radius: var(--raio-lg);
+  overflow: hidden;
+  box-shadow: var(--sombra-md);
 }
 #rota-mapa {
   height: 42vh;
   min-height: 280px;
   width: 100%;
   background: var(--cinza-muito-claro);
+}
+
+/* Suaviza o giro do mapa durante a navegação (plugin leaflet-rotate muda o
+   ângulo de forma instantânea, sem transição própria) — só a camada de
+   tiles/rota gira, não os ícones (ver comentário em navigation.js), então
+   esta transição não interfere no pan/zoom normal do Leaflet. */
+.leaflet-rotate-pane {
+  transition: transform 0.5s ease-out;
 }
 
 /* ---------------- Card da rota calculada ---------------- */
@@ -209,6 +224,15 @@
 
 /* ---------------- Navegação ativa ---------------- */
 .rota-navegacao[hidden] { display: none; }
+
+/* Seta de direção no mapa durante a navegação: gira suavemente (nunca
+   "pula") acompanhando o rumo calculado a partir do deslocamento real. */
+.navegacao-seta {
+  width: 30px;
+  height: 30px;
+  transition: transform 0.4s ease-out;
+  transform-origin: center center;
+}
 .rota-navegacao__linha {
   display: flex;
   align-items: baseline;
@@ -221,17 +245,6 @@
 .rota-navegacao__acoes { display: flex; gap: var(--esp-3); margin-top: var(--esp-4); }
 .rota-navegacao__acoes .btn { flex: 1; }
 .rota-navegacao__compartilhar { margin-top: var(--esp-3); }
-
-.rota-navegacao__aviso-previa {
-  font-size: var(--fs-xs);
-  color: #B26A22;
-  background: var(--amarelo-suave);
-  border-radius: 10px;
-  padding: 8px 10px;
-  margin-top: var(--esp-3);
-  line-height: 1.45;
-}
-.rota-navegacao__aviso-previa[hidden] { display: none; }
 
 /* .bottom-nav já define display:flex — sem isto, o atributo [hidden] sozinho
    não conseguiria escondê-la (empate de especificidade CSS). */

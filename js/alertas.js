@@ -12,7 +12,7 @@ import { marcarItemAtivo, atualizarBadgeNotificacoes, ligarRealtimeBadgeNotifica
 import { prepararNotificacoes } from './notifications.js';
 import {
   carregarFeed, prepararFiltrosDeComunidade, ligarRealtimePosts,
-  prepararFormularioPublicacao
+  prepararFormularioPublicacao, prepararComentarios
 } from './community.js';
 
 async function iniciar() {
@@ -37,6 +37,7 @@ async function iniciar() {
 
   prepararFiltrosDeComunidade();
   prepararFormularioPublicacao({ aoPublicar: () => carregarFeed() });
+  prepararComentarios();
 
   await Promise.all([carregarFeed(), atualizarBadgeNotificacoes()]);
   ligarRealtimePosts();

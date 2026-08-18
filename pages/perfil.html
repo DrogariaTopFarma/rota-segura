@@ -80,6 +80,15 @@
       <div id="perfil-relatos-lista"></div>
     </section>
 
+    <!-- ================= MEUS PONTOS DE APOIO ================= -->
+    <section class="secao-perfil" id="pontos-de-apoio">
+      <div class="secao-perfil__topo">
+        <h2 class="secao-perfil__titulo">Meus pontos de apoio</h2>
+      </div>
+      <p class="secao-perfil__dica">Cadastrou um ponto no lugar errado ou não é mais válido? Você pode excluir aqui.</p>
+      <div id="perfil-pontos-lista"></div>
+    </section>
+
     <!-- ================= MINHAS PUBLICAÇÕES ================= -->
     <section class="secao-perfil">
       <div class="secao-perfil__topo">
@@ -199,15 +208,63 @@
     </div>
   </div>
 
+  <!-- ================= MODAL: EXCLUIR PONTO DE APOIO ================= -->
+  <div class="modal" id="modal-excluir-ponto" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-excluir-ponto" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-excluir-ponto">Excluir ponto de apoio?</h2>
+      </div>
+      <p class="modal__texto">Ele deixa de aparecer no mapa para todo mundo. Essa ação não pode ser desfeita.</p>
+      <div class="modal__acoes">
+        <button type="button" class="btn btn-secundario btn-bloco" data-fechar>CANCELAR</button>
+        <button type="button" class="btn btn-primario btn-bloco" id="btn-confirmar-excluir-ponto">EXCLUIR</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: EXCLUIR RELATO ================= -->
+  <div class="modal" id="modal-excluir-relato" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-excluir-relato" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-excluir-relato">Excluir relato?</h2>
+      </div>
+      <p class="modal__texto">Ele deixa de aparecer no mapa e nas buscas para todo mundo. Essa ação não pode ser desfeita.</p>
+      <div class="modal__acoes">
+        <button type="button" class="btn btn-secundario btn-bloco" data-fechar>CANCELAR</button>
+        <button type="button" class="btn btn-primario btn-bloco" id="btn-confirmar-excluir-relato">EXCLUIR</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: EXCLUIR PUBLICAÇÃO ================= -->
+  <div class="modal" id="modal-excluir-publicacao" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-excluir-publicacao" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-excluir-publicacao">Excluir publicação?</h2>
+      </div>
+      <p class="modal__texto">Ela deixa de aparecer na Comunidade para todo mundo, junto com as curtidas e comentários dela. Essa ação não pode ser desfeita.</p>
+      <div class="modal__acoes">
+        <button type="button" class="btn btn-secundario btn-bloco" data-fechar>CANCELAR</button>
+        <button type="button" class="btn btn-primario btn-bloco" id="btn-confirmar-excluir-publicacao">EXCLUIR</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ================= MODAL: NOTIFICAÇÕES ================= -->
   <div class="modal" id="modal-notificacoes" role="dialog" aria-modal="true"
        aria-labelledby="titulo-modal-notificacoes" hidden>
     <div class="modal__caixa">
       <div class="modal__cabecalho">
         <h2 class="modal__titulo" id="titulo-modal-notificacoes">Notificações</h2>
-        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
-          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
-        </button>
+        <div class="modal__cabecalho-acoes">
+          <button type="button" class="btn-texto" id="btn-limpar-notificacoes">Limpar</button>
+          <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+            <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+          </button>
+        </div>
       </div>
       <div id="notificacoes-lista"></div>
     </div>

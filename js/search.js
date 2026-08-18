@@ -9,6 +9,12 @@ import { buscarEndereco } from './geocoding.js';
 import { marcarLocalPesquisado, mapaAtual } from './map.js';
 import { escapar, debounce, toast, distanciaMetros } from './ui.js';
 import { APP_CONFIG } from './config.js';
+import { renderizarLista } from './reports.js';
+
+// Preview compacto, não a lista inteira — a lista completa já existe embaixo
+// do mapa ("Relatos de segurança"). Evita travar a tela numa área com muitos
+// relatos registrados.
+const LIMITE_LISTA_PROXIMOS = 5;
 
 /** Retângulo que você está vendo agora — usado para priorizar resultados perto. */
 function areaVisivel() {
@@ -106,7 +112,11 @@ async function contarRelatosProximos(local, container) {
 
   const { data, error } = await supabase
     .from('reports')
-    .select('id,lat,lng')
+    .select('id,type,address,occurred_at,attention_level,status,lat,lng')
+    // Mais recente primeiro, pela data/hora real do relato — não pela ordem
+    // de criação no banco. O filtro de raio abaixo usa .filter(), que
+    // preserva a ordem que já veio assim do banco.
+    .order('occurred_at', { ascending: false })
     .gte('lat', local.lat - delta).lte('lat', local.lat + delta)
     .gte('lng', local.lng - delta).lte('lng', local.lng + delta)
     .limit(300);
@@ -130,4 +140,25 @@ async function contarRelatosProximos(local, container) {
       : `${proximos.length} relatos registrados a até 500 m deste local.`;
 
   mostrarResultado(container, titulo, texto, opcoes);
+  mostrarListaDeProximos(container, proximos);
+}
+
+/** Preview dos relatos mais recentes perto do local pesquisado (a lista
+    completa já existe embaixo do mapa). mostrarResultado() já limpou o
+    container antes desta chamada, então é seguro só anexar. */
+function mostrarListaDeProximos(container, proximos) {
+  if (!container || !proximos.length) return;
+
+  const lista = document.createElement('div');
+  lista.className = 'resultado-busca__lista';
+  renderizarLista(lista, proximos.slice(0, LIMITE_LISTA_PROXIMOS));
+  container.appendChild(lista);
+
+  const restantes = proximos.length - LIMITE_LISTA_PROXIMOS;
+  if (restantes > 0) {
+    const aviso = document.createElement('div');
+    aviso.className = 'resultado-busca__mais';
+    aviso.textContent = `+ ${restantes} relato${restantes === 1 ? '' : 's'} não mostrado${restantes === 1 ? '' : 's'} aqui.`;
+    container.appendChild(aviso);
+  }
 }

@@ -221,6 +221,17 @@
   line-height: 1.45;
 }
 .resultado-busca strong { display: block; margin-bottom: 2px; }
+.resultado-busca__lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  margin-top: var(--esp-3);
+}
+.resultado-busca__mais {
+  font-size: var(--fs-xs);
+  color: var(--texto-secundario);
+  margin-top: var(--esp-2);
+}
 
 /* ---------------- Lista de relatos ---------------- */
 .secao-relatos {

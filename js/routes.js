@@ -112,8 +112,21 @@ function prepararSeletorDeModo() {
 /* -------------------------------------------------------------- Mapa --- */
 function garantirMapa() {
   if (mapa) return mapa;
-  mapa = L.map('rota-mapa', { zoomControl: true, attributionControl: true, renderer: L.canvas() })
-    .setView(APP_CONFIG.centroPadrao, APP_CONFIG.zoomPadrao);
+  mapa = L.map('rota-mapa', {
+    zoomControl: true,
+    attributionControl: true,
+    renderer: L.canvas(),
+    // Capacidade de girar o mapa (câmera "de frente" durante a navegação —
+    // ver navigation.js). Fica parado em 0° (norte pra cima) até a navegação
+    // de verdade começar a girar sozinha pelo rumo do GPS; sem rotação
+    // manual por gesto (touchRotate:false), pra nunca brigar com o giro
+    // automático nem com o pinça-pra-zoom.
+    rotate: true,
+    rotateControl: false,
+    bearing: 0,
+    touchRotate: false,
+    zoomAnimation: false
+  }).setView(APP_CONFIG.centroPadrao, APP_CONFIG.zoomPadrao);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
     subdomains: 'abcd',
     maxZoom: 20,
@@ -560,14 +573,13 @@ async function salvarHistoricoRota(rota) {
 function iniciarNavegacaoClique() {
   if (!rotaAtual || !origem || !destino) return;
 
-  const previa = origem.fonte === 'manual';
+  // O acompanhamento em si é sempre real (GPS de verdade), não importa se a
+  // partida foi digitada ou veio do GPS — ver navigation.js.
   document.getElementById('painel-planejamento').hidden = true;
   document.getElementById('rota-card').hidden = true; // agora é irmão do painel, não filho — precisa esconder também
   document.getElementById('rota-bottom-nav').hidden = true;
-  document.getElementById('rota-titulo').textContent = previa ? 'Prévia da rota' : 'Navegando';
-  document.getElementById('rota-subtitulo').textContent = previa
-    ? 'Partida digitada — sem acompanhamento de GPS em tempo real.'
-    : 'Toque em "Encerrar rota" quando terminar.';
+  document.getElementById('rota-titulo').textContent = 'Navegando';
+  document.getElementById('rota-subtitulo').textContent = 'Toque em "Encerrar rota" quando terminar.';
 
   iniciarNavegacao({
     mapa,

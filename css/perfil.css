@@ -43,6 +43,12 @@
   margin-bottom: var(--esp-4);
 }
 .secao-perfil__titulo { font-size: var(--fs-lg); font-weight: 600; }
+.secao-perfil__dica {
+  font-size: var(--fs-xs);
+  color: var(--texto-secundario);
+  margin: -8px 0 var(--esp-3);
+  line-height: 1.45;
+}
 .secao-perfil:last-of-type { margin-bottom: var(--esp-5); }
 
 .config-subtitulo {

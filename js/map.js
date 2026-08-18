@@ -20,13 +20,14 @@ import {
 export const ROTULOS_RELATO = {
   assedio_verbal: 'Assédio verbal',
   assedio_fisico: 'Assédio físico',
+  assalto: 'Assalto',
   perseguicao: 'Perseguição',
   rua_pouco_iluminada: 'Rua pouco iluminada',
   local_isolado: 'Local isolado',
   outro: 'Outro'
 };
 
-const ROTULOS_PONTO = {
+export const ROTULOS_PONTO = {
   ponto_apoio: 'Ponto de apoio',
   farmacia: 'Farmácia',
   hospital: 'Hospital',
@@ -136,13 +137,25 @@ export function criarMapa(idElemento = 'mapa') {
 }
 
 /* ------------------------------------------------- Localização do usuário */
+function mostrarPosicaoNoMapa(pos) {
+  ultimaPosicao = pos;
+  desenharUsuario(pos);
+  mapa.setView([pos.lat, pos.lng], APP_CONFIG.zoomPadrao);
+}
+
 export async function localizarUsuario({ silencioso = false } = {}) {
   const aviso = document.getElementById('mapa-aviso');
   try {
-    const pos = await obterPosicao({ precisaoDesejada: 25, tempoMaximo: 15000 });
-    ultimaPosicao = pos;
-    desenharUsuario(pos);
-    mapa.setView([pos.lat, pos.lng], APP_CONFIG.zoomPadrao);
+    const pos = await obterPosicao({
+      precisaoDesejada: 25,
+      tempoMaximo: 15000,
+      // Mostra a PRIMEIRA leitura (mesmo aproximada) assim que ela chega, em
+      // vez de deixar a tela sem nenhum pino até a leitura precisa terminar
+      // de chegar — desenharUsuario já atualiza o mesmo marcador no lugar
+      // quando a leitura final (mais precisa) resolver a Promise abaixo.
+      aoObterAproximada: mostrarPosicaoNoMapa
+    });
+    mostrarPosicaoNoMapa(pos);
     if (aviso && !precisaoRuim(pos.precisao)) aviso.hidden = true;
     mostrarAvisoDePrecisao(pos.precisao);
 

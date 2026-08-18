@@ -167,6 +167,7 @@
             <option value="">Selecione</option>
             <option value="assedio_verbal">Assédio verbal</option>
             <option value="assedio_fisico">Assédio físico</option>
+            <option value="assalto">Assalto</option>
             <option value="perseguicao">Perseguição</option>
             <option value="rua_pouco_iluminada">Rua pouco iluminada</option>
             <option value="local_isolado">Local isolado</option>
@@ -398,9 +399,12 @@
     <div class="modal__caixa">
       <div class="modal__cabecalho">
         <h2 class="modal__titulo" id="titulo-modal-notificacoes">Notificações</h2>
-        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
-          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
-        </button>
+        <div class="modal__cabecalho-acoes">
+          <button type="button" class="btn-texto" id="btn-limpar-notificacoes">Limpar</button>
+          <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+            <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+          </button>
+        </div>
       </div>
       <div id="notificacoes-lista"></div>
     </div>

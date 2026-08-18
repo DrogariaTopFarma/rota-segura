@@ -15,8 +15,8 @@ import {
   botaoCarregando, htmlEstadoVazio, htmlCarregando, mostrarMensagem, limparMensagem
 } from './ui.js';
 import { marcarItemAtivo, atualizarBadgeNotificacoes, ligarRealtimeBadgeNotificacoes } from './nav.js';
-import { renderizarLista } from './reports.js';
 import { prepararNotificacoes } from './notifications.js';
+import { ROTULOS_PONTO, ROTULOS_RELATO } from './map.js';
 
 const ROTULOS_CATEGORIA = { alerta: 'Alerta', dica: 'Dica', apoio: 'Apoio', noticia: 'Notícia' };
 
@@ -146,6 +146,8 @@ function prepararEdicaoPerfil() {
 /* 2. MEUS RELATOS / MINHAS PUBLICAÇÕES / HISTÓRICO DE ROTAS                  */
 /* ========================================================================== */
 
+let relatoParaExcluir = null;
+
 async function carregarMeusRelatos() {
   const container = document.getElementById('perfil-relatos-lista');
   if (!container) return;
@@ -165,7 +167,109 @@ async function carregarMeusRelatos() {
     container.innerHTML = `<div class="mensagem mensagem--erro">Não foi possível carregar seus relatos.</div>`;
     return;
   }
-  renderizarLista(container, data || []);
+
+  const relatos = data || [];
+  if (!relatos.length) {
+    container.innerHTML = htmlEstadoVazio('Você ainda não registrou nenhum relato.');
+    return;
+  }
+
+  container.innerHTML = relatos.map((r) => {
+    const iluminacao = r.type === 'rua_pouco_iluminada';
+    return `
+      <article class="card-lista">
+        <div class="card-lista__icone ${iluminacao ? 'card-lista__icone--atencao' : ''}">${icone(iluminacao ? 'lampada' : 'escudo', 20)}</div>
+        <div class="card-lista__conteudo">
+          <div class="card-lista__titulo">${escapar(ROTULOS_RELATO[r.type] || 'Relato')}</div>
+          <div class="card-lista__meta">${escapar(formatarDataHora(r.occurred_at))}${r.status === 'pending' ? ' · Em análise' : ''}</div>
+          <div class="card-lista__endereco">${escapar(r.address || 'Endereço não informado')}</div>
+        </div>
+        <div class="contato-acoes">
+          <button type="button" class="btn-icone" data-excluir-relato="${r.id}" aria-label="Excluir relato de ${escapar(formatarDataHora(r.occurred_at))}">${icone('lixeira', 16)}</button>
+        </div>
+      </article>`;
+  }).join('');
+
+  container.querySelectorAll('[data-excluir-relato]').forEach((b) => {
+    b.addEventListener('click', () => {
+      relatoParaExcluir = b.dataset.excluirRelato;
+      abrirModal('modal-excluir-relato');
+    });
+  });
+}
+
+function prepararMeusRelatos() {
+  document.getElementById('btn-confirmar-excluir-relato')?.addEventListener('click', async () => {
+    if (!relatoParaExcluir) return;
+    const { error } = await supabase.from('reports').delete().eq('id', relatoParaExcluir);
+    fecharModal('modal-excluir-relato');
+    if (error) { toast('Não foi possível excluir o relato.', 'erro'); return; }
+    toast('Relato excluído.', 'sucesso');
+    relatoParaExcluir = null;
+    await carregarMeusRelatos();
+  });
+}
+
+let pontosCache = [];
+let pontoParaExcluir = null;
+
+async function carregarMeusPontos() {
+  const container = document.getElementById('perfil-pontos-lista');
+  if (!container) return;
+  container.innerHTML = htmlCarregando(2);
+
+  const user = await usuarioAtual();
+  if (!user) return;
+
+  const { data, error } = await supabase
+    .from('support_points')
+    .select('id,type,name,address')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  if (error) {
+    container.innerHTML = `<div class="mensagem mensagem--erro">Não foi possível carregar seus pontos de apoio.</div>`;
+    return;
+  }
+
+  pontosCache = data || [];
+  if (!pontosCache.length) {
+    container.innerHTML = htmlEstadoVazio('Você ainda não cadastrou nenhum ponto de apoio.');
+    return;
+  }
+
+  container.innerHTML = pontosCache.map((p) => `
+    <article class="card-lista">
+      <div class="card-lista__icone card-lista__icone--verde">${icone('escudo', 20)}</div>
+      <div class="card-lista__conteudo">
+        <div class="card-lista__titulo">${escapar(p.name)}</div>
+        <div class="card-lista__meta">${escapar(ROTULOS_PONTO[p.type] || 'Ponto de apoio')}</div>
+        ${p.address ? `<div class="card-lista__endereco">${escapar(p.address)}</div>` : ''}
+      </div>
+      <div class="contato-acoes">
+        <button type="button" class="btn-icone" data-excluir-ponto="${p.id}" aria-label="Excluir ${escapar(p.name)}">${icone('lixeira', 16)}</button>
+      </div>
+    </article>`).join('');
+
+  container.querySelectorAll('[data-excluir-ponto]').forEach((b) => {
+    b.addEventListener('click', () => {
+      pontoParaExcluir = b.dataset.excluirPonto;
+      abrirModal('modal-excluir-ponto');
+    });
+  });
+}
+
+function prepararMeusPontos() {
+  document.getElementById('btn-confirmar-excluir-ponto')?.addEventListener('click', async () => {
+    if (!pontoParaExcluir) return;
+    const { error } = await supabase.from('support_points').delete().eq('id', pontoParaExcluir);
+    fecharModal('modal-excluir-ponto');
+    if (error) { toast('Não foi possível excluir o ponto de apoio.', 'erro'); return; }
+    toast('Ponto de apoio excluído.', 'sucesso');
+    pontoParaExcluir = null;
+    await carregarMeusPontos();
+  });
 }
 
 async function carregarMinhasPublicacoes() {
@@ -204,7 +308,31 @@ async function carregarMinhasPublicacoes() {
         </div>
       </div>
       <span class="tag tag--rosa">${escapar(ROTULOS_CATEGORIA[p.category] || '')}</span>
+      <div class="contato-acoes">
+        <button type="button" class="btn-icone" data-excluir-publicacao="${p.id}" aria-label="Excluir publicação ${escapar(p.title || 'sem título')}">${icone('lixeira', 16)}</button>
+      </div>
     </article>`).join('');
+
+  container.querySelectorAll('[data-excluir-publicacao]').forEach((b) => {
+    b.addEventListener('click', () => {
+      publicacaoParaExcluir = b.dataset.excluirPublicacao;
+      abrirModal('modal-excluir-publicacao');
+    });
+  });
+}
+
+let publicacaoParaExcluir = null;
+
+function prepararMinhasPublicacoes() {
+  document.getElementById('btn-confirmar-excluir-publicacao')?.addEventListener('click', async () => {
+    if (!publicacaoParaExcluir) return;
+    const { error } = await supabase.from('posts').delete().eq('id', publicacaoParaExcluir);
+    fecharModal('modal-excluir-publicacao');
+    if (error) { toast('Não foi possível excluir a publicação.', 'erro'); return; }
+    toast('Publicação excluída.', 'sucesso');
+    publicacaoParaExcluir = null;
+    await carregarMinhasPublicacoes();
+  });
 }
 
 async function carregarHistoricoRotas() {
@@ -441,9 +569,13 @@ async function iniciar() {
   prepararEdicaoPerfil();
   prepararTrocaDeSenha();
   prepararContatos();
+  prepararMeusPontos();
+  prepararMeusRelatos();
+  prepararMinhasPublicacoes();
 
   await Promise.all([
     carregarMeusRelatos(),
+    carregarMeusPontos(),
     carregarMinhasPublicacoes(),
     carregarHistoricoRotas(),
     carregarContatos(),

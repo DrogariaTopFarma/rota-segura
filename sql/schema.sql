@@ -116,6 +116,7 @@ create table if not exists public.reports (
   type            text not null check (type in (
                     'assedio_verbal',
                     'assedio_fisico',
+                    'assalto',
                     'perseguicao',
                     'rua_pouco_iluminada',
                     'local_isolado',
@@ -144,6 +145,17 @@ drop trigger if exists trg_reports_updated_at on public.reports;
 create trigger trg_reports_updated_at
   before update on public.reports
   for each row execute function public.set_updated_at();
+
+-- MIGRAÇÃO: "create table if not exists" acima não altera uma tabela que já
+-- existe — então, se seu banco já tinha reports antes de "assalto" ser
+-- adicionado, o "if not exists" sozinho não bastava. Isto recria só a regra
+-- de validação (constraint), sem tocar em nenhuma linha já cadastrada — os
+-- relatos antigos continuam válidos porque seus tipos continuam na lista.
+alter table public.reports drop constraint if exists reports_type_check;
+alter table public.reports add constraint reports_type_check check (type in (
+  'assedio_verbal', 'assedio_fisico', 'assalto', 'perseguicao',
+  'rua_pouco_iluminada', 'local_isolado', 'outro'
+));
 
 
 -- ============================================================================
@@ -279,6 +291,55 @@ create trigger trg_post_likes_sync
 
 
 -- ============================================================================
+-- 9.1 TABELA: post_comments (comentários nas publicações da Comunidade)
+--     Adicionada depois do resto do Bloco 3. A regra original do PDF dizia
+--     "só curtir, sem comentários" — foi revista a pedido explícito depois de
+--     testar o app pronto. Segue o mesmo padrão de post_likes: tabela própria,
+--     contador sincronizado por gatilho em posts, RLS "só a autora edita/
+--     apaga o que é dela".
+-- ============================================================================
+create table if not exists public.post_comments (
+  id         uuid primary key default gen_random_uuid(),
+  post_id    uuid not null references public.posts(id) on delete cascade,
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  content    text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_post_comments_post on public.post_comments(post_id, created_at);
+
+-- "create table if not exists" acima não adiciona coluna nova a uma tabela
+-- "posts" que já existia antes deste comentário ser escrito — por isso o
+-- "add column if not exists" separado aqui, idempotente e seguro de rodar
+-- de novo mesmo se posts já tiver a coluna.
+alter table public.posts add column if not exists comments_count integer not null default 0;
+
+-- Mantém posts.comments_count sempre correto (mesmo padrão de sync_likes_count)
+create or replace function public.sync_comments_count()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if (tg_op = 'INSERT') then
+    update public.posts set comments_count = comments_count + 1 where id = new.post_id;
+    return new;
+  elsif (tg_op = 'DELETE') then
+    update public.posts set comments_count = greatest(comments_count - 1, 0) where id = old.post_id;
+    return old;
+  end if;
+  return null;
+end;
+$$;
+
+drop trigger if exists trg_post_comments_sync on public.post_comments;
+create trigger trg_post_comments_sync
+  after insert or delete on public.post_comments
+  for each row execute function public.sync_comments_count();
+
+
+-- ============================================================================
 -- 10. TABELA: notifications (notificações do sino)
 -- ============================================================================
 create table if not exists public.notifications (
@@ -326,6 +387,7 @@ alter table public.support_points     enable row level security;
 alter table public.police_stations    enable row level security;
 alter table public.posts              enable row level security;
 alter table public.post_likes         enable row level security;
+alter table public.post_comments      enable row level security;
 alter table public.notifications      enable row level security;
 alter table public.route_history      enable row level security;
 
@@ -575,6 +637,65 @@ create trigger trg_notificar_curtida
   for each row execute function public.notificar_curtida();
 
 
+-- ---------------------------------------------------------------------------
+-- 12.11 post_comments — ler qualquer comentário, escrever/apagar só o próprio
+-- ---------------------------------------------------------------------------
+drop policy if exists "comentarios_leitura" on public.post_comments;
+create policy "comentarios_leitura"
+  on public.post_comments for select
+  to authenticated using (true);
+
+drop policy if exists "comentarios_insert_proprio" on public.post_comments;
+create policy "comentarios_insert_proprio"
+  on public.post_comments for insert
+  to authenticated with check (auth.uid() = user_id);
+
+drop policy if exists "comentarios_delete_proprio" on public.post_comments;
+create policy "comentarios_delete_proprio"
+  on public.post_comments for delete
+  to authenticated using (auth.uid() = user_id);
+
+
+-- ============================================================================
+-- 12.12 Gatilho: notificar a autora do post quando alguém comenta (Bloco 3)
+--       Mesmo padrão de notificar_curtida — pula autocomentário.
+-- ============================================================================
+create or replace function public.notificar_comentario()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  autor_id uuid;
+  nome_de_quem_comentou text;
+begin
+  select user_id into autor_id from public.posts where id = new.post_id;
+  if autor_id is null or autor_id = new.user_id then
+    return new;
+  end if;
+
+  select coalesce(full_name, 'Alguém') into nome_de_quem_comentou
+  from public.profiles where id = new.user_id;
+
+  insert into public.notifications (user_id, title, body, type, link)
+  values (
+    autor_id,
+    'Novo comentário na sua publicação',
+    nome_de_quem_comentou || ' comentou: "' || left(new.content, 80) || '"',
+    'info',
+    'pages/alertas.html'
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_notificar_comentario on public.post_comments;
+create trigger trg_notificar_comentario
+  after insert on public.post_comments
+  for each row execute function public.notificar_comentario();
+
+
 -- ============================================================================
 -- 13. STORAGE — bucket para imagens de relatos e publicações
 -- ============================================================================
@@ -623,6 +744,10 @@ begin
   end;
   begin
     alter publication supabase_realtime add table public.notifications;
+  exception when duplicate_object then null;
+  end;
+  begin
+    alter publication supabase_realtime add table public.post_comments;
   exception when duplicate_object then null;
   end;
 end $$;

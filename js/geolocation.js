@@ -53,11 +53,25 @@ export function precisaoRuim(metros) {
  * ficamos ouvindo por alguns segundos: o GPS geralmente melhora a cada leitura.
  * Paramos assim que a precisão for boa o bastante, ou quando o tempo acabar.
  *
+ * OTIMIZAÇÃO DE VELOCIDADE SEM SACRIFICAR PRECISÃO:
+ * `aoObterAproximada` é chamado assim que a PRIMEIRA leitura chega, mesmo que
+ * ainda não seja precisa o bastante — pra quem chamou já poder mostrar um
+ * pino no mapa na hora, em vez de tela vazia até a leitura boa chegar. A
+ * Promise só resolve depois, com a melhor leitura mesmo.
+ * `maximumAge` fica em 0 de propósito: já testamos aceitar uma posição
+ * "recente" (até 20s) como atalho, mas isso podia devolver uma leitura
+ * ANTIGA e com relatada precisão boa — só que da posição de vários segundos
+ * atrás, não de agora. Se a pessoa tivesse andado nesse intervalo, o pino
+ * ficava "puxando para trás". Como o `aoObterAproximada` acima já resolve o
+ * problema de velocidade percebida, não vale a pena arriscar mostrar uma
+ * localização desatualizada só para ganhar meio segundo.
+ *
  * @param {object} opcoes
  * @param {number} opcoes.precisaoDesejada - metros. Para de esperar ao atingir.
  * @param {number} opcoes.tempoMaximo - milissegundos de espera total.
+ * @param {(leitura: {lat,lng,precisao,quando}) => void} [opcoes.aoObterAproximada]
  */
-export function obterPosicao({ precisaoDesejada = 30, tempoMaximo = 12000 } = {}) {
+export function obterPosicao({ precisaoDesejada = 30, tempoMaximo = 12000, aoObterAproximada } = {}) {
   return new Promise((resolve, reject) => {
     if (!('geolocation' in navigator)) {
       return reject({ motivo: MOTIVOS.SEM_SUPORTE });
@@ -86,8 +100,10 @@ export function obterPosicao({ precisaoDesejada = 30, tempoMaximo = 12000 } = {}
           precisao: pos.coords.accuracy,
           quando: pos.timestamp
         };
+        const primeiraLeitura = !melhor;
         // Guarda só a leitura mais precisa que já vimos
         if (!melhor || leitura.precisao < melhor.precisao) melhor = leitura;
+        if (primeiraLeitura) aoObterAproximada?.(leitura);
         if (melhor.precisao <= precisaoDesejada) finalizar();
       },
       (err) => {

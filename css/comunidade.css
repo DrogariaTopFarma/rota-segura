@@ -82,11 +82,18 @@
   display: block;
 }
 
-.post-card__curtir {
+.post-card__acoes {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-4);
+  margin-top: var(--esp-4);
+}
+
+.post-card__curtir,
+.post-card__comentar {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: var(--esp-4);
   padding: 6px 4px;
   color: var(--texto-secundario);
   font-size: var(--fs-sm);
@@ -94,3 +101,70 @@
 }
 .post-card__curtir.ativo { color: var(--rosa-magenta); }
 .post-card__curtir:disabled { opacity: .6; }
+
+/* ---------------- Modal de comentários ---------------- */
+.comentarios-lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-3);
+  max-height: 50vh;
+  overflow-y: auto;
+  margin-bottom: var(--esp-4);
+}
+.comentario {
+  display: flex;
+  gap: 10px;
+}
+.comentario__avatar {
+  flex-shrink: 0;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: var(--rosa-bebe);
+  color: var(--rosa-magenta);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.comentario__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.comentario__corpo {
+  flex: 1;
+  min-width: 0;
+  background: var(--cinza-muito-claro);
+  border-radius: var(--raio-md);
+  padding: 8px 12px;
+}
+.comentario__linha {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.comentario__nome { font-weight: 600; font-size: var(--fs-xs); }
+.comentario__hora { font-size: var(--fs-xs); color: var(--texto-secundario); }
+.comentario__texto { font-size: var(--fs-sm); margin-top: 2px; white-space: pre-line; }
+
+.form-comentario {
+  display: flex;
+  gap: var(--esp-2);
+  align-items: flex-end;
+}
+.form-comentario textarea {
+  flex: 1;
+  resize: none;
+  min-height: 42px;
+  max-height: 120px;
+  border: 1.5px solid var(--borda);
+  border-radius: var(--raio-md);
+  padding: 10px 12px;
+  font-family: var(--fonte);
+  font-size: var(--fs-sm);
+}
+.form-comentario textarea:focus { outline: none; border-color: var(--rosa-magenta); }
+.form-comentario button {
+  flex-shrink: 0;
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  background: var(--rosa-magenta);
+  color: var(--branco);
+  display: flex; align-items: center; justify-content: center;
+}
+.form-comentario button:hover { background: var(--rosa-magenta-escuro); }
+.form-comentario button:disabled { opacity: .6; }

@@ -16,9 +16,24 @@ import { APP_CONFIG } from './config.js';
 import { supabase } from './supabase.js';
 import { obterLinkDeCompartilhamento } from './emergency.js';
 
-const LIMITE_FORA_DA_ROTA_M = 50;
-const LEITURAS_PARA_CONFIRMAR_SAIDA = 2;
+// "Saiu da rota" — regra nova, com evidência de por que a antiga (50m fixos +
+// 2 leituras seguidas) dava alarme falso: GPS a pé costuma variar 20-40m
+// mesmo parado, e 2 leituras seguidas pode significar só 2-4 segundos com
+// watchPosition. Agora: (1) a margem cresce com a IMPRECISÃO relatada pelo
+// próprio GPS naquela leitura — não é um número fixo; (2) só confirma depois
+// de ficar fora por um tempo MÍNIMO sustentado, não por contagem de leituras
+// (que varia com a frequência do GPS do aparelho).
+const LIMITE_BASE_FORA_DA_ROTA_M = 35;
+const FATOR_MARGEM_PRECISAO = 1.5;
+const LIMITE_MAXIMO_EFETIVO_M = 100;
+const TEMPO_MINIMO_FORA_MS = 8000;
 const LIMITE_CHEGADA_M = 25;
+
+// Câmera durante a navegação (acompanhamento estilo Waze, sem copiar a
+// interface): distância mínima antes de mexer a câmera ou recalcular o
+// rumo, pra não reagir a ruído do GPS quando a pessoa está parada.
+const DISTANCIA_MINIMA_PARA_SEGUIR_M = 5;
+const DISTANCIA_MINIMA_PARA_RUMO_M = 4;
 
 let mapa = null;
 let rotaGeometria = null;
@@ -29,10 +44,22 @@ let aoSairCallback = null;
 let marcadorPosicaoAtual = null;
 let pararAcompanhamento = null;
 let pararSimulacao = null;
-let leiturasForaDaRota = 0;
+let desdeQuandoPareceForaDaRota = null; // timestamp (ms) da 1ª leitura seguida fora
 let jaAvisouSaida = false;
 let navegacaoAtiva = false;
-let modoPrevia = false; // origem foi digitada à mão: sem GPS real, só mostra a rota
+
+let seguindoAutomaticamente = true; // pausa quando a pessoa arrasta o mapa
+let posicaoAnterior = null;         // pra calcular deslocamento e rumo
+let rumoAtual = null;               // graus (0-360), null até termos um rumo confiável
+let detectorDeArrastoLigado = false; // liga o listener de dragstart só uma vez por página
+
+// O mapa da Tela 2 é criado com {rotate:true} (routes.js) — gira o mapa
+// inteiro pra manter a direção do trajeto sempre "pra cima" na tela (estilo
+// GPS de navegação de verdade), em vez de só girar o ícone da seta sobre um
+// mapa parado. Leaflet exige suporte a transform 3D pra isso (qualquer
+// navegador de celular atual tem); nos raros casos sem suporte, cai pro
+// comportamento antigo (mapa fixo, só a seta gira) em vez de travar.
+const rotacaoDoMapaAtiva = typeof L !== 'undefined' && L.Browser?.any3d;
 
 /**
  * @param {object} args
@@ -48,37 +75,44 @@ export function iniciarNavegacao({ mapa: mapaRecebido, origem, destino, rota, ao
   rotaInfo = { distanciaM: rota.distanciaM, duracaoS: rota.duracaoS };
   destinoAtual = destino;
   aoSairCallback = aoSair;
-  modoPrevia = origem.fonte === 'manual';
 
   navegacaoAtiva = true;
-  leiturasForaDaRota = 0;
+  desdeQuandoPareceForaDaRota = null;
   jaAvisouSaida = false;
+  seguindoAutomaticamente = true;
+  posicaoAnterior = null;
+  rumoAtual = null;
 
   document.getElementById('painel-navegacao').hidden = false;
   document.getElementById('navegacao-destino').textContent = `Indo para ${destino.nome}`;
-  document.getElementById('navegacao-aviso-previa').hidden = !modoPrevia;
 
   document.getElementById('navegacao-recentralizar').onclick = () => {
-    if (modoPrevia) {
-      mapa.fitBounds(L.latLngBounds(rotaGeometria), { padding: [40, 40] });
-    } else if (marcadorPosicaoAtual) {
-      mapa.setView(marcadorPosicaoAtual.getLatLng(), APP_CONFIG.zoomSeletor);
+    seguindoAutomaticamente = true;
+    if (marcadorPosicaoAtual) {
+      mapa.setView(marcadorPosicaoAtual.getLatLng(), APP_CONFIG.zoomSeletor, { animate: true });
+      // Recentralizar também devolve a orientação "de frente" (rumo pra
+      // cima), não só a posição — senão a pessoa via a câmera voltar pro
+      // lugar certo mas ainda torta, do jeito que ela tinha deixado ao girar
+      // o mapa manualmente.
+      if (rotacaoDoMapaAtiva && rumoAtual !== null) mapa.setBearing(rumoAtual);
     }
   };
   document.getElementById('navegacao-encerrar').onclick = () => abrirModal('modal-encerrar-rota');
   document.getElementById('navegacao-compartilhar').onclick = compartilharRota;
   ligarBotoesDosModais();
+  ligarDetectorDeArrasto();
 
-  if (modoPrevia) {
-    // Origem digitada à mão: não existe uma posição real da usuária para
-    // seguir. Mostra a rota calculada como prévia — sem GPS, sem detectar
-    // desvio nem chegada (regra pedida: nunca tratar isso como navegação
-    // em tempo real quando a partida não veio do GPS). O pino de partida já
-    // foi desenhado pela Tela 2 (routes.js); não duplica outro aqui.
-    atualizarProgresso(rotaInfo.distanciaM, { rotulo: 'no total — prévia, sem GPS' });
-    return;
-  }
-
+  // Acompanhamento real (GPS de verdade) sempre — mesmo quando a partida foi
+  // digitada à mão em vez de vir do GPS. Digitar o endereço de partida é só
+  // um jeito de conferir/corrigir de onde você está partindo (por exemplo,
+  // enquanto o GPS ainda não travou uma posição boa); a partir do momento
+  // que a navegação começa, o acompanhamento é sempre real, então segue o
+  // GPS de verdade a partir daqui, não fica preso ao ponto digitado.
+  //
+  // Já entra no zoom de acompanhamento (mais perto que a visão geral da
+  // rota que a Tela 2 deixou no mapa) — depois disso, panTo só recentraliza,
+  // sem forçar zoom de novo a cada leitura.
+  mapa.setView([origem.lat, origem.lng], APP_CONFIG.zoomSeletor, { animate: true });
   desenharPosicaoAtual(origem.lat, origem.lng);
   atualizarProgresso(distanciaMetros(origem.lat, origem.lng, destino.lat, destino.lng));
 
@@ -87,14 +121,14 @@ export function iniciarNavegacao({ mapa: mapaRecebido, origem, destino, rota, ao
     ligarSimulacao();
   } else {
     pararAcompanhamento = acompanharPosicao(
-      (pos) => processarPosicao(pos.lat, pos.lng),
+      (pos) => processarPosicao(pos.lat, pos.lng, pos.precisao),
       (erro) => toast(mensagemDoMotivo(erro.motivo), 'erro', 6000)
     );
   }
 }
 
 /* --------------------------------------------------- Processar posição --- */
-function processarPosicao(lat, lng) {
+function processarPosicao(lat, lng, precisaoM) {
   if (!navegacaoAtiva) return;
   desenharPosicaoAtual(lat, lng);
 
@@ -107,16 +141,32 @@ function processarPosicao(lat, lng) {
   }
 
   const distRota = distanciaMinimaDaRota(lat, lng);
-  if (distRota > LIMITE_FORA_DA_ROTA_M) {
-    leiturasForaDaRota++;
-    // Exige 2 leituras seguidas longe da rota antes de avisar — evita alarme
-    // falso por um único salto de precisão do GPS.
-    if (leiturasForaDaRota >= LEITURAS_PARA_CONFIRMAR_SAIDA && !jaAvisouSaida) {
-      jaAvisouSaida = true;
-      abrirModal('modal-saiu-rota');
-    }
-  } else {
-    leiturasForaDaRota = 0;
+  // A margem cresce com a imprecisão QUE O PRÓPRIO GPS relatou nesta leitura
+  // (pos.coords.accuracy) — uma leitura de 80m de precisão não pode usar a
+  // mesma régua rígida que uma de 5m. O teto evita que um GPS péssimo
+  // desligue a checagem por completo.
+  const limiteEfetivo = Math.min(
+    LIMITE_MAXIMO_EFETIVO_M,
+    LIMITE_BASE_FORA_DA_ROTA_M + (precisaoM || 0) * FATOR_MARGEM_PRECISAO
+  );
+
+  if (distRota <= limiteEfetivo) {
+    desdeQuandoPareceForaDaRota = null;
+    return;
+  }
+
+  // Parece fora da rota — só confirma se isso persistir por um tempo mínimo.
+  // Uma leitura isolada de ruído nunca chega a somar esse tempo, porque a
+  // primeira leitura BOA que chegar no meio do caminho já reseta o relógio
+  // acima. É isso que impede o aviso de aparecer/sumir repetidamente.
+  if (desdeQuandoPareceForaDaRota === null) {
+    desdeQuandoPareceForaDaRota = Date.now();
+    return;
+  }
+  const tempoForaMs = Date.now() - desdeQuandoPareceForaDaRota;
+  if (tempoForaMs >= TEMPO_MINIMO_FORA_MS && !jaAvisouSaida) {
+    jaAvisouSaida = true;
+    abrirModal('modal-saiu-rota');
   }
 }
 
@@ -130,14 +180,92 @@ function distanciaMinimaDaRota(lat, lng) {
 }
 
 /* ------------------------------------------------------------- Desenho --- */
+/** Direção (graus, 0-360, 0 = norte) do ponto 1 pro ponto 2. */
+function calcularRumo(lat1, lng1, lat2, lng2) {
+  const rad = (g) => (g * Math.PI) / 180;
+  const deg = (r) => (r * 180) / Math.PI;
+  const dLng = rad(lng2 - lng1);
+  const y = Math.sin(dLng) * Math.cos(rad(lat2));
+  const x = Math.cos(rad(lat1)) * Math.sin(rad(lat2)) - Math.sin(rad(lat1)) * Math.cos(rad(lat2)) * Math.cos(dLng);
+  return (deg(Math.atan2(y, x)) + 360) % 360;
+}
+
+/** Pino com seta — igual visualmente ao círculo azul de antes, mas
+    apontando pra direção do deslocamento. Girar só a seta (via CSS, com
+    transição suave) em vez de recriar o marcador a cada leitura.
+
+    Quando o mapa em si já gira pro rumo (rotacaoDoMapaAtiva), a seta fica
+    sempre reta pra cima — "pra cima" já É a direção do trajeto, então girar
+    a seta também giraria ela duas vezes. Só gira a seta sozinha no fallback
+    sem suporte a rotação de mapa (mapa fica parado, seta aponta o rumo). */
+function iconeDirecional(rumoGraus) {
+  const angulo = rotacaoDoMapaAtiva ? 0 : Math.round(rumoGraus);
+  return L.divIcon({
+    html: `<div class="navegacao-seta" style="transform: rotate(${angulo}deg)">
+        <svg width="30" height="30" viewBox="0 0 30 30">
+          <circle cx="15" cy="15" r="12" fill="#2F6BFF" stroke="#FFFFFF" stroke-width="3"/>
+          <path d="M15 7 L20.5 19 L15 15.8 L9.5 19 Z" fill="#FFFFFF"/>
+        </svg>
+      </div>`,
+    className: '',
+    iconSize: [30, 30],
+    iconAnchor: [15, 15]
+  });
+}
+
 function desenharPosicaoAtual(lat, lng) {
+  let deslocamentoM = null;
+  if (posicaoAnterior) {
+    deslocamentoM = distanciaMetros(posicaoAnterior.lat, posicaoAnterior.lng, lat, lng);
+    // Só recalcula o rumo com deslocamento significativo — entre dois pontos
+    // quase iguais, a direção calculada é só ruído do GPS, não uma guinada
+    // real. Sem isto, a seta ficaria "tremendo" quando a pessoa está parada.
+    if (deslocamentoM >= DISTANCIA_MINIMA_PARA_RUMO_M) {
+      rumoAtual = calcularRumo(posicaoAnterior.lat, posicaoAnterior.lng, lat, lng);
+    }
+  }
+  posicaoAnterior = { lat, lng };
+
   if (!marcadorPosicaoAtual) {
-    marcadorPosicaoAtual = L.circleMarker([lat, lng], {
-      radius: 8, color: '#FFFFFF', weight: 3, fillColor: '#2F6BFF', fillOpacity: 1
+    marcadorPosicaoAtual = L.marker([lat, lng], {
+      icon: iconeDirecional(rumoAtual || 0),
+      zIndexOffset: 1000,
+      interactive: false
     }).addTo(mapa);
   } else {
     marcadorPosicaoAtual.setLatLng([lat, lng]);
+    if (rumoAtual !== null && !rotacaoDoMapaAtiva) {
+      const seta = marcadorPosicaoAtual.getElement()?.querySelector('.navegacao-seta');
+      if (seta) seta.style.transform = `rotate(${Math.round(rumoAtual)}deg)`;
+    }
   }
+
+  // Câmera acompanha a posição (só quando a pessoa não arrastou o mapa por
+  // conta própria) — e só quando o deslocamento vale a pena, pra não ficar
+  // reajustando a câmera por ruído do GPS enquanto a pessoa está parada.
+  const primeiraLeitura = deslocamentoM === null;
+  const deslocouOSuficiente = primeiraLeitura || deslocamentoM >= DISTANCIA_MINIMA_PARA_SEGUIR_M;
+  if (seguindoAutomaticamente && deslocouOSuficiente) {
+    mapa.panTo([lat, lng], { animate: true, duration: 0.5 });
+  }
+
+  // Gira o mapa pra manter o rumo sempre "pra cima" — só quando a pessoa não
+  // tirou o controle da câmera arrastando o mapa (mesma regra do panTo acima).
+  if (rotacaoDoMapaAtiva && seguindoAutomaticamente && rumoAtual !== null) {
+    mapa.setBearing(rumoAtual);
+  }
+}
+
+/** Pausa o acompanhamento automático quando a pessoa arrasta o mapa —
+    ligado uma única vez (não a cada iniciarNavegacao) pra nunca duplicar
+    o listener em navegações repetidas na mesma página. */
+function ligarDetectorDeArrasto() {
+  if (detectorDeArrastoLigado) return;
+  detectorDeArrastoLigado = true;
+  mapa.on('dragstart', () => {
+    if (!navegacaoAtiva) return;
+    seguindoAutomaticamente = false;
+  });
 }
 
 function formatarDuracao(segundos) {
@@ -179,6 +307,12 @@ function encerrar() {
   pararSimulacao?.();
   pararSimulacao = null;
   if (marcadorPosicaoAtual && mapa) { mapa.removeLayer(marcadorPosicaoAtual); marcadorPosicaoAtual = null; }
+  // Volta o mapa pra norte-pra-cima: fora da navegação ativa (Tela 2 em modo
+  // planejamento) o mapa não deveria continuar torto do jeito que a última
+  // navegação deixou.
+  if (rotacaoDoMapaAtiva && mapa) mapa.setBearing(0);
+  posicaoAnterior = null;
+  rumoAtual = null;
   aoSairCallback?.();
 }
 
@@ -187,7 +321,7 @@ function ligarBotoesDosModais() {
   document.getElementById('btn-continuar-rota').onclick = () => {
     fecharModal('modal-saiu-rota');
     jaAvisouSaida = false;
-    leiturasForaDaRota = 0;
+    desdeQuandoPareceForaDaRota = null;
   };
   // Escolher outra rota: encerra esta navegação e volta para a Tela 2, onde a
   // usuária escolhe/confirma um novo destino e calcula manualmente. O app

@@ -1,19 +1,17 @@
 /* ============================================================================
    ROTA SEGURA — Comunidade (Bloco 3)
 
-   Regra crítica do bloco: a comunidade é SIMPLIFICADA de propósito. A única
-   interação social é curtir/descurtir — sem comentários, resposta,
-   compartilhamento ou outros tipos de reação. O banco já impede curtir duas
-   vezes a mesma publicação (unique(post_id,user_id) em post_likes) e já
-   mantém posts.likes_count sincronizado sozinho via gatilho — aqui só
-   chamamos insert/delete, nunca escrevemos o contador à mão.
+   Interação social: curtir/descurtir e comentar. O banco já impede curtir
+   duas vezes a mesma publicação (unique(post_id,user_id) em post_likes) e já
+   mantém posts.likes_count/comments_count sincronizados sozinhos via gatilho
+   — aqui só chamamos insert/delete, nunca escrevemos os contadores à mão.
    ============================================================================ */
 
 import { supabase, traduzirErro } from './supabase.js';
 import { icone } from './icons.js';
 import {
   toast, escapar, formatarDataHora, botaoCarregando,
-  htmlEstadoVazio, htmlCarregando, fecharModal, mostrarMensagem, limparMensagem
+  htmlEstadoVazio, htmlCarregando, abrirModal, fecharModal, mostrarMensagem, limparMensagem
 } from './ui.js';
 import { criarSeletorLocal } from './location-picker.js';
 
@@ -35,7 +33,7 @@ export async function carregarFeed(filtro = filtroAtual) {
 
   let consulta = supabase
     .from('posts')
-    .select('id,user_id,category,title,content,address,lat,lng,image_url,likes_count,created_at')
+    .select('id,user_id,category,title,content,address,lat,lng,image_url,likes_count,comments_count,created_at')
     .order('created_at', { ascending: false })
     .limit(50);
   if (filtro) consulta = consulta.eq('category', filtro);
@@ -112,11 +110,17 @@ function renderizarFeed(container, posts, autores, curtidos) {
           <div class="post-card__local">${icone('pino', 14)}<span>${escapar(p.address)}</span></div>
         ` : ''}
         ${p.image_url ? `<img class="post-card__imagem" src="${escapar(p.image_url)}" alt="">` : ''}
-        <button type="button" class="post-card__curtir${jaCurtido ? ' ativo' : ''}"
-                data-post-id="${p.id}" data-curtido="${jaCurtido}"
-                aria-pressed="${jaCurtido}" aria-label="Curtir publicação de ${escapar(nome)}">
-          ${icone('coracao', 18)} <span>${p.likes_count}</span>
-        </button>
+        <div class="post-card__acoes">
+          <button type="button" class="post-card__curtir${jaCurtido ? ' ativo' : ''}"
+                  data-post-id="${p.id}" data-curtido="${jaCurtido}"
+                  aria-pressed="${jaCurtido}" aria-label="Curtir publicação de ${escapar(nome)}">
+            ${icone('coracao', 18)} <span>${p.likes_count}</span>
+          </button>
+          <button type="button" class="post-card__comentar"
+                  data-post-id="${p.id}" aria-label="Ver comentários da publicação de ${escapar(nome)}">
+            ${icone('comentario', 18)} <span>${p.comments_count || 0}</span>
+          </button>
+        </div>
       </article>`;
   }).join('');
 
@@ -124,6 +128,10 @@ function renderizarFeed(container, posts, autores, curtidos) {
     botao.addEventListener('click', () => {
       alternarCurtida(botao.dataset.postId, botao.dataset.curtido === 'true', botao);
     });
+  });
+
+  container.querySelectorAll('.post-card__comentar').forEach((botao) => {
+    botao.addEventListener('click', () => abrirComentarios(botao.dataset.postId));
   });
 }
 
@@ -160,6 +168,117 @@ async function alternarCurtida(postId, jaCurtido, botao) {
   } finally {
     botao.disabled = false;
   }
+}
+
+/* ========================================================================== */
+/* 1.1 COMENTÁRIOS                                                            */
+/* ========================================================================== */
+
+let postIdComentarios = null;
+
+async function abrirComentarios(postId) {
+  postIdComentarios = postId;
+  abrirModal('modal-comentarios');
+  await carregarComentarios(postId);
+}
+
+async function carregarComentarios(postId) {
+  const lista = document.getElementById('comentarios-lista');
+  if (!lista) return;
+  lista.innerHTML = htmlCarregando(2);
+
+  const { data, error } = await supabase
+    .from('post_comments')
+    .select('id,user_id,content,created_at')
+    .eq('post_id', postId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    lista.innerHTML = `<div class="mensagem mensagem--erro">Não foi possível carregar os comentários.</div>`;
+    return;
+  }
+
+  const comentarios = data || [];
+  if (!comentarios.length) {
+    lista.innerHTML = htmlEstadoVazio('Nenhum comentário ainda. Seja a primeira a comentar.');
+    return;
+  }
+
+  const idsAutores = [...new Set(comentarios.map((c) => c.user_id))];
+  const autores = {};
+  const { data: perfis } = await supabase
+    .from('profiles')
+    .select('id,full_name,avatar_url')
+    .in('id', idsAutores);
+  (perfis || []).forEach((p) => { autores[p.id] = p; });
+
+  lista.innerHTML = comentarios.map((c) => {
+    const autor = autores[c.user_id];
+    const nome = autor?.full_name || 'Alguém da comunidade';
+    const avatar = autor?.avatar_url
+      ? `<img src="${escapar(autor.avatar_url)}" alt="">`
+      : icone('perfil', 16);
+    return `
+      <div class="comentario">
+        <div class="comentario__avatar">${avatar}</div>
+        <div class="comentario__corpo">
+          <div class="comentario__linha">
+            <span class="comentario__nome">${escapar(nome)}</span>
+            <span class="comentario__hora">${escapar(formatarDataHora(c.created_at))}</span>
+          </div>
+          <p class="comentario__texto">${escapar(c.content)}</p>
+        </div>
+      </div>`;
+  }).join('');
+  lista.scrollTop = lista.scrollHeight;
+}
+
+/** Atualiza o número mostrado no botão "comentar" do post no feed, sem
+    precisar recarregar o feed inteiro. */
+function atualizarContadorDeComentarios(postId, delta) {
+  const botao = document.querySelector(`.post-card__comentar[data-post-id="${postId}"]`);
+  if (!botao) return;
+  const contador = botao.querySelector('span');
+  contador.textContent = String(Math.max((Number(contador.textContent) || 0) + delta, 0));
+}
+
+export function prepararComentarios() {
+  const form = document.getElementById('form-comentario');
+  if (!form) return;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!postIdComentarios) return;
+
+    const texto = form.texto.value.trim();
+    if (!texto) return;
+
+    const { data: sessao } = await supabase.auth.getUser();
+    const user = sessao?.user;
+    if (!user) return;
+
+    const botao = form.querySelector('button[type="submit"]');
+    botao.disabled = true;
+
+    const { error } = await supabase
+      .from('post_comments')
+      .insert({ post_id: postIdComentarios, user_id: user.id, content: texto });
+
+    botao.disabled = false;
+
+    if (error) {
+      toast('Não foi possível enviar o comentário agora. Tente de novo.', 'erro');
+      return;
+    }
+
+    form.reset();
+    atualizarContadorDeComentarios(postIdComentarios, 1);
+    await carregarComentarios(postIdComentarios);
+  });
+
+  document.getElementById('modal-comentarios')
+    ?.querySelectorAll('[data-fechar]')
+    .forEach((botao) => botao.addEventListener('click', () => { postIdComentarios = null; }));
 }
 
 export function prepararFiltrosDeComunidade() {

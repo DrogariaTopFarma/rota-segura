@@ -8,7 +8,7 @@
 
 import { supabase } from './supabase.js';
 import { icone } from './icons.js';
-import { abrirModal, escapar, formatarDataHora, htmlEstadoVazio, htmlCarregando } from './ui.js';
+import { abrirModal, escapar, formatarDataHora, htmlEstadoVazio, htmlCarregando, toast } from './ui.js';
 import { atualizarBadgeNotificacoes } from './nav.js';
 
 const ROTULOS_TIPO = {
@@ -62,10 +62,26 @@ async function carregarNotificacoes() {
   }
 }
 
+/** Apaga todas as notificações da usuária (não só as 30 carregadas na tela),
+    pra não ficarem se acumulando pra sempre. RLS já garante que só apaga as
+    dela — o `.not('id','is',null)` é só o filtro exigido pelo Supabase pra
+    aceitar um delete em massa. */
+async function limparNotificacoes() {
+  const { error } = await supabase.from('notifications').delete().not('id', 'is', null);
+  if (error) {
+    toast('Não foi possível limpar as notificações agora.', 'erro');
+    return;
+  }
+  await carregarNotificacoes();
+  await atualizarBadgeNotificacoes();
+  toast('Notificações limpas.', 'sucesso');
+}
+
 /** Liga o sino do cabeçalho: abre o modal e carrega a lista. */
 export function prepararNotificacoes() {
   document.getElementById('botao-notificacoes')?.addEventListener('click', () => {
     abrirModal('modal-notificacoes');
     carregarNotificacoes();
   });
+  document.getElementById('btn-limpar-notificacoes')?.addEventListener('click', limparNotificacoes);
 }

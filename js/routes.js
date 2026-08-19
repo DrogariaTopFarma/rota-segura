@@ -115,7 +115,13 @@ function garantirMapa() {
   mapa = L.map('rota-mapa', {
     zoomControl: true,
     attributionControl: true,
-    renderer: L.canvas(),
+    // SVG (o padrão do Leaflet), não canvas: o único vetor desenhado aqui é
+    // a linha da rota, e o renderizador canvas tem problema conhecido de
+    // redesenho quando combinado com rotação de mapa (leaflet-rotate) e uma
+    // mudança de tamanho do contêiner — exatamente o que passou a acontecer
+    // ao iniciar a navegação (mapa vira tela cheia). SVG é elemento de DOM
+    // de verdade, então acompanha a rotação/redimensionamento sem precisar
+    // de um redesenho manual.
     // Capacidade de girar o mapa (câmera "de frente" durante a navegação —
     // ver navigation.js). Fica parado em 0° (norte pra cima) até a navegação
     // de verdade começar a girar sozinha pelo rumo do GPS; sem rotação
@@ -363,12 +369,19 @@ async function calcularRota() {
     return;
   }
 
-  rotaAtual = data;
-  linhaRota = L.polyline(data.geometria, { color: '#E83D67', weight: 5, opacity: 0.9 }).addTo(mapa);
-  mapa.fitBounds(linhaRota.getBounds(), { padding: [40, 40] });
+  if (!data.rotas || !data.rotas.length) {
+    rotaAtual = null;
+    mostrarErroRota('Não foi possível calcular a rota neste momento. Tente novamente.');
+    return;
+  }
 
-  const contexto = await buscarContextoDaRota(data.geometria);
+  const escolha = await escolherRotaMaisSegura(data.rotas);
   if (meuToken !== tokenRota) return;
+
+  rotaAtual = { distanciaM: escolha.distanciaM, duracaoS: escolha.duracaoS, geometria: escolha.geometria };
+  linhaRota = L.polyline(rotaAtual.geometria, { color: '#E83D67', weight: 5, opacity: 0.9 }).addTo(mapa);
+  mapa.fitBounds(linhaRota.getBounds(), { padding: [40, 40] });
+  desenharContextoDaRota(escolha);
 
   // O aviso de "número exato não mapeado" some da lista de sugestões assim
   // que você escolhe o endereço — mantemos ele visível aqui, no card da rota,
@@ -381,9 +394,19 @@ async function calcularRota() {
     avisosDeLocal.push({ icone: 'pino', texto: 'O destino é aproximado — o número exato do endereço não está mapeado.' });
   }
 
-  desenharContextoDaRota(contexto);
-  desenharCardRota(data, [...avisosDeLocal, ...contexto.observacoes]);
-  salvarHistoricoRota(data).catch((erro) => console.error('Não foi possível salvar o histórico da rota:', erro));
+  const observacoes = montarObservacoes(escolha);
+  // Só afirma que "evitou" relatos quando havia de fato outra opção pior —
+  // com uma rota só (ORS às vezes não acha alternativa nenhuma), não haveria
+  // nada pra comparar, e a frase seria uma promessa vazia.
+  if (escolha.eraAMaisRapida === false) {
+    observacoes.unshift({
+      icone: 'escudo',
+      texto: 'Entre os caminhos calculados, este foi o que passa perto de menos relatos — por isso não é o mais rápido.'
+    });
+  }
+
+  desenharCardRota(rotaAtual, [...avisosDeLocal, ...observacoes]);
+  salvarHistoricoRota(rotaAtual).catch((erro) => console.error('Não foi possível salvar o histórico da rota:', erro));
 }
 
 /** Lê a mensagem em português que a Edge Function devolveu no corpo do erro
@@ -481,74 +504,136 @@ function desenharContextoDaRota({ relatos, pontos, delegacias }) {
   });
 }
 
-/** Busca relatos, pontos de apoio e delegacias perto da rota — só dados reais
-    do banco, nunca inventa iluminação/movimento que a plataforma não sabe. */
-async function buscarContextoDaRota(geometria) {
-  const vazio = { relatos: [], pontos: [], delegacias: [], observacoes: [] };
-  try {
-    const lats = geometria.map((p) => p[0]);
-    const lngs = geometria.map((p) => p[1]);
-    const margem = 0.003; // ~300 m de folga ao redor da rota
-    const sul = Math.min(...lats) - margem, norte = Math.max(...lats) + margem;
-    const oeste = Math.min(...lngs) - margem, leste = Math.max(...lngs) + margem;
+// ------------------------------------------------ Pontuação de risco --- //
+// Cada relato perto de UMA alternativa de rota soma pontos conforme a
+// gravidade que a própria autora marcou ao publicar ("baixo"/"médio"/
+// "alto") — não pelo tipo do relato, já que a gravidade é quem realmente
+// diz o quão preocupante aquilo é. Cada ponto de apoio/delegacia perto
+// SUBTRAI pontos (ajuda, mas não anula sozinho um relato de alto risco: um
+// só ponto de apoio tira só metade do peso de um "alto"). No fim, a rota
+// escolhida é a de MENOR pontuação — se todas tiverem relato perto, vence a
+// que tiver menos/mais leve, exatamente como pedido.
+const PESO_RISCO_POR_GRAVIDADE = { baixo: 1, medio: 2, alto: 4 };
+const PONTOS_POR_APOIO_PERTO = -2;
+const RAIO_PONTUACAO_M = 70; // mesmo raio já usado pra "isso está no caminho"
 
-    const [relatos, pontos, delegacias] = await Promise.all([
-      supabase.from('reports')
-        .select('type,attention_level,address,lat,lng')
-        .gte('lat', sul).lte('lat', norte).gte('lng', oeste).lte('lng', leste)
-        .eq('status', 'approved')
-        .limit(200),
-      supabase.from('support_points')
-        .select('type,name,address,lat,lng')
-        .gte('lat', sul).lte('lat', norte).gte('lng', oeste).lte('lng', leste)
-        .eq('status', 'approved')
-        .limit(200),
-      supabase.from('police_stations')
-        .select('name,address,is_women_only,lat,lng')
-        .gte('lat', sul).lte('lat', norte).gte('lng', oeste).lte('lng', leste)
-        .eq('status', 'approved')
-        .limit(100)
-    ]);
+/** Busca relatos, pontos de apoio e delegacias numa área — a MESMA busca serve
+    pra pontuar várias alternativas de rota de uma vez (evita repetir a
+    consulta ao banco pra cada uma): a área cobre todas juntas, e depois cada
+    alternativa filtra só o que está perto DELA (ver pontuarCandidata). */
+async function buscarRelatosPontosEDelegaciasNaArea(geometrias) {
+  const pontos = geometrias.flat();
+  const lats = pontos.map((p) => p[0]);
+  const lngs = pontos.map((p) => p[1]);
+  const margem = 0.003; // ~300 m de folga ao redor da área
+  const sul = Math.min(...lats) - margem, norte = Math.max(...lats) + margem;
+  const oeste = Math.min(...lngs) - margem, leste = Math.max(...lngs) + margem;
 
-    const pertoDaRota = (lat, lng, raioM) =>
-      geometria.some(([rLat, rLng]) => distanciaMetros(lat, lng, rLat, rLng) <= raioM);
+  const [relatos, apoio, delegacias] = await Promise.all([
+    supabase.from('reports')
+      .select('type,attention_level,address,lat,lng')
+      .gte('lat', sul).lte('lat', norte).gte('lng', oeste).lte('lng', leste)
+      .eq('status', 'approved')
+      .limit(200),
+    supabase.from('support_points')
+      .select('type,name,address,lat,lng')
+      .gte('lat', sul).lte('lat', norte).gte('lng', oeste).lte('lng', leste)
+      .eq('status', 'approved')
+      .limit(200),
+    supabase.from('police_stations')
+      .select('name,address,is_women_only,lat,lng')
+      .gte('lat', sul).lte('lat', norte).gte('lng', oeste).lte('lng', leste)
+      .eq('status', 'approved')
+      .limit(100)
+  ]);
 
-    const relatosNaRota = (relatos.data || []).filter((r) => pertoDaRota(r.lat, r.lng, 70));
-    const pontosNaRota = (pontos.data || []).filter((p) => pertoDaRota(p.lat, p.lng, 70));
-    const delegaciasNaRota = (delegacias.data || []).filter((d) => pertoDaRota(d.lat, d.lng, 70));
+  return { relatos: relatos.data || [], pontos: apoio.data || [], delegacias: delegacias.data || [] };
+}
 
-    const iluminacao = relatosNaRota.filter((r) => r.type === 'rua_pouco_iluminada');
-    const altoRisco = relatosNaRota.filter((r) => r.type !== 'rua_pouco_iluminada' && r.attention_level === 'alto');
+/** Filtra o que está perto DESSA alternativa específica e calcula a
+    pontuação de risco dela (quanto menor, mais segura). */
+function pontuarCandidata(geometria, bruto) {
+  const pertoDaRota = (lat, lng, raioM) =>
+    geometria.some(([rLat, rLng]) => distanciaMetros(lat, lng, rLat, rLng) <= raioM);
 
-    const observacoes = [];
-    const apoioNoCaminho = pontosNaRota.length + delegaciasNaRota.length;
-    if (apoioNoCaminho > 0) {
-      observacoes.push({
-        icone: 'predio',
-        texto: `${apoioNoCaminho} ${apoioNoCaminho === 1 ? 'ponto de apoio/delegacia' : 'pontos de apoio/delegacias'} no caminho`
-      });
-    }
-    if (iluminacao.length > 0) {
-      observacoes.push({
-        icone: 'lampada',
-        texto: `${iluminacao.length} ${iluminacao.length === 1 ? 'relato' : 'relatos'} de rua pouco iluminada perto deste trajeto`
-      });
-    }
-    if (altoRisco.length > 0) {
-      observacoes.push({
-        icone: 'alerta',
-        texto: `${altoRisco.length} ${altoRisco.length === 1 ? 'relato' : 'relatos'} de alto risco perto deste trajeto — redobre a atenção`
-      });
-    }
-    if (!observacoes.length) {
-      observacoes.push({ icone: 'escudo', texto: 'Nenhum relato registrado perto deste trajeto até agora' });
-    }
+  const relatos = bruto.relatos.filter((r) => pertoDaRota(r.lat, r.lng, RAIO_PONTUACAO_M));
+  const pontos = bruto.pontos.filter((p) => pertoDaRota(p.lat, p.lng, RAIO_PONTUACAO_M));
+  const delegacias = bruto.delegacias.filter((d) => pertoDaRota(d.lat, d.lng, RAIO_PONTUACAO_M));
 
-    return { relatos: relatosNaRota, pontos: pontosNaRota, delegacias: delegaciasNaRota, observacoes };
-  } catch (erro) {
-    console.error('Falha ao buscar o contexto da rota:', erro);
-    return { ...vazio, observacoes: [{ icone: 'alerta', texto: 'Não foi possível conferir os relatos perto da rota agora' }] };
+  let pontuacao = 0;
+  relatos.forEach((r) => { pontuacao += PESO_RISCO_POR_GRAVIDADE[r.attention_level] ?? PESO_RISCO_POR_GRAVIDADE.medio; });
+  pontuacao += (pontos.length + delegacias.length) * PONTOS_POR_APOIO_PERTO;
+
+  return { relatos, pontos, delegacias, pontuacao };
+}
+
+/** Recebe as alternativas de rota que a Edge Function calculou (1 a 3) e
+    escolhe a de menor pontuação de risco — em caso de empate, a mais curta.
+    Se a busca no banco falhar, não trava o app: cai de volta pra primeira
+    alternativa (a que o ORS considera principal), sem pontuação nenhuma. */
+async function escolherRotaMaisSegura(rotas) {
+  if (rotas.length === 1) {
+    const bruto = await buscarRelatosPontosEDelegaciasNaArea([rotas[0].geometria]).catch(() => ({ relatos: [], pontos: [], delegacias: [] }));
+    return { ...rotas[0], ...pontuarCandidata(rotas[0].geometria, bruto), eraAMaisRapida: true };
   }
+
+  try {
+    const bruto = await buscarRelatosPontosEDelegaciasNaArea(rotas.map((r) => r.geometria));
+    const pontuadas = rotas.map((r) => ({ ...r, ...pontuarCandidata(r.geometria, bruto) }));
+
+    const maisRapida = pontuadas.reduce((m, r) => (r.distanciaM < m.distanciaM ? r : m), pontuadas[0]);
+    const escolhida = [...pontuadas].sort((a, b) => a.pontuacao - b.pontuacao || a.distanciaM - b.distanciaM)[0];
+
+    return { ...escolhida, eraAMaisRapida: escolhida === maisRapida };
+  } catch (erro) {
+    console.error('Falha ao pontuar as alternativas de rota:', erro);
+    return { ...rotas[0], relatos: [], pontos: [], delegacias: [], pontuacao: 0, eraAMaisRapida: true };
+  }
+}
+
+/** Monta o texto de observações do card a partir do que foi encontrado perto
+    da rota ESCOLHIDA — só dados reais do banco, nunca inventa iluminação/
+    movimento que a plataforma não sabe. */
+function montarObservacoes({ relatos, pontos, delegacias }) {
+  const iluminacao = relatos.filter((r) => r.type === 'rua_pouco_iluminada');
+  const outros = relatos.filter((r) => r.type !== 'rua_pouco_iluminada');
+  const altoRisco = outros.filter((r) => r.attention_level === 'alto');
+  // "baixo"/"médio" também pesam na pontuação que escolheu a rota (ver
+  // pontuarCandidata) — por isso também entram aqui, mesmo sem o alerta mais
+  // forte do alto risco. Sem isso, o card podia dizer "nenhum relato" perto
+  // de uma rota que na verdade tinha um relato leve considerado na escolha.
+  const demaisRiscos = outros.filter((r) => r.attention_level !== 'alto');
+
+  const observacoes = [];
+  const apoioNoCaminho = pontos.length + delegacias.length;
+  if (apoioNoCaminho > 0) {
+    observacoes.push({
+      icone: 'predio',
+      texto: `${apoioNoCaminho} ${apoioNoCaminho === 1 ? 'ponto de apoio/delegacia' : 'pontos de apoio/delegacias'} no caminho`
+    });
+  }
+  if (iluminacao.length > 0) {
+    observacoes.push({
+      icone: 'lampada',
+      texto: `${iluminacao.length} ${iluminacao.length === 1 ? 'relato' : 'relatos'} de rua pouco iluminada perto deste trajeto`
+    });
+  }
+  if (altoRisco.length > 0) {
+    observacoes.push({
+      icone: 'alerta',
+      texto: `${altoRisco.length} ${altoRisco.length === 1 ? 'relato' : 'relatos'} de alto risco perto deste trajeto — redobre a atenção`
+    });
+  }
+  if (demaisRiscos.length > 0) {
+    observacoes.push({
+      icone: 'alerta',
+      texto: `${demaisRiscos.length} ${demaisRiscos.length === 1 ? 'outro relato' : 'outros relatos'} de risco perto deste trajeto`
+    });
+  }
+  if (!observacoes.length) {
+    observacoes.push({ icone: 'escudo', texto: 'Nenhum relato registrado perto deste trajeto até agora' });
+  }
+  return observacoes;
 }
 
 async function salvarHistoricoRota(rota) {
@@ -581,6 +666,25 @@ function iniciarNavegacaoClique() {
   document.getElementById('rota-titulo').textContent = 'Navegando';
   document.getElementById('rota-subtitulo').textContent = 'Toque em "Encerrar rota" quando terminar.';
 
+  // Mapa em tela cheia + botões flutuantes (visual estilo Google Maps/Waze) —
+  // ver rotas.css. O Leaflet não percebe sozinho que o contêiner do mapa
+  // mudou de tamanho via CSS, por isso o invalidateSize() logo depois.
+  document.getElementById('app-rotas').classList.add('app-rotas--navegando');
+  document.getElementById('rota-mapa-wrapper').classList.add('rota-mapa-wrapper--navegando');
+  document.getElementById('navegacao-colapsar').hidden = false;
+  document.getElementById('navegacao-recentralizar-flutuante').hidden = false;
+  mapa.invalidateSize();
+
+  document.getElementById('navegacao-pontos-apoio').onclick = () => {
+    const pontos = [];
+    camadaContexto.eachLayer((l) => { if (l.getLatLng) pontos.push(l.getLatLng()); });
+    if (!pontos.length) {
+      toast('Nenhum ponto de apoio ou delegacia perto dessa rota.', 'info');
+      return;
+    }
+    mapa.fitBounds(L.latLngBounds(pontos), { padding: [60, 60] });
+  };
+
   iniciarNavegacao({
     mapa,
     origem,
@@ -588,6 +692,25 @@ function iniciarNavegacaoClique() {
     rota: rotaAtual,
     aoSair: voltarAoPlanejamento
   });
+  // Só dá pra medir a altura de verdade da folha/SOS DEPOIS que a navegação
+  // os deixou visíveis (iniciarNavegacao tira o "hidden" da folha) — usadas
+  // pelos botões flutuantes (zoom, recentrar) e pelo cálculo de câmera em
+  // navigation.js pra saber quanto do mapa fica realmente visível.
+  medirRodapeDeNavegacao();
+}
+
+function medirRodapeDeNavegacao() {
+  // Definidas no PRÓPRIO #app-rotas (não em :root/html) de propósito: é
+  // nele que o CSS já declara os valores-palpite via ".app-rotas--
+  // navegando" — uma variável herdada de :root nunca venceria uma
+  // declaração direta no próprio elemento, então o palpite ficaria preso
+  // pra sempre se a gente definisse isto lá em cima.
+  const raiz = document.getElementById('app-rotas')?.style;
+  if (!raiz) return;
+  const folha = document.getElementById('painel-navegacao');
+  const sos = document.getElementById('rota-sos');
+  if (folha) raiz.setProperty('--altura-folha-nav', `${folha.getBoundingClientRect().height}px`);
+  if (sos) raiz.setProperty('--altura-sos-nav', `${sos.getBoundingClientRect().height}px`);
 }
 
 function voltarAoPlanejamento() {
@@ -597,6 +720,12 @@ function voltarAoPlanejamento() {
   document.getElementById('rota-bottom-nav').hidden = false;
   document.getElementById('rota-titulo').textContent = 'Sua rota segura';
   document.getElementById('rota-subtitulo').textContent = 'Escolhemos o caminho mais seguro para você.';
+
+  document.getElementById('app-rotas').classList.remove('app-rotas--navegando');
+  document.getElementById('rota-mapa-wrapper').classList.remove('rota-mapa-wrapper--navegando');
+  document.getElementById('navegacao-colapsar').hidden = true;
+  document.getElementById('navegacao-recentralizar-flutuante').hidden = true;
+  mapa.invalidateSize();
 }
 
 /* ------------------------------------------------------------------ SOS --- */

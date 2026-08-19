@@ -143,7 +143,18 @@ function criarAnimadorAngular(aoAtualizar, duracaoMs = DURACAO_ANIMACAO_GIRO_MS)
   return { irPara, definirImediatamente };
 }
 
-const animadorBearing = criarAnimadorAngular((graus) => { mapa?.setBearing(graus); });
+// O leaflet-rotate gira o MAPA no sentido oposto ao rumo (setBearing(45) faz
+// o norte real aparecer a 45° na tela, não a -45°) — o inverso do que faz
+// sentido pra navegação "de frente" (o rumo pra onde você anda devia
+// aparecer reto pra cima, em 0°). Por isso, aqui — e só aqui, num lugar só —
+// o rumo é convertido pro sentido que o plugin espera (360 - rumo) antes de
+// chamar setBearing. Todo o resto do arquivo (irPara/definirImediatamente)
+// continua trabalhando só com "rumo" de verdade (0°=norte, sentido horário),
+// sem se preocupar com essa inversão.
+const animadorBearing = criarAnimadorAngular((graus) => {
+  const bearingLeaflet = ((360 - graus) % 360 + 360) % 360;
+  mapa?.setBearing(bearingLeaflet);
+});
 const animadorSeta = criarAnimadorAngular((graus) => {
   const seta = marcadorPosicaoAtual?.getElement()?.querySelector('.navegacao-seta');
   if (seta) seta.style.transform = `rotate(${graus}deg)`;
@@ -216,6 +227,54 @@ function distanciaRestanteNaRota(indice, t) {
   return restante;
 }
 
+/** Estimativa de rumo pra usar ANTES de ter qualquer deslocamento real do
+    GPS — sem isso, o mapa começava a navegação sempre norte-pra-cima e só
+    girava depois que a pessoa andasse alguns metros, o que não é como um
+    app de navegação de verdade se comporta (Waze/Google Maps já começam
+    "de frente"). Usa a própria geometria da rota: procura, a partir da
+    origem, o primeiro ponto longe o bastante pra dar uma direção estável
+    (evita ruído de pontos muito próximos na geometria) e calcula o rumo até
+    lá. É só o CHUTE do primeiríssimo quadro — a partir da leitura seguinte,
+    quem assume é direcaoDaRota (abaixo), que já é a lógica "normal". */
+function rumoInicialDaRota(lat, lng) {
+  if (!rotaGeometria || rotaGeometria.length < 2) return null;
+  const DISTANCIA_MINIMA_M = 8;
+  for (const [pLat, pLng] of rotaGeometria) {
+    if (distanciaMetros(lat, lng, pLat, pLng) >= DISTANCIA_MINIMA_M) {
+      return calcularRumo(lat, lng, pLat, pLng);
+    }
+  }
+  // Rota inteira mais curta que a distância mínima (raro): usa o último
+  // ponto mesmo assim, é melhor que não ter rumo nenhum.
+  const ultimo = rotaGeometria[rotaGeometria.length - 1];
+  return calcularRumo(lat, lng, ultimo[0], ultimo[1]);
+}
+
+/** Direção da PRÓPRIA ROTA a partir de um ponto nela (índice do segmento +
+    fração já percorrida — o mesmo formato que encontrarPontoMaisProximoNaRota
+    devolve). Usada continuamente, a cada leitura de GPS em que a posição
+    está perto o bastante da rota pra ser "encaixada" nela: é isso que
+    garante que o trecho bem na frente do pino sempre aparece RETO na tela
+    (alinhado com "pra cima"), em vez de torto — porque o ângulo do mapa
+    passa a ser exatamente o ângulo desse trecho, não uma estimativa feita a
+    partir de duas leituras brutas e ruidosas do GPS (que raramente caem
+    exatamente em cima da rua, e por isso apontavam torto). */
+function direcaoDaRota(indice, t) {
+  const DISTANCIA_MINIMA_M = 8;
+  const [aLat, aLng] = rotaGeometria[indice];
+  const [bLat, bLng] = rotaGeometria[indice + 1];
+  const lat = aLat + (bLat - aLat) * t;
+  const lng = aLng + (bLng - aLng) * t;
+  for (let i = indice; i < rotaGeometria.length - 1; i++) {
+    const [pLat, pLng] = rotaGeometria[i + 1];
+    if (distanciaMetros(lat, lng, pLat, pLng) >= DISTANCIA_MINIMA_M) {
+      return calcularRumo(lat, lng, pLat, pLng);
+    }
+  }
+  const ultimo = rotaGeometria[rotaGeometria.length - 1];
+  return calcularRumo(lat, lng, ultimo[0], ultimo[1]);
+}
+
 /* ========================================================================== */
 
 /**
@@ -244,10 +303,14 @@ export function iniciarNavegacao({ mapa: mapaRecebido, origem, destino, rota, ao
   document.getElementById('painel-navegacao').hidden = false;
   document.getElementById('navegacao-destino').textContent = `Indo para ${destino.nome}`;
 
-  document.getElementById('navegacao-recentralizar').onclick = () => {
+  // Existe mais de um botão de recentralizar na tela (um flutuante por cima
+  // do mapa, outro na fileira de ações rápidas da folha) — os dois fazem
+  // exatamente a mesma coisa, então dividem a mesma classe e o mesmo handler
+  // em vez de duplicar a lógica por id.
+  const aoClicarRecentralizar = () => {
     seguindoAutomaticamente = true;
     if (marcadorPosicaoAtual) {
-      mapa.setView(pontoComOffsetDeCamera(marcadorPosicaoAtual.getLatLng()), APP_CONFIG.zoomSeletor, { animate: true });
+      mapa.setView(pontoComOffsetDeCamera(marcadorPosicaoAtual.getLatLng()), APP_CONFIG.zoomNavegacao, { animate: true });
       // Recentralizar também devolve a orientação "de frente" (rumo pra
       // cima), não só a posição — senão a pessoa via a câmera voltar pro
       // lugar certo mas ainda torta, do jeito que ela tinha deixado ao girar
@@ -255,7 +318,10 @@ export function iniciarNavegacao({ mapa: mapaRecebido, origem, destino, rota, ao
       if (rotacaoDoMapaAtiva && rumoAtual !== null) animadorBearing.irPara(rumoAtual);
     }
   };
+  document.querySelectorAll('.acao-recentralizar').forEach((botao) => { botao.onclick = aoClicarRecentralizar; });
   document.getElementById('navegacao-encerrar').onclick = () => abrirModal('modal-encerrar-rota');
+  document.getElementById('navegacao-colapsar').onclick = () => abrirModal('modal-encerrar-rota');
+  document.getElementById('navegacao-opcoes').onclick = () => abrirModal('modal-opcoes-rota');
   document.getElementById('navegacao-compartilhar').onclick = compartilharRota;
   ligarBotoesDosModais();
   ligarDetectorDeArrasto();
@@ -265,10 +331,18 @@ export function iniciarNavegacao({ mapa: mapaRecebido, origem, destino, rota, ao
   // um jeito de conferir/corrigir de onde você está partindo; a partir do
   // momento que a navegação começa, o acompanhamento segue o GPS de verdade.
   //
+  // Chuta um rumo inicial a partir da própria rota, ANTES de qualquer
+  // leitura real de GPS — sem isso, a navegação sempre começava norte-pra-
+  // cima e só virava "de frente" depois de andar alguns metros. Girado sem
+  // animação (definirImediatamente): é o primeiro quadro da navegação,
+  // ainda não tem "de onde" animar.
+  rumoAtual = rumoInicialDaRota(origem.lat, origem.lng);
+  if (rotacaoDoMapaAtiva && rumoAtual !== null) animadorBearing.definirImediatamente(rumoAtual);
+
   // Já entra no zoom de acompanhamento (mais perto que a visão geral da
   // rota que a Tela 2 deixou no mapa) — depois disso, panTo só recentraliza,
   // sem forçar zoom de novo a cada leitura.
-  mapa.setView([origem.lat, origem.lng], APP_CONFIG.zoomSeletor, { animate: true });
+  mapa.setView(pontoComOffsetDeCamera([origem.lat, origem.lng]), APP_CONFIG.zoomNavegacao, { animate: true });
   desenharPosicaoAtual(origem.lat, origem.lng, null, Date.now());
   atualizarProgresso(distanciaMetros(origem.lat, origem.lng, destino.lat, destino.lng));
 
@@ -356,8 +430,9 @@ function calcularRumo(lat1, lng1, lat2, lng2) {
   return (deg(Math.atan2(y, x)) + 360) % 360;
 }
 
-/** Pino com seta — igual visualmente ao círculo azul de antes, mas apontando
-    pra direção do deslocamento.
+/** Pino com seta na cor de marca do Rota Segura (rosa-magenta), com um halo
+    suave pulsando ao redor — visual de "ponto vivo" de apps de navegação de
+    verdade —, apontando pra direção do deslocamento.
 
     Quando o mapa em si já gira pro rumo (rotacaoDoMapaAtiva), a seta fica
     sempre reta pra cima — "pra cima" já É a direção do trajeto, então girar
@@ -366,28 +441,50 @@ function calcularRumo(lat1, lng1, lat2, lng2) {
 function iconeDirecional(rumoGraus) {
   const angulo = rotacaoDoMapaAtiva ? 0 : Math.round(rumoGraus);
   return L.divIcon({
-    html: `<div class="navegacao-seta" style="transform: rotate(${angulo}deg)">
-        <svg width="30" height="30" viewBox="0 0 30 30">
-          <circle cx="15" cy="15" r="12" fill="#2F6BFF" stroke="#FFFFFF" stroke-width="3"/>
-          <path d="M15 7 L20.5 19 L15 15.8 L9.5 19 Z" fill="#FFFFFF"/>
-        </svg>
+    html: `<div class="navegacao-marcador">
+        <div class="navegacao-marcador__halo"></div>
+        <div class="navegacao-seta" style="transform: rotate(${angulo}deg)">
+          <svg width="46" height="46" viewBox="0 0 46 46">
+            <circle cx="23" cy="23" r="18" fill="#E83D67" stroke="#FFFFFF" stroke-width="4"/>
+            <path d="M23 11 L31 34 L23 28.5 L15 34 Z" fill="#FFFFFF"/>
+          </svg>
+        </div>
       </div>`,
     className: '',
-    iconSize: [30, 30],
-    iconAnchor: [15, 15]
+    iconSize: [70, 70],
+    iconAnchor: [35, 35]
   });
 }
 
 /** Desloca o ponto de câmera pra cima na tela, pra a posição real ficar mais
     perto da base — sobra mais mapa mostrando o que vem PELA FRENTE (câmera
     de navegação estilo Waze). Só faz sentido com o mapa girando: "pra cima"
-    só é "pra frente" quando o rumo está alinhado com o topo da tela. */
+    só é "pra frente" quando o rumo está alinhado com o topo da tela.
+
+    O deslocamento é calculado em cima da altura REALMENTE visível do mapa —
+    ou seja, descontando a folha de navegação e o aviso de SOS flutuantes na
+    parte de baixo da tela — e não da altura total da tela. Sem isso, com a
+    folha nova (bem mais alta que o card antigo), a conta empurrava o pino
+    pra trás dela, escondido: a fração equivalia a mais da metade da área
+    visível de verdade. Quando não há nada flutuando por baixo (fora da
+    navegação), o resultado é idêntico ao de antes. */
 function pontoComOffsetDeCamera(latlng) {
   if (!rotacaoDoMapaAtiva || !mapa) return latlng;
   try {
     const tamanho = mapa.getSize();
+    const folha = document.getElementById('painel-navegacao');
+    const emNavegacao = !!(folha && !folha.hidden);
+    let alturaReservada = 0;
+    if (emNavegacao) {
+      alturaReservada += folha.getBoundingClientRect().height;
+      const sos = document.getElementById('rota-sos');
+      if (sos) alturaReservada += sos.getBoundingClientRect().height;
+    }
+    const alturaVisivel = Math.max(tamanho.y - alturaReservada, 1);
+    const alvoY = alturaVisivel * (0.5 + FRACAO_OFFSET_CAMERA_Y);
+
     const pontoTela = mapa.latLngToContainerPoint(latlng);
-    const deslocado = pontoTela.subtract([0, tamanho.y * FRACAO_OFFSET_CAMERA_Y]);
+    const deslocado = pontoTela.subtract([0, alvoY - tamanho.y / 2]);
     return mapa.containerPointToLatLng(deslocado);
   } catch {
     return latlng;
@@ -396,40 +493,70 @@ function pontoComOffsetDeCamera(latlng) {
 
 function desenharPosicaoAtual(lat, lng, precisaoM, quandoMs) {
   let deslocamentoM = null;
+  let rumoObservado = null;
+  let pareceMovimentoReal = false;
+
   if (posicaoAnterior) {
     deslocamentoM = distanciaMetros(posicaoAnterior.lat, posicaoAnterior.lng, lat, lng);
 
-    // Só aceita um novo rumo com evidência real de movimento: deslocamento
-    // mínimo (escalado pela imprecisão do GPS — perto de casa, com GPS
-    // ruim, 4m é só ruído) E velocidade estimada acima do "andando parado
-    // no lugar". Sem isso, GPS parado oscilando alguns metros ficava
-    // recalculando rumo à toa e o mapa "girava sozinho".
+    // Só aceita um novo rumo (bruto do GPS) com evidência real de
+    // movimento: deslocamento mínimo (escalado pela imprecisão do GPS —
+    // perto de casa, com GPS ruim, 4m é só ruído) E velocidade estimada
+    // acima do "andando parado no lugar". Sem isso, GPS parado oscilando
+    // alguns metros ficava recalculando rumo à toa e o mapa "girava
+    // sozinho".
     const intervaloS = posicaoAnterior.quando != null && quandoMs != null
       ? Math.max((quandoMs - posicaoAnterior.quando) / 1000, 0.001)
       : null;
     const velocidadeEstimada = intervaloS ? deslocamentoM / intervaloS : null;
     const deslocamentoMinimo = Math.max(DISTANCIA_MINIMA_PARA_RUMO_M, (precisaoM || 0) * FATOR_MARGEM_PRECISAO_RUMO);
-    const pareceMovimentoReal = deslocamentoM >= deslocamentoMinimo
+    pareceMovimentoReal = deslocamentoM >= deslocamentoMinimo
       && (velocidadeEstimada === null || velocidadeEstimada >= VELOCIDADE_MINIMA_PARA_RUMO_MS);
 
-    if (pareceMovimentoReal) {
-      const rumoObservado = calcularRumo(posicaoAnterior.lat, posicaoAnterior.lng, lat, lng);
-      // Suaviza por média circular em vez de trocar de rumo de uma vez —
-      // amortece ruído sem travar a resposta a uma curva de verdade.
-      rumoAtual = rumoAtual === null ? rumoObservado : suavizarAnguloCircular(rumoAtual, rumoObservado, PESO_RUMO_NOVO);
-    }
+    if (pareceMovimentoReal) rumoObservado = calcularRumo(posicaoAnterior.lat, posicaoAnterior.lng, lat, lng);
   }
   posicaoAnterior = { lat, lng, quando: quandoMs };
 
+  // Acha o ponto mais próximo da rota UMA VEZ só — usado tanto pra decidir
+  // a posição MOSTRADA (encaixada na via, não flutuando ao lado por ruído
+  // de GPS) quanto pro RUMO (a direção da própria rota nesse ponto, que é o
+  // que garante o trecho na frente do pino sempre reto — ver direcaoDaRota).
+  // Mesma régua de distância do "saiu da rota": se passou do limite
+  // efetivo, nenhum dos dois é ajustado — um app de segurança não pode
+  // fingir que você está no caminho quando não está.
+  let latExibido = lat, lngExibido = lng;
+  if (rotaGeometria && rotaGeometria.length >= 2) {
+    const encaixe = encontrarPontoMaisProximoNaRota(lat, lng);
+    const limiteEfetivo = Math.min(
+      LIMITE_MAXIMO_EFETIVO_M,
+      LIMITE_BASE_FORA_DA_ROTA_M + (precisaoM || 0) * FATOR_MARGEM_PRECISAO
+    );
+    if (encaixe.dist <= limiteEfetivo) {
+      const [aLat, aLng] = rotaGeometria[encaixe.indice];
+      const [bLat, bLng] = rotaGeometria[encaixe.indice + 1];
+      latExibido = aLat + (bLat - aLat) * encaixe.t;
+      lngExibido = aLng + (bLng - aLng) * encaixe.t;
+
+      const rumoDaRota = direcaoDaRota(encaixe.indice, encaixe.t);
+      rumoAtual = rumoAtual === null ? rumoDaRota : suavizarAnguloCircular(rumoAtual, rumoDaRota, PESO_RUMO_NOVO);
+    } else if (pareceMovimentoReal) {
+      // Fora da rota: não tem "direção da via" pra seguir — usa o rumo bruto
+      // do deslocamento real mesmo, é a melhor informação disponível aqui.
+      rumoAtual = rumoAtual === null ? rumoObservado : suavizarAnguloCircular(rumoAtual, rumoObservado, PESO_RUMO_NOVO);
+    }
+  } else if (pareceMovimentoReal) {
+    rumoAtual = rumoAtual === null ? rumoObservado : suavizarAnguloCircular(rumoAtual, rumoObservado, PESO_RUMO_NOVO);
+  }
+
   if (!marcadorPosicaoAtual) {
-    marcadorPosicaoAtual = L.marker([lat, lng], {
+    marcadorPosicaoAtual = L.marker([latExibido, lngExibido], {
       icon: iconeDirecional(rumoAtual || 0),
       zIndexOffset: 1000,
       interactive: false
     }).addTo(mapa);
     if (!rotacaoDoMapaAtiva) animadorSeta.definirImediatamente(rumoAtual || 0);
   } else {
-    marcadorPosicaoAtual.setLatLng([lat, lng]);
+    marcadorPosicaoAtual.setLatLng([latExibido, lngExibido]);
     if (rumoAtual !== null && !rotacaoDoMapaAtiva) {
       animadorSeta.irPara(rumoAtual);
     }
@@ -441,7 +568,7 @@ function desenharPosicaoAtual(lat, lng, precisaoM, quandoMs) {
   const primeiraLeitura = deslocamentoM === null;
   const deslocouOSuficiente = primeiraLeitura || deslocamentoM >= DISTANCIA_MINIMA_PARA_SEGUIR_M;
   if (seguindoAutomaticamente && deslocouOSuficiente) {
-    mapa.panTo(pontoComOffsetDeCamera([lat, lng]), { animate: true, duration: 0.5 });
+    mapa.panTo(pontoComOffsetDeCamera([latExibido, lngExibido]), { animate: true, duration: 0.5 });
   }
 
   // Gira o mapa pra manter o rumo sempre "pra cima" — só quando a pessoa não
@@ -478,12 +605,21 @@ function formatarDistancia(metros) {
 }
 
 /** Tempo é estimado a partir do ritmo médio da rota original — não liga de
-    novo para o OpenRouteService durante a navegação (regra do Bloco 2). */
-function atualizarProgresso(distanciaM, { rotulo = 'restantes (estimado)' } = {}) {
+    novo para o OpenRouteService durante a navegação (regra do Bloco 2). A
+    "chegada prevista" é só esse mesmo tempo estimado somado ao horário
+    atual, mostrado como hora do relógio em vez de uma contagem regressiva —
+    o rótulo "(estimativa)" continua explícito, pelo mesmo motivo de sempre:
+    nunca fingir uma precisão que a rota não tem. */
+function atualizarProgresso(distanciaM, { rotulo = 'estimativa' } = {}) {
   const ritmoSPorM = rotaInfo.duracaoS / Math.max(rotaInfo.distanciaM, 1);
   const tempoS = distanciaM * ritmoSPorM;
+  document.getElementById('navegacao-tempo').textContent = formatarDuracao(tempoS);
   document.getElementById('navegacao-distancia').textContent = formatarDistancia(distanciaM);
-  document.getElementById('navegacao-tempo').textContent = `${formatarDuracao(tempoS)} ${rotulo}`;
+
+  const chegada = new Date(Date.now() + tempoS * 1000);
+  const hh = String(chegada.getHours()).padStart(2, '0');
+  const mm = String(chegada.getMinutes()).padStart(2, '0');
+  document.getElementById('navegacao-chegada').textContent = `${hh}:${mm} (${rotulo})`;
 }
 
 /* ---------------------------------------------------- Fim da navegação --- */
@@ -534,6 +670,17 @@ function ligarBotoesDosModais() {
   document.getElementById('btn-confirmar-encerrar').onclick = () => {
     fecharModal('modal-encerrar-rota');
     encerrar();
+  };
+  // "Opções da rota": trocar de caminho volta pro planejamento (mesmo
+  // destino, mesma origem, pra escolher outra rota/modo); encerrar reaproveita
+  // a mesma confirmação do botão de encerrar normal, sem duplicar o fluxo.
+  document.getElementById('btn-trocar-rota').onclick = () => {
+    fecharModal('modal-opcoes-rota');
+    encerrar();
+  };
+  document.getElementById('btn-opcoes-encerrar').onclick = () => {
+    fecharModal('modal-opcoes-rota');
+    abrirModal('modal-encerrar-rota');
   };
 }
 

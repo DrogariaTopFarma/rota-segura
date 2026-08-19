@@ -25,6 +25,11 @@ export const APP_CONFIG = {
   zoomBusca: 16,
   // Zoom usado no mini-mapa dos formulários (bem perto, para acertar a porta)
   zoomSeletor: 17,
+  // Zoom usado durante a navegação ativa (Tela 2) — bem mais perto que o
+  // seletor de endereço, pra ficar no estilo Google Maps/Waze (só o
+  // quarteirão à frente, não o bairro inteiro). 19 é quase o máximo que os
+  // tiles do mapa aceitam (maxZoom 20 em routes.js).
+  zoomNavegacao: 19,
   // Raio (em metros) usado para contar relatos perto de um endereço pesquisado
   raioBuscaMetros: 500,
   // Tempo de espera antes de disparar a busca enquanto você digita (ms)

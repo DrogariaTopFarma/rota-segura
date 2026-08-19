@@ -387,6 +387,37 @@
 .modal__acoes { display: flex; flex-direction: column; gap: var(--esp-3); margin-top: var(--esp-4); }
 
 .menu-saudacao { color: var(--texto-secundario); font-size: var(--fs-sm); margin-bottom: var(--esp-4); }
+
+/* ---------------- Página de texto longo (Termos de uso, Privacidade) ---------------- */
+.pagina-texto {
+  max-width: var(--largura-app);
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: var(--esp-5) var(--esp-4) var(--esp-8);
+  background: var(--rosa-bebe);
+}
+.pagina-texto__topo {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-4);
+}
+.pagina-texto__titulo { font-size: var(--fs-xl); font-weight: 700; letter-spacing: -0.02em; }
+.pagina-texto__conteudo h2 {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  margin: var(--esp-5) 0 var(--esp-2);
+}
+.pagina-texto__conteudo h2:first-of-type { margin-top: var(--esp-2); }
+.pagina-texto__lista {
+  list-style: disc;
+  margin: 0 0 var(--esp-3);
+  padding-left: var(--esp-5);
+  font-size: var(--fs-md);
+  line-height: 1.6;
+  color: var(--rosa-magenta);
+}
+.pagina-texto__lista li { color: var(--texto-principal); margin-bottom: 4px; }
 .menu-sair { margin-top: var(--esp-3); }
 
 /* Botão dentro de uma seção recolhível (ex.: "Adicionar localização" da publicação) */

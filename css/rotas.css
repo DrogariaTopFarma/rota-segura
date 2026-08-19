@@ -214,30 +214,198 @@
 .rota-sos__label { display: block; font-weight: 700; font-size: var(--fs-md); color: var(--rosa-magenta-escuro); margin-top: 2px; }
 .rota-sos__seta { flex-shrink: 0; transform: rotate(180deg); opacity: .5; }
 
-/* ---------------- Navegação ativa ---------------- */
-.rota-navegacao[hidden] { display: none; }
+/* ---------------- Navegação ativa: mapa em tela cheia (estilo Google Maps/
+   Waze), com botões flutuantes por cima e uma folha fixa na parte de baixo —
+   em vez do card empilhado no fluxo normal da página que a Tela 2 usava
+   antes. Ligado/desligado via classes (routes.js), não outro layout. */
+.app-rotas--navegando { padding: 0 !important; }
+.app-rotas--navegando #topo-rota,
+.app-rotas--navegando #painel-planejamento,
+.app-rotas--navegando .rota-card { display: none; }
 
+.rota-mapa-wrapper--navegando {
+  position: fixed;
+  left: 50%;
+  top: 0; bottom: 0;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: var(--largura-app);
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  z-index: var(--z-mapa);
+}
+.rota-mapa-wrapper--navegando #rota-mapa { height: 100%; min-height: 0; }
+
+/* A folha inferior e o aviso de SOS têm altura variável (depende do texto/
+   tamanho de fonte do aparelho) — routes.js mede as duas de verdade assim
+   que a navegação começa e guarda o resultado nestas variáveis. Os valores
+   aqui são só o "chute" pro primeiríssimo quadro, antes da medição — sem
+   isso, botões flutuantes "no meio da tela" podiam ficar por baixo do aviso
+   de SOS em telas mais baixas (a metade da tela nem sempre sobra acima
+   dele). */
+.app-rotas--navegando {
+  --altura-folha-nav: 210px;
+  --altura-sos-nav: 95px;
+}
+
+/* O controle de zoom nativo do Leaflet nasce no canto superior esquerdo — ali
+   colidiria com o botão de encerrar/colapsar flutuante, então desce pro meio
+   da ÁREA REALMENTE VISÍVEL do mapa (acima da folha + do SOS) durante a
+   navegação, espelhando o "Recentrar" do lado direito. */
+.rota-mapa-wrapper--navegando .leaflet-top.leaflet-left {
+  top: calc((100% - var(--altura-folha-nav) - var(--altura-sos-nav)) / 2);
+  transform: translateY(-50%);
+}
+
+/* ---------------- Botões flutuantes sobre o mapa (só durante navegação) */
+.navegacao-flutuante {
+  position: absolute;
+  z-index: var(--z-flutuante);
+  background: var(--branco);
+  box-shadow: var(--sombra-md);
+}
+.navegacao-flutuante[hidden] { display: none; }
+
+.navegacao-flutuante--colapsar {
+  top: var(--esp-4); left: var(--esp-4);
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  color: var(--texto-principal);
+  display: flex; align-items: center; justify-content: center;
+}
+/* Reaproveita o ícone "voltar" (uma seta "<") girado, em vez de desenhar um
+   SVG novo só pra um chevron pra baixo. */
+.navegacao-flutuante--colapsar span[data-icone] { transform: rotate(-90deg); }
+
+.navegacao-flutuante--acao {
+  top: calc((100% - var(--altura-folha-nav) - var(--altura-sos-nav)) / 2);
+  right: var(--esp-4);
+  transform: translateY(-50%);
+  border-radius: var(--raio-md);
+  padding: 10px 14px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  color: var(--rosa-magenta-escuro);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+
+/* SOS: o mesmo banner "o tempo todo" de sempre (mesmo tamanho, mesmo toque
+   único pra acionar) — só flutua por cima do mapa em tela cheia durante a
+   navegação, ancorado acima da folha inferior (pela altura de verdade dela,
+   não um número fixo), em vez de ficar no fluxo normal da página (que
+   deixou de existir nesse modo). */
+.app-rotas--navegando #rota-sos {
+  position: fixed;
+  left: 50%;
+  bottom: var(--altura-folha-nav);
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: var(--largura-app);
+  padding: 0 var(--esp-4) var(--esp-2);
+  margin: 0;
+  background: none;
+  border: none;
+  box-sizing: border-box;
+  z-index: var(--z-flutuante);
+}
+.app-rotas--navegando .rota-sos__botao {
+  background: var(--rosa-bebe);
+  border: 1.5px solid var(--rosa-claro);
+  border-radius: var(--raio-lg);
+  box-shadow: var(--sombra-md);
+}
+
+/* ---------------- Marcador de posição: seta com brilho rosa ao redor,
+   estilo "ponto vivo" de apps de navegação de verdade. ---------------- */
+.navegacao-marcador {
+  position: relative;
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+}
+.navegacao-marcador__halo {
+  position: absolute;
+  width: 70px; height: 70px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(232, 61, 103, 0.35) 0%, rgba(232, 61, 103, 0) 70%);
+  animation: pulso-navegacao 2.2s ease-out infinite;
+}
+@keyframes pulso-navegacao {
+  0% { transform: scale(0.75); opacity: .9; }
+  100% { transform: scale(1.15); opacity: 0; }
+}
 /* Seta de direção no mapa (fallback sem suporte a rotação de mapa): a
    suavização do giro é feita em JS (animadorSeta, em navigation.js), quadro
    a quadro, pelo caminho angular mais curto — uma transição CSS aqui
    competiria com esses updates e travaria o movimento em vez de suavizar. */
 .navegacao-seta {
-  width: 30px;
-  height: 30px;
+  position: relative;
+  width: 46px;
+  height: 46px;
   transform-origin: center center;
 }
-.rota-navegacao__linha {
+
+/* ---------------- Folha inferior de navegação (bottom sheet) ---------------- */
+.rota-navegacao--folha {
+  position: fixed;
+  left: 50%; bottom: 0;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: var(--largura-app);
+  box-sizing: border-box;
+  background: var(--branco);
+  border-radius: var(--raio-xl) var(--raio-xl) 0 0;
+  box-shadow: var(--sombra-lg);
+  padding: var(--esp-2) var(--esp-4) calc(var(--esp-5) + env(safe-area-inset-bottom));
+  z-index: var(--z-nav);
+}
+.rota-navegacao__alca {
+  width: 40px; height: 4px;
+  border-radius: var(--raio-full);
+  background: var(--borda);
+  margin: 0 auto var(--esp-3);
+}
+.rota-navegacao__topo {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--esp-3);
 }
-.rota-navegacao__destino { font-size: var(--fs-sm); color: var(--texto-secundario); margin-bottom: var(--esp-1); }
-.rota-navegacao__distancia { font-size: var(--fs-2xl); font-weight: 700; }
-.rota-navegacao__tempo { font-size: var(--fs-sm); color: var(--texto-secundario); }
-.rota-navegacao__acoes { display: flex; gap: var(--esp-3); margin-top: var(--esp-4); }
-.rota-navegacao__acoes .btn { flex: 1; }
-.rota-navegacao__compartilhar { margin-top: var(--esp-3); }
+.rota-navegacao__tempo { font-size: var(--fs-2xl); font-weight: 700; line-height: 1.15; }
+.rota-navegacao__distancia { font-size: var(--fs-lg); font-weight: 700; color: var(--texto-secundario); }
+.rota-navegacao__chegada { font-size: var(--fs-xs); color: var(--texto-secundario); margin-top: 2px; }
+.rota-navegacao__pill {
+  flex-shrink: 0;
+  background: var(--rosa-bebe);
+  color: var(--rosa-magenta-escuro);
+  padding: 10px 18px;
+  min-height: auto;
+  margin-top: 2px;
+}
+.rota-navegacao__pill:hover { background: var(--rosa-claro); }
+
+.rota-navegacao__acoes-rapidas {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--esp-2);
+  margin-top: var(--esp-4);
+}
+.rota-navegacao__acao-rapida {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: var(--esp-3) 2px;
+  border-radius: var(--raio-md);
+  background: var(--cinza-muito-claro);
+  color: var(--texto-principal);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+.rota-navegacao__acao-rapida:hover { background: var(--rosa-bebe); }
+.rota-navegacao__acao-rapida span[data-icone] { color: var(--rosa-magenta); }
 
 /* .bottom-nav já define display:flex — sem isto, o atributo [hidden] sozinho
    não conseguiria escondê-la (empate de especificidade CSS). */

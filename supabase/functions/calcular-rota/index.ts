@@ -10,7 +10,15 @@
 // passo completo na Etapa 12 do GUIA_PASSO_A_PASSO.md.
 //
 // Recebe:  { origem: {lat, lng}, destino: {lat, lng}, perfil?: "foot-walking" | "driving-car" }
-// Devolve: { distanciaM, duracaoS, geometria: [[lat,lng], ...] }
+// Devolve: { rotas: [{ distanciaM, duracaoS, geometria: [[lat,lng], ...] }, ...] }
+//
+// Pede ao OpenRouteService até 3 caminhos alternativos (o máximo que ele
+// aceita) entre a mesma origem e destino, em vez de só o primeiro que ele
+// devolver. Quem decide qual dos 3 usar é o app (routes.js): pontua cada
+// alternativa pela proximidade de relatos de segurança e de pontos de apoio/
+// delegacias, e escolhe a de menor risco — não necessariamente a mais curta.
+// Essa é a mudança que faz o "Rota segura" do card ser uma escolha de
+// verdade, e não só um nome pra rota única de sempre.
 // ============================================================================
 
 const CABECALHOS_CORS: Record<string, string> = {
@@ -87,7 +95,12 @@ Deno.serve(async (req: Request) => {
           coordinates: [
             [origem.lng, origem.lat],
             [destino.lng, destino.lat]
-          ]
+          ],
+          // target_count 3 é o máximo aceito pela API; weight_factor/
+          // share_factor são os valores recomendados na documentação do
+          // OpenRouteService pra gerar alternativas realmente diferentes
+          // entre si (não 3 variações quase idênticas da mesma rua).
+          alternative_routes: { target_count: 3, weight_factor: 1.4, share_factor: 0.6 }
         })
       }
     );
@@ -114,11 +127,26 @@ Deno.serve(async (req: Request) => {
     }
 
     const dados = await respostaOrs.json();
-    const feature = dados?.features?.[0];
-    const resumo = feature?.properties?.summary;
-    const coordenadas = feature?.geometry?.coordinates;
+    const features = Array.isArray(dados?.features) ? dados.features : [];
 
-    if (!feature || !resumo || !Array.isArray(coordenadas) || coordenadas.length < 2) {
+    // Cada feature é uma alternativa de caminho completa (própria distância,
+    // duração e geometria) — o ORS não garante sempre devolver 3; às vezes
+    // só existe 1 caminho razoável entre os pontos, e a lista vem com 1 só.
+    const rotas = features
+      .map((feature: any) => {
+        const resumo = feature?.properties?.summary;
+        const coordenadas = feature?.geometry?.coordinates;
+        if (!resumo || !Array.isArray(coordenadas) || coordenadas.length < 2) return null;
+        return {
+          distanciaM: Math.round(resumo.distance),
+          duracaoS: Math.round(resumo.duration),
+          // Devolve já no formato [lat, lng] que o Leaflet espera.
+          geometria: coordenadas.map(([lon, lat]: [number, number]) => [lat, lon])
+        };
+      })
+      .filter((r: unknown): r is { distanciaM: number; duracaoS: number; geometria: number[][] } => r !== null);
+
+    if (!rotas.length) {
       const meioDeTransporte = perfil === "driving-car" ? "de carro" : "a pé";
       return respostaJson(
         { erro: `Não encontramos um caminho ${meioDeTransporte} entre esses dois pontos.` },
@@ -126,12 +154,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    return respostaJson({
-      distanciaM: Math.round(resumo.distance),
-      duracaoS: Math.round(resumo.duration),
-      // Devolve já no formato [lat, lng] que o Leaflet espera.
-      geometria: coordenadas.map(([lon, lat]: [number, number]) => [lat, lon])
-    });
+    return respostaJson({ rotas });
   } catch (erro) {
     console.error("Falha ao chamar o OpenRouteService:", erro);
     return respostaJson(

@@ -815,10 +815,15 @@ create table if not exists public.enderecos_rio (
   lng              double precision not null
 );
 
--- text_pattern_ops: index eficiente pra busca "começa com" (ilike 'nome%'),
--- que é como a busca de endereço já funciona no resto do app.
-create index if not exists idx_enderecos_rio_nome on public.enderecos_rio (lower(nome_logradouro) text_pattern_ops);
 create index if not exists idx_enderecos_rio_numero on public.enderecos_rio (numero);
+
+-- pg_trgm: index eficiente pra busca "contém" (ilike '%nome%'), não só
+-- "começa com". Necessário porque nome de rua no Brasil costuma ter um
+-- título/honorífico opcional na frente ("Rua MAJOR Fulano") — quem busca
+-- pode digitar só o nome, sem o título, então geocoding.js procura por
+-- "contém", não só por prefixo (ver buscarNoCnefeRio/consultarEnderecosRio).
+create extension if not exists "pg_trgm";
+create index if not exists idx_enderecos_rio_nome_trgm on public.enderecos_rio using gin (nome_logradouro gin_trgm_ops);
 
 alter table public.enderecos_rio enable row level security;
 

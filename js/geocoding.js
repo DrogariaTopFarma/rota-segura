@@ -76,17 +76,43 @@ const TIPOS_LOGRADOURO = [
   'praça', 'praca', 'largo', 'viela', 'ladeira', 'via', 'rod'
 ];
 
+/** Remove acentos ("Geógrafo" -> "Geografo") — o CNEFE guarda nome de rua
+    sem acentuação nenhuma (é assim que o IBGE já distribui o dado), então
+    uma busca com acento (do jeito que qualquer pessoa digita em português)
+    nunca bateria com o texto salvo sem essa normalização. */
+function semAcento(texto) {
+  return texto.normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
 /** Separa "Rua Iranduba" em { tipo: 'Rua', nome: 'Iranduba' } — a tabela
     enderecos_rio guarda tipo e nome do logradouro em colunas separadas. Se
     a primeira palavra não for um tipo reconhecido, assume que o texto
     inteiro é o nome (não atrapalha a busca, só não separa o tipo). */
 function separarTipoDeLogradouro(texto) {
   const partes = texto.trim().split(/\s+/);
-  const primeira = (partes[0] || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\.$/, '');
+  const primeira = semAcento(partes[0] || '').toLowerCase().replace(/\.$/, '');
   if (partes.length > 1 && TIPOS_LOGRADOURO.includes(primeira)) {
     return { tipo: partes[0], nome: partes.slice(1).join(' ') };
   }
   return { tipo: null, nome: texto.trim() };
+}
+
+/** Uma consulta de "contém" (não só "começa com") em enderecos_rio — nomes
+    de rua no Brasil costumam ter um título/honorífico opcional na frente
+    ("Rua MAJOR Fulano", "Rua DOUTOR Beltrano"), e não dá pra saber se quem
+    está buscando vai digitar esse título ou não. "Contém" resolve o caso
+    mais comum (pessoa não digita o título, mas ele existe no dado); ver
+    buscarNoCnefeRio para o caso contrário (título digitado que não existe
+    no dado do Censo). */
+async function consultarEnderecosRio(nomeBusca, numero, limite) {
+  let consulta = supabase
+    .from('enderecos_rio')
+    .select('tipo_logradouro,nome_logradouro,numero,bairro,cep,lat,lng')
+    .ilike('nome_logradouro', `%${nomeBusca}%`);
+  if (numero) consulta = consulta.eq('numero', numero);
+  consulta = consulta.limit(limite);
+  const { data, error } = await consulta;
+  return error || !data ? [] : data;
 }
 
 /** Busca na base de endereços do Rio de Janeiro (dado real do Censo 2022,
@@ -94,20 +120,25 @@ function separarTipoDeLogradouro(texto) {
 async function buscarNoCnefeRio(ruaTexto, numero, limite) {
   if (!ruaTexto) return [];
   const { nome } = separarTipoDeLogradouro(ruaTexto);
-  if (!nome || nome.trim().length < 3) return [];
+  const nomeLimpo = semAcento(nome || '').trim();
+  if (!nomeLimpo || nomeLimpo.length < 3) return [];
 
   try {
-    let consulta = supabase
-      .from('enderecos_rio')
-      .select('tipo_logradouro,nome_logradouro,numero,bairro,cep,lat,lng')
-      .ilike('nome_logradouro', `${nome.trim()}%`);
-    if (numero) consulta = consulta.eq('numero', numero);
-    consulta = consulta.limit(limite);
+    let linhas = await consultarEnderecosRio(nomeLimpo, numero, limite);
 
-    const { data, error } = await consulta;
-    if (error || !data) return [];
+    // Se não achou nada e o nome tem mais de uma palavra, a primeira pode
+    // ser um título que a pessoa digitou mas o Censo não registrou pra essa
+    // rua (ex.: buscar "Geógrafo Milton Santos" quando o dado só tem "Milton
+    // Santos") — tenta de novo sem a primeira palavra antes de desistir.
+    if (!linhas.length) {
+      const palavras = nomeLimpo.split(/\s+/);
+      if (palavras.length > 1) {
+        linhas = await consultarEnderecosRio(palavras.slice(1).join(' '), numero, limite);
+      }
+    }
+    if (!linhas.length) return [];
 
-    return data.map((r) => {
+    return linhas.map((r) => {
       const ruaCompleta = [r.tipo_logradouro, r.nome_logradouro].filter(Boolean).join(' ');
       const nomeCompleto = [
         [ruaCompleta, r.numero].filter(Boolean).join(', '),

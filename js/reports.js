@@ -37,7 +37,7 @@ export async function carregarListaRelatos() {
 
   const { data, error } = await supabase
     .from('reports')
-    .select('id,type,address,occurred_at,attention_level,status')
+    .select('id,type,address,occurred_at,attention_level,status,image_url')
     .order('occurred_at', { ascending: false })
     .limit(100);
 
@@ -72,6 +72,10 @@ export function renderizarLista(container, dados) {
           <div class="card-lista__titulo">${escapar(ROTULOS_RELATO[r.type] || 'Relato')}</div>
           <div class="card-lista__meta">${escapar(formatarDataHora(r.occurred_at))}</div>
           <div class="card-lista__endereco">${escapar(r.address || 'Endereço não informado')}</div>
+          ${r.image_url ? `
+            <button type="button" class="card-lista__foto" data-ampliar-foto="${escapar(r.image_url)}">
+              <img src="${escapar(r.image_url)}" alt="Foto anexada ao relato" loading="lazy">
+            </button>` : ''}
         </div>
         ${tag}
       </article>`;

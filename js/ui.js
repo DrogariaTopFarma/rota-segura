@@ -106,6 +106,22 @@ export function prepararModais() {
   });
 }
 
+/** Abre em tela cheia qualquer foto marcada com [data-ampliar-foto="URL"] —
+    um único listener delegado no documento inteiro, então funciona tanto em
+    listas (relatos) quanto em popups do mapa, cujo conteúdo é criado
+    dinamicamente e não existe ainda quando a página carrega. Precisa de um
+    modal #modal-lightbox-foto com <img id="lightbox-foto-img"> na página. */
+export function prepararLightboxDeFotos() {
+  document.addEventListener('click', (e) => {
+    const gatilho = e.target.closest('[data-ampliar-foto]');
+    if (!gatilho) return;
+    const img = document.getElementById('lightbox-foto-img');
+    if (!img) return;
+    img.src = gatilho.dataset.ampliarFoto;
+    abrirModal('modal-lightbox-foto');
+  });
+}
+
 /** Botões [data-trocar-modal="idDoModal"]: fecha o modal em que o botão está
     (o mais próximo na árvore) e abre outro — usado pelos itens do menu que
     levam a outro painel (Notificações, Termos, Privacidade). Diferente do

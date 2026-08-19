@@ -5,7 +5,7 @@
 
 import { exigirLogin, iniciarAuth } from './auth.js';
 import { aplicarIcones } from './icons.js';
-import { prepararModais, prepararTrocaDeModal, abrirModal, fecharModal } from './ui.js';
+import { prepararModais, prepararTrocaDeModal, abrirModal, fecharModal, prepararLightboxDeFotos } from './ui.js';
 import {
   criarMapa, localizarUsuario, carregarDadosDaAreaVisivel,
   recentralizar, ligarRealtimeRelatos, posicaoUsuario
@@ -29,6 +29,7 @@ async function iniciar() {
   iniciarAuth();
   prepararModais();
   prepararTrocaDeModal();
+  prepararLightboxDeFotos();
   marcarItemAtivo();
   prepararBotaoCentral();
   prepararNotificacoes();

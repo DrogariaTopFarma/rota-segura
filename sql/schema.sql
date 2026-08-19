@@ -250,6 +250,11 @@ create trigger trg_posts_updated_at
   before update on public.posts
   for each row execute function public.set_updated_at();
 
+-- "create table if not exists" acima não adiciona coluna nova a uma tabela
+-- que já existia antes desta funcionalidade — por isso o "add column"
+-- separado, idempotente.
+alter table public.posts add column if not exists is_anonymous boolean not null default false;
+
 
 -- ============================================================================
 -- 9. TABELA: post_likes (curtidas — 1 curtida por usuário por publicação)
@@ -337,6 +342,35 @@ drop trigger if exists trg_post_comments_sync on public.post_comments;
 create trigger trg_post_comments_sync
   after insert or delete on public.post_comments
   for each row execute function public.sync_comments_count();
+
+
+-- ---------------------------------------------------------------------------
+-- 9.2 VIEW: posts_publico — publicações da Comunidade, mas SEM revelar quem
+-- postou quando is_anonymous = true.
+--
+-- Por que uma view (e não só esconder o nome na tela): esconder só na
+-- interface não protege de verdade — qualquer pessoa com o navegador aberto
+-- no console conseguiria ler o user_id de uma publicação "anônima" na
+-- resposta da rede e, como a tabela profiles permite leitura pra qualquer
+-- usuária autenticada, descobrir quem publicou mesmo assim. Esta view troca
+-- o user_id por null ANTES de sair do banco, então a informação nunca chega
+-- ao navegador de outras pessoas pra publicações marcadas como anônimas —
+-- só quem já é a própria autora (via "Minhas publicações", que consulta a
+-- tabela real, não esta view) continua vendo os detalhes de tudo que é dela.
+-- `security_invoker = true` garante que o RLS de public.posts continua
+-- valendo normalmente para quem consulta esta view (não é uma forma de
+-- burlar a segurança, só de mascarar uma coluna).
+-- ---------------------------------------------------------------------------
+create or replace view public.posts_publico
+with (security_invoker = true) as
+select
+  id, category, title, content, address, lat, lng, image_url,
+  likes_count, comments_count, status, created_at,
+  case when is_anonymous then null else user_id end as user_id,
+  is_anonymous
+from public.posts;
+
+grant select on public.posts_publico to authenticated;
 
 
 -- ============================================================================
@@ -751,6 +785,51 @@ begin
   exception when duplicate_object then null;
   end;
 end $$;
+
+
+-- ============================================================================
+-- 15. TABELA: enderecos_rio — base de endereços do Rio de Janeiro com número
+--     e coordenada exatos, vinda do CNEFE (Censo Demográfico 2022, IBGE:
+--     https://www.ibge.gov.br/estatisticas/sociais/habitacao/38734-cadastro-
+--     nacional-de-enderecos-para-fins-estatisticos.html — dado público,
+--     coletado porta a porta pelo Censo).
+--
+--     Por que isso existe: geocodificação gratuita baseada só no
+--     OpenStreetMap (Photon, usado no resto do app) não tem o número exato
+--     da maioria dos endereços fora de áreas centrais bem mapeadas. Esta
+--     tabela cobre isso pra endereços do Rio com dado real de censo — usada
+--     como PRIMEIRA tentativa em geocoding.js antes de cair no Photon.
+--
+--     Esta tabela só tem a ESTRUTURA — os dados de verdade (as linhas) vêm
+--     de um import de CSV feito manualmente pelo painel do Supabase (Table
+--     Editor -> Import data from CSV), não deste script. Ver instruções.
+-- ============================================================================
+create table if not exists public.enderecos_rio (
+  id               bigint generated always as identity primary key,
+  tipo_logradouro  text not null,
+  nome_logradouro  text not null,
+  numero           text not null,
+  bairro           text,
+  cep              text,
+  lat              double precision not null,
+  lng              double precision not null
+);
+
+-- text_pattern_ops: index eficiente pra busca "começa com" (ilike 'nome%'),
+-- que é como a busca de endereço já funciona no resto do app.
+create index if not exists idx_enderecos_rio_nome on public.enderecos_rio (lower(nome_logradouro) text_pattern_ops);
+create index if not exists idx_enderecos_rio_numero on public.enderecos_rio (numero);
+
+alter table public.enderecos_rio enable row level security;
+
+-- Dado de referência público (vem do Censo do IBGE, não é conteúdo de
+-- usuária) — qualquer pessoa logada pode ler; ninguém escreve pelo app
+-- (a carga é feita só pelo painel do Supabase, uma vez).
+drop policy if exists "enderecos_rio_leitura" on public.enderecos_rio;
+create policy "enderecos_rio_leitura"
+  on public.enderecos_rio for select
+  to authenticated
+  using (true);
 
 
 -- ============================================================================

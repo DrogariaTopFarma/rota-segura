@@ -34,7 +34,17 @@
    Consolação, São Paulo) sempre. Por isso, quando o texto tem um número,
    fazemos as duas buscas (com e sem número) e usamos a segunda para
    validar/filtrar a primeira — ver `combinarComValidacao` abaixo.
+
+   ENDEREÇOS DO RIO DE JANEIRO: além do Photon, este arquivo também consulta
+   a tabela public.enderecos_rio (dado do Censo 2022 do IBGE — CNEFE, número
+   e coordenada reais, coletados porta a porta). Quando o endereço buscado
+   está nessa base, o resultado vem primeiro e SEM aviso de "aproximado" —
+   é dado de censo real, não estimativa. Fora do Rio (ou pra endereços muito
+   novos, depois do Censo), a busca cai no Photon do mesmo jeito de sempre.
    ============================================================================ */
+
+import { distanciaMetros } from './ui.js';
+import { supabase } from './supabase.js';
 
 const BASE = 'https://photon.komoot.io';
 const cache = new Map();
@@ -55,6 +65,81 @@ export function separarNumero(texto) {
     numero: achou[2],
     resto: (achou[3] || '').trim()
   };
+}
+
+/* ============================================================================
+   BASE LOCAL: enderecos_rio (CNEFE / Censo 2022 do IBGE)
+   ============================================================================ */
+
+const TIPOS_LOGRADOURO = [
+  'rua', 'av', 'avenida', 'travessa', 'alameda', 'estrada', 'rodovia',
+  'praça', 'praca', 'largo', 'viela', 'ladeira', 'via', 'rod'
+];
+
+/** Separa "Rua Iranduba" em { tipo: 'Rua', nome: 'Iranduba' } — a tabela
+    enderecos_rio guarda tipo e nome do logradouro em colunas separadas. Se
+    a primeira palavra não for um tipo reconhecido, assume que o texto
+    inteiro é o nome (não atrapalha a busca, só não separa o tipo). */
+function separarTipoDeLogradouro(texto) {
+  const partes = texto.trim().split(/\s+/);
+  const primeira = (partes[0] || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\.$/, '');
+  if (partes.length > 1 && TIPOS_LOGRADOURO.includes(primeira)) {
+    return { tipo: partes[0], nome: partes.slice(1).join(' ') };
+  }
+  return { tipo: null, nome: texto.trim() };
+}
+
+/** Busca na base de endereços do Rio de Janeiro (dado real do Censo 2022,
+    não estimativa) — roda em paralelo com o Photon em buscarEndereco(). */
+async function buscarNoCnefeRio(ruaTexto, numero, limite) {
+  if (!ruaTexto) return [];
+  const { nome } = separarTipoDeLogradouro(ruaTexto);
+  if (!nome || nome.trim().length < 3) return [];
+
+  try {
+    let consulta = supabase
+      .from('enderecos_rio')
+      .select('tipo_logradouro,nome_logradouro,numero,bairro,cep,lat,lng')
+      .ilike('nome_logradouro', `${nome.trim()}%`);
+    if (numero) consulta = consulta.eq('numero', numero);
+    consulta = consulta.limit(limite);
+
+    const { data, error } = await consulta;
+    if (error || !data) return [];
+
+    return data.map((r) => {
+      const ruaCompleta = [r.tipo_logradouro, r.nome_logradouro].filter(Boolean).join(' ');
+      const nomeCompleto = [
+        [ruaCompleta, r.numero].filter(Boolean).join(', '),
+        r.bairro,
+        'Rio de Janeiro',
+        'RJ',
+        r.cep ? `CEP ${r.cep}` : null
+      ].filter(Boolean).join(', ');
+      const curto = [
+        [ruaCompleta, r.numero].filter(Boolean).join(', '),
+        r.bairro,
+        'Rio de Janeiro'
+      ].filter(Boolean).join(' — ');
+
+      return {
+        nome: nomeCompleto,
+        curto,
+        lat: Number(r.lat),
+        lng: Number(r.lng),
+        bairro: r.bairro || null,
+        cidade: 'Rio de Janeiro',
+        cep: r.cep || null,
+        temNumero: true,
+        aproximado: false // dado de censo real, não estimativa
+      };
+    });
+  } catch {
+    // A busca em enderecos_rio nunca pode derrubar a busca inteira — se
+    // falhar (rede, tabela ainda não criada etc.), simplesmente não
+    // contribui candidatos, e o Photon continua funcionando normalmente.
+    return [];
+  }
 }
 
 /** Zoom aproximado (estilo Leaflet) a partir do tamanho da área visível do mapa. */
@@ -78,12 +163,14 @@ function formatar(features, numeroPedido) {
       const rua = p.street || p.name || '';
       const bairro = p.district || p.locality || '';
       const cidade = p.city || p.town || p.village || p.county || '';
+      const cep = p.postcode || null;
 
       const nome = [
         [rua, numero].filter(Boolean).join(', '),
         bairro,
         cidade,
-        p.state
+        p.state,
+        cep ? `CEP ${cep}` : null
       ].filter(Boolean).join(', ') || p.name || 'Local sem nome';
 
       const curto = [
@@ -97,6 +184,9 @@ function formatar(features, numeroPedido) {
         curto,
         lat,
         lng,
+        bairro: bairro || null,
+        cidade: cidade || null,
+        cep,
         temNumero: Boolean(numero),
         // true = o número encontrado não bate com o número pedido (ou não existe);
         // o pino está na rua, não necessariamente na porta certa
@@ -145,7 +235,7 @@ function semRepetir(lista) {
  * número não tem esse problema (acha a rua certa direto) — usamos as cidades
  * que ELA encontrou como lista de confiança pra filtrar a busca com número.
  */
-function combinarComValidacao(featuresComNumero, featuresSemNumero, numeroPedido, limite) {
+function combinarComValidacao(featuresComNumero, featuresSemNumero, numeroPedido, limite, centroArea) {
   const cidadesConfiaveis = new Set(featuresSemNumero.map(cidadeDaFeature).filter(Boolean));
 
   // Só filtra quando a busca sem número achou algo — sem isso, uma busca sem
@@ -161,7 +251,22 @@ function combinarComValidacao(featuresComNumero, featuresSemNumero, numeroPedido
   // descartada) na busca com número — completa com os resultados da busca
   // sem número, marcados como aproximados, evitando repetir a mesma rua.
   const jaIncluidos = new Set(resultadosComNumero.map((r) => r.nome));
-  const complemento = resultadosSemNumero.filter((r) => !jaIncluidos.has(r.nome));
+  let complemento = resultadosSemNumero.filter((r) => !jaIncluidos.has(r.nome));
+
+  // Uma rua comprida pode existir como vários trechos separados do OSM,
+  // cada um num bairro (ou até cidade) diferente — sem o número exato pra
+  // desempatar, o Photon pode devolver primeiro um trecho longe de onde
+  // você está, mesmo que outro trecho da MESMA rua esteja bem mais perto.
+  // Quando sabemos o centro da área visível no mapa, usamos isso pra
+  // ordenar os trechos aproximados do mais perto pro mais longe — em vez de
+  // aceitar a ordem de relevância genérica do serviço, que não sabe onde
+  // você está.
+  if (centroArea && complemento.length > 1) {
+    complemento = [...complemento].sort(
+      (a, b) => distanciaMetros(centroArea.lat, centroArea.lng, a.lat, a.lng)
+        - distanciaMetros(centroArea.lat, centroArea.lng, b.lat, b.lng)
+    );
+  }
 
   return [...resultadosComNumero, ...complemento].slice(0, limite);
 }
@@ -194,8 +299,13 @@ export async function buscarEndereco(texto, opcoes = {}) {
   const { signal } = controladorBusca;
 
   const { rua, numero, resto } = separarNumero(termo);
-  let resultados;
 
+  // enderecos_rio roda sempre em paralelo com o Photon (nunca bloqueia nem
+  // atrasa a busca — se não achar nada ou a tabela ainda não existir, some
+  // sozinho e o Photon continua funcionando normalmente).
+  const buscaCnefe = buscarNoCnefeRio(rua, numero, limite);
+
+  let resultadosPhoton;
   try {
     if (numero) {
       // Pede mais candidatos do que o limite final pedido, porque a validação
@@ -205,21 +315,32 @@ export async function buscarEndereco(texto, opcoes = {}) {
         buscarBruto(termo, { limite: Math.max(limite, 8), area, signal }),
         buscarBruto(semNumeroTexto, { limite: Math.max(limite, 6), area, signal })
       ]);
-      resultados = combinarComValidacao(comNumero, semNumero, numero, limite);
+      const centroArea = area ? { lat: (area.sul + area.norte) / 2, lng: (area.oeste + area.leste) / 2 } : null;
+      resultadosPhoton = combinarComValidacao(comNumero, semNumero, numero, limite, centroArea);
     } else {
       const features = await buscarBruto(termo, { limite, area, signal });
-      resultados = semRepetir(formatar(features, null));
+      resultadosPhoton = semRepetir(formatar(features, null));
     }
   } catch (erro) {
     if (erro.name === 'AbortError') return []; // uma busca mais nova já está em andamento
     throw erro;
   }
 
-  // Não reordenamos por "tem número exato": o Photon já leva em conta a
-  // proximidade (via lat/lon acima) e a relevância de cada resultado. Testamos
-  // colocar sempre o número exato em primeiro lugar e o efeito foi ruim —
-  // um resultado numerado a 500 km passava na frente da rua certa que
-  // aparecia bem na tela, só por não ter o número mapeado.
+  // Não reordenamos os resultados do Photon por "tem número exato": ele já
+  // leva em conta a proximidade (via lat/lon acima) e a relevância de cada
+  // resultado. Testamos colocar sempre o número exato em primeiro lugar e o
+  // efeito foi ruim — um resultado numerado a 500 km passava na frente da
+  // rua certa que aparecia bem na tela, só por não ter o número mapeado.
+  //
+  // enderecos_rio é diferente: quando ele acha o endereço, é dado de censo
+  // real (não estimativa), então vem sempre primeiro — completado pelo
+  // Photon, sem repetir a mesma rua duas vezes.
+  const resultadosCnefe = await buscaCnefe;
+  const jaVistos = new Set(resultadosCnefe.map((r) => r.nome));
+  const resultados = [
+    ...resultadosCnefe,
+    ...resultadosPhoton.filter((r) => !jaVistos.has(r.nome))
+  ].slice(0, limite);
 
   cache.set(chave, resultados);
   return resultados;

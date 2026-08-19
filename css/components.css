@@ -91,6 +91,52 @@
 .card-lista__meta { font-size: var(--fs-xs); color: var(--texto-secundario); }
 .card-lista__endereco { font-size: var(--fs-sm); font-weight: 500; margin-top: 2px; }
 
+.card-lista__foto {
+  display: block;
+  margin-top: var(--esp-2);
+  width: 100%;
+  max-width: 220px;
+  border-radius: var(--raio-md);
+  overflow: hidden;
+}
+.card-lista__foto img { display: block; width: 100%; height: 120px; object-fit: cover; }
+
+/* ---------------- Lightbox (foto ampliada) ----------------
+   O botão de fechar é fixo na tela (não preso ao tamanho da foto): uma foto
+   grande ou com proporção estranha não pode mais empurrar o "X" pra fora da
+   área visível ou deixar ele pequeno demais pra tocar. */
+.modal--lightbox { align-items: center; padding: var(--esp-6) var(--esp-5); }
+.modal__caixa--lightbox {
+  background: transparent;
+  width: auto;
+  max-width: 100%;
+  border-radius: 0;
+  padding: 0;
+  animation: aparecer .18s ease;
+}
+.modal__caixa--lightbox img {
+  display: block;
+  max-width: 100%;
+  max-height: 72vh;
+  border-radius: var(--raio-md);
+  box-shadow: var(--sombra-lg);
+}
+.lightbox-fechar {
+  position: fixed;
+  top: var(--esp-5);
+  right: var(--esp-5);
+  z-index: calc(var(--z-modal) + 1);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(45, 36, 48, 0.65);
+  color: var(--branco);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lightbox-fechar:hover { background: rgba(45, 36, 48, 0.85); }
+
 /* ---------------- Tags / badges ---------------- */
 .tag {
   display: inline-block;
@@ -172,6 +218,13 @@
   font-size: var(--fs-sm);
 }
 .campo-checkbox input { width: 20px; height: 20px; accent-color: var(--rosa-magenta); flex-shrink: 0; }
+.campo-checkbox__ajuda {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-xs);
+  color: var(--texto-secundario);
+  font-weight: 400;
+}
 
 .linha-campos { display: flex; gap: var(--esp-3); }
 .linha-campos > * { flex: 1; }

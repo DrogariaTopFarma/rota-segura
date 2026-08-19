@@ -388,8 +388,27 @@
           <input type="file" id="publicacao-imagem" name="imagem" accept="image/*">
         </div>
 
+        <label class="campo-checkbox">
+          <input type="checkbox" id="publicacao-anonimo" name="anonimo">
+          <span>
+            Publicar anonimamente
+            <small class="campo-checkbox__ajuda">Sua publicação será exibida sem mostrar sua identidade.</small>
+          </span>
+        </label>
+
         <button type="submit" class="btn btn-primario btn-bloco">PUBLICAR</button>
       </form>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: FOTO AMPLIADA (relatos) ================= -->
+  <div class="modal modal--lightbox" id="modal-lightbox-foto" role="dialog" aria-modal="true"
+       aria-label="Foto ampliada" hidden>
+    <button type="button" class="lightbox-fechar" data-fechar aria-label="Fechar">
+      <span data-icone="fechar" data-tamanho="22" aria-hidden="true"></span>
+    </button>
+    <div class="modal__caixa modal__caixa--lightbox">
+      <img id="lightbox-foto-img" src="" alt="Foto do relato ampliada">
     </div>
   </div>
 

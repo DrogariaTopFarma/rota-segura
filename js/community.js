@@ -31,9 +31,12 @@ export async function carregarFeed(filtro = filtroAtual) {
   if (!container) return;
   container.innerHTML = htmlCarregando(3);
 
+  // posts_publico (não a tabela posts direto): já vem com o user_id trocado
+  // por null quando a publicação é anônima — a identidade de quem postou
+  // nunca chega até aqui pra ser escondida só na tela (ver sql/schema.sql).
   let consulta = supabase
-    .from('posts')
-    .select('id,user_id,category,title,content,address,lat,lng,image_url,likes_count,comments_count,created_at')
+    .from('posts_publico')
+    .select('id,user_id,category,title,content,address,lat,lng,image_url,likes_count,comments_count,created_at,is_anonymous')
     .order('created_at', { ascending: false })
     .limit(50);
   if (filtro) consulta = consulta.eq('category', filtro);
@@ -58,7 +61,9 @@ export async function carregarFeed(filtro = filtroAtual) {
 
   // Nome/avatar de quem publicou — busca separada (mais simples e previsível
   // do que depender de embed automático do PostgREST entre posts e profiles).
-  const idsAutores = [...new Set(posts.map((p) => p.user_id))];
+  // Publicações anônimas já chegam aqui com user_id nulo (a view cuida
+  // disso), então nem entram nesta lista — o perfil delas nunca é buscado.
+  const idsAutores = [...new Set(posts.map((p) => p.user_id).filter(Boolean))];
   const autores = {};
   if (idsAutores.length) {
     const { data: perfis } = await supabase
@@ -86,8 +91,8 @@ export async function carregarFeed(filtro = filtroAtual) {
 
 function renderizarFeed(container, posts, autores, curtidos) {
   container.innerHTML = posts.map((p) => {
-    const autor = autores[p.user_id];
-    const nome = autor?.full_name || 'Alguém da comunidade';
+    const autor = p.is_anonymous ? null : autores[p.user_id];
+    const nome = p.is_anonymous ? 'Anônimo' : (autor?.full_name || 'Alguém da comunidade');
     const avatar = autor?.avatar_url
       ? `<img src="${escapar(autor.avatar_url)}" alt="">`
       : icone('perfil', 20);
@@ -402,7 +407,8 @@ export function prepararFormularioPublicacao({ aoPublicar } = {}) {
         address: local?.nome || null,
         lat: local?.lat ?? null,
         lng: local?.lng ?? null,
-        image_url: imageUrl
+        image_url: imageUrl,
+        is_anonymous: form.anonimo?.checked || false
       });
       if (error) throw error;
 

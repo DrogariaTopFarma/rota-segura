@@ -11,7 +11,7 @@ import { exigirLogin, iniciarAuth, usuarioAtual } from './auth.js';
 import { aplicarIcones, icone } from './icons.js';
 import { supabase, traduzirErro } from './supabase.js';
 import {
-  prepararModais, prepararTrocaDeModal, abrirModal, fecharModal, toast, escapar, formatarDataHora,
+  prepararModais, prepararTrocaDeModal, prepararLightboxDeFotos, abrirModal, fecharModal, toast, escapar, formatarDataHora,
   botaoCarregando, htmlEstadoVazio, htmlCarregando, mostrarMensagem, limparMensagem
 } from './ui.js';
 import { marcarItemAtivo, atualizarBadgeNotificacoes, ligarRealtimeBadgeNotificacoes } from './nav.js';
@@ -158,7 +158,7 @@ async function carregarMeusRelatos() {
 
   const { data, error } = await supabase
     .from('reports')
-    .select('id,type,address,occurred_at,attention_level,status')
+    .select('id,type,address,occurred_at,attention_level,status,image_url')
     .eq('user_id', user.id)
     .order('occurred_at', { ascending: false })
     .limit(10);
@@ -183,6 +183,10 @@ async function carregarMeusRelatos() {
           <div class="card-lista__titulo">${escapar(ROTULOS_RELATO[r.type] || 'Relato')}</div>
           <div class="card-lista__meta">${escapar(formatarDataHora(r.occurred_at))}${r.status === 'pending' ? ' · Em análise' : ''}</div>
           <div class="card-lista__endereco">${escapar(r.address || 'Endereço não informado')}</div>
+          ${r.image_url ? `
+            <button type="button" class="card-lista__foto" data-ampliar-foto="${escapar(r.image_url)}">
+              <img src="${escapar(r.image_url)}" alt="Foto anexada ao relato" loading="lazy">
+            </button>` : ''}
         </div>
         <div class="contato-acoes">
           <button type="button" class="btn-icone" data-excluir-relato="${r.id}" aria-label="Excluir relato de ${escapar(formatarDataHora(r.occurred_at))}">${icone('lixeira', 16)}</button>
@@ -282,7 +286,7 @@ async function carregarMinhasPublicacoes() {
 
   const { data, error } = await supabase
     .from('posts')
-    .select('id,category,title,likes_count,created_at')
+    .select('id,category,title,likes_count,created_at,is_anonymous')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(10);
@@ -305,6 +309,7 @@ async function carregarMinhasPublicacoes() {
         <div class="card-lista__titulo">${escapar(p.title || 'Sem título')}</div>
         <div class="card-lista__meta">
           ${escapar(formatarDataHora(p.created_at))} · ${p.likes_count} curtida${p.likes_count === 1 ? '' : 's'}
+          ${p.is_anonymous ? ' · publicada anonimamente' : ''}
         </div>
       </div>
       <span class="tag tag--rosa">${escapar(ROTULOS_CATEGORIA[p.category] || '')}</span>
@@ -557,6 +562,7 @@ async function iniciar() {
   iniciarAuth();
   prepararModais();
   prepararTrocaDeModal();
+  prepararLightboxDeFotos();
   marcarItemAtivo();
   prepararNotificacoes();
 

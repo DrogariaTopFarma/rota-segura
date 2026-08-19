@@ -289,7 +289,7 @@ export async function carregarDadosDaAreaVisivel() {
   try {
     const [relatos, pontos, delegacias] = await Promise.all([
       supabase.from('reports')
-        .select('id,type,description,address,lat,lng,occurred_at,attention_level,status,created_at')
+        .select('id,type,description,address,lat,lng,occurred_at,attention_level,status,created_at,image_url')
         .gte('lat', sul).lte('lat', norte)
         .gte('lng', oeste).lte('lng', leste)
         .order('occurred_at', { ascending: false })
@@ -357,6 +357,10 @@ function desenharRelatos(lista) {
         <div class="popup__meta">${escapar(formatarDataHora(r.occurred_at))}</div>
         <div class="popup__meta">${escapar(r.address || 'Endereço não informado')}</div>
         ${r.description ? `<div class="popup__desc">${escapar(r.description)}</div>` : ''}
+        ${r.image_url ? `
+          <button type="button" class="popup__foto" data-ampliar-foto="${escapar(r.image_url)}">
+            <img src="${escapar(r.image_url)}" alt="Foto anexada ao relato" loading="lazy">
+          </button>` : ''}
         ${pendente}
       `)
       .addTo(camadas.relatos);

@@ -63,6 +63,10 @@
   --largura-app: 480px;
   --z-mapa: 1;
   --z-flutuante: 500;
+  /* Sugestões de busca: mais alto que qualquer aviso/botão flutuante sobre o
+     mapa (--z-flutuante) — sem isso, um aviso de precisão de GPS podia
+     aparecer POR CIMA da lista de sugestões, cobrindo os resultados. */
+  --z-sugestoes: 600;
   --z-nav: 900;
   --z-modal: 1000;
   --z-toast: 1100;

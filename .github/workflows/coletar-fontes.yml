@@ -60,18 +60,18 @@ jobs:
           URL_FUNCAO: ${{ secrets.SUPABASE_FUNCTION_URL }}
           SENHA: ${{ secrets.COLETA_SECRET }}
           # O "portão de entrada" (gateway) das Edge Functions deste projeto
-          # exige uma chave SECRETA (sb_secret_...) no cabeçalho apikey, não
-          # a publishable/anon — por isso é um secret do repositório, nunca
-          # escrita aqui direto (diferente da anon key, essa é sensível de
-          # verdade: equivale à antiga service_role). Continua sendo a
-          # COLETA_SECRET, e não essa chave, quem de fato autoriza a coleta
-          # dentro do código da função.
+          # confere apikey E authorization contra uma credencial de verdade
+          # do Supabase (a chave SECRETA, sb_secret_...) antes mesmo de
+          # chamar a função — por isso os dois cabeçalhos levam essa chave,
+          # nunca a nossa própria senha (essa vai num cabeçalho à parte,
+          # x-coleta-secret, que é o único que o código da função confere).
           CHAVE_SECRETA_SUPABASE: ${{ secrets.SUPABASE_SECRET_API_KEY }}
         run: |
           codigo=$(curl -s -o resposta.json -w "%{http_code}" \
             -X POST "$URL_FUNCAO" \
             -H "apikey: $CHAVE_SECRETA_SUPABASE" \
-            -H "Authorization: Bearer $SENHA" \
+            -H "Authorization: Bearer $CHAVE_SECRETA_SUPABASE" \
+            -H "x-coleta-secret: $SENHA" \
             -H "Content-Type: application/json")
           echo "Código HTTP: $codigo"
           echo "Resposta da função:"

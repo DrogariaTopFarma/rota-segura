@@ -19,10 +19,14 @@
 // function -> Via Editor, nome da função: "coletar-fontes"). Passo a passo
 // completo em COMO_CONFIGURAR_COLETA_RJ.md.
 //
-// COMO É DISPARADA: POST sem corpo, com o cabeçalho
-//   Authorization: Bearer <COLETA_SECRET>
+// COMO É DISPARADA: POST sem corpo, com os cabeçalhos
+//   apikey: <chave secreta do Supabase, sb_secret_...>   (exigido pelo
+//           próprio Supabase pra deixar a chamada passar até a função)
+//   authorization: Bearer <chave secreta do Supabase, sb_secret_...>  (idem)
+//   x-coleta-secret: <COLETA_SECRET>   (nossa senha própria — é ESTA que a
+//           função de fato confere abaixo, não a de cima)
 // O agendamento automático (.github/workflows/coletar-fontes.yml) já manda
-// isso sozinho — você só chama manualmente pra testar.
+// tudo isso sozinho — você só chama manualmente pra testar.
 //
 // SECRETS NECESSÁRIOS (Dashboard -> Edge Functions -> coletar-fontes -> Secrets):
 //   GEMINI_API_KEY — sua chave do Google AI Studio (README_AI_SETUP.md)
@@ -633,9 +637,14 @@ async function coletarTudo(supabase, apiKey) {
    ============================================================================ */
 if (import.meta.main) {
   Deno.serve(async (req) => {
+    // Cabeçalho PRÓPRIO (não "authorization") de propósito: o "authorization"
+    // já é usado pelo gateway do Supabase pra checar a credencial dele mesmo
+    // (a chave secreta do projeto) — usar o mesmo cabeçalho pra duas coisas
+    // ao mesmo tempo (a credencial do Supabase E a nossa senha própria)
+    // colidia, e o gateway barrava a chamada antes de chegar aqui.
     const segredoEsperado = Deno.env.get('COLETA_SECRET');
-    const autorizacao = req.headers.get('authorization') || '';
-    if (!segredoEsperado || autorizacao !== `Bearer ${segredoEsperado}`) {
+    const segredoRecebido = req.headers.get('x-coleta-secret') || '';
+    if (!segredoEsperado || segredoRecebido !== segredoEsperado) {
       return new Response(JSON.stringify({ erro: 'Não autorizado.' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' }

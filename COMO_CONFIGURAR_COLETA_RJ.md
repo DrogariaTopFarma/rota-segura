@@ -92,20 +92,22 @@ No terminal (ou em qualquer ferramenta que faça requisição HTTP, como o Postm
 ```bash
 curl -X POST "https://SEU-PROJETO.supabase.co/functions/v1/coletar-fontes" \
   -H "apikey: SUA_CHAVE_SECRETA_AQUI" \
-  -H "Authorization: Bearer SUA_COLETA_SECRET_AQUI" \
+  -H "Authorization: Bearer SUA_CHAVE_SECRETA_AQUI" \
+  -H "x-coleta-secret: SUA_COLETA_SECRET_AQUI" \
   -H "Content-Type: application/json"
 ```
 
 Troque `SEU-PROJETO` pela URL de verdade do seu projeto, `SUA_COLETA_SECRET_AQUI` pela senha do
-passo 4, e `SUA_CHAVE_SECRETA_AQUI` pela chave que começa com `sb_secret_...` (Project Settings
-→ **API Keys** — **não** é a `sb_publishable_...` que está em `js/config.js`).
+passo 4, e `SUA_CHAVE_SECRETA_AQUI` (usada duas vezes) pela chave que começa com `sb_secret_...`
+(Project Settings → **API Keys** — **não** é a `sb_publishable_...` que está em `js/config.js`).
 
-> O cabeçalho `apikey` é exigido pelo próprio "portão de entrada" do Supabase pra deixar
-> QUALQUER requisição passar até a função, antes mesmo dela rodar — é uma exigência da
-> infraestrutura do Supabase, separada da nossa senha própria (`COLETA_SECRET`), que continua
-> sendo quem autoriza a coleta de verdade dentro do código da função. Neste projeto, esse
-> portão exige a chave **secreta** (não a publishable) — cuidado ao testar pelo terminal do seu
-> computador pra não deixar esse comando salvo em algum lugar com a chave secreta dentro.
+> `apikey` e `Authorization` são exigidos pelo próprio "portão de entrada" do Supabase pra
+> deixar QUALQUER requisição passar até a função, antes mesmo dela rodar — por isso os dois
+> levam a credencial de verdade do Supabase (a chave secreta), não a nossa senha. A nossa senha
+> própria (`COLETA_SECRET`) vai num cabeçalho à parte, `x-coleta-secret` — é esse, e só esse,
+> que o código da função confere pra decidir se autoriza a coleta. Cuidado ao testar pelo
+> terminal do seu computador pra não deixar esse comando salvo em algum lugar com a chave
+> secreta dentro.
 
 ### Como testar se deu certo
 
@@ -129,9 +131,9 @@ Depois, confira no **Table Editor** → `external_incidents`: devem existir linh
 
 | Erro | Causa | Solução |
 |---|---|---|
-| `{"erro":"Não autorizado."}` | `COLETA_SECRET` errado no `curl`, ou não configurado na função | Confira se a senha no comando é IGUAL à salva no secret da função |
-| `{"message":"No API key found in request",...}` (HTTP 401) | Faltou o cabeçalho `apikey` — isso é o "portão de entrada" do Supabase barrando antes de chegar na função, nem chegou a checar o `COLETA_SECRET` ainda | Adicione `-H "apikey: ..."` no comando (ver exemplo acima) |
-| `{"message":"Secret API key required",...}` (HTTP 401) | O `apikey` enviado é a chave `sb_publishable_...`, mas este projeto exige a `sb_secret_...` nesse cabeçalho | Troque pela chave que começa com `sb_secret_...` (Project Settings → API Keys) |
+| `{"erro":"Não autorizado."}` | `COLETA_SECRET` errado no cabeçalho `x-coleta-secret`, ou não configurado na função | Confira se o valor do `curl`/secret do GitHub é IGUAL ao salvo no secret da função |
+| `{"message":"No API key found in request",...}` (HTTP 401) | Faltou o cabeçalho `apikey` — isso é o "portão de entrada" do Supabase barrando antes de chegar na função | Adicione `-H "apikey: ..."` no comando (ver exemplo acima) |
+| `{"message":"Secret API key required",...}` (HTTP 401) | `apikey`/`Authorization` foram enviados com a chave `sb_publishable_...` (ou com a `COLETA_SECRET` no lugar errado) — este projeto exige a `sb_secret_...` nesses dois cabeçalhos | Confira se `apikey` E `Authorization` levam a chave `sb_secret_...`, e se a `COLETA_SECRET` está só no `x-coleta-secret` |
 | `{"erro":"GEMINI_API_KEY não configurada..."}` | Esqueceu o passo 3, ou publicou a função antes de adicionar o secret | Adicione o secret e publique a função de novo |
 | `processados` sempre 0 | Normal nas primeiras vezes (poucas notícias do RJ no feed no momento), ou a IA está marcando tudo como fora do RJ/estatística | Veja os **Logs** da função (próximo item) pra saber o motivo exato de cada notícia descartada |
 | Erro de rede/timeout | RSS do G1 ou a API do Gemini estavam fora do ar na hora | Tente de novo — a função não derruba nada, só aquela execução específica falha |

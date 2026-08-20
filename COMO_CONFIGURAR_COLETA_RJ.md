@@ -91,21 +91,21 @@ No terminal (ou em qualquer ferramenta que faça requisição HTTP, como o Postm
 
 ```bash
 curl -X POST "https://SEU-PROJETO.supabase.co/functions/v1/coletar-fontes" \
-  -H "apikey: SUA_CHAVE_ANON_AQUI" \
+  -H "apikey: SUA_CHAVE_SECRETA_AQUI" \
   -H "Authorization: Bearer SUA_COLETA_SECRET_AQUI" \
   -H "Content-Type: application/json"
 ```
 
 Troque `SEU-PROJETO` pela URL de verdade do seu projeto, `SUA_COLETA_SECRET_AQUI` pela senha do
-passo 4, e `SUA_CHAVE_ANON_AQUI` pela mesma chave `anon`/`publishable` que já está em
-`js/config.js` (`SUPABASE_ANON_KEY`).
+passo 4, e `SUA_CHAVE_SECRETA_AQUI` pela chave que começa com `sb_secret_...` (Project Settings
+→ **API Keys** — **não** é a `sb_publishable_...` que está em `js/config.js`).
 
 > O cabeçalho `apikey` é exigido pelo próprio "portão de entrada" do Supabase pra deixar
 > QUALQUER requisição passar até a função, antes mesmo dela rodar — é uma exigência da
 > infraestrutura do Supabase, separada da nossa senha própria (`COLETA_SECRET`), que continua
-> sendo quem autoriza a coleta de verdade dentro do código da função. A chave `anon` é pública
-> de propósito (é a mesma que já fica visível no navegador) — não tem problema ela aparecer
-> aqui ou no workflow do GitHub Actions.
+> sendo quem autoriza a coleta de verdade dentro do código da função. Neste projeto, esse
+> portão exige a chave **secreta** (não a publishable) — cuidado ao testar pelo terminal do seu
+> computador pra não deixar esse comando salvo em algum lugar com a chave secreta dentro.
 
 ### Como testar se deu certo
 
@@ -130,7 +130,8 @@ Depois, confira no **Table Editor** → `external_incidents`: devem existir linh
 | Erro | Causa | Solução |
 |---|---|---|
 | `{"erro":"Não autorizado."}` | `COLETA_SECRET` errado no `curl`, ou não configurado na função | Confira se a senha no comando é IGUAL à salva no secret da função |
-| `{"message":"No API key found in request",...}` (HTTP 401) | Faltou o cabeçalho `apikey` — isso é o "portão de entrada" do Supabase barrando antes de chegar na função, nem chegou a checar o `COLETA_SECRET` ainda | Adicione `-H "apikey: SUA_CHAVE_ANON"` no comando (ver exemplo acima) |
+| `{"message":"No API key found in request",...}` (HTTP 401) | Faltou o cabeçalho `apikey` — isso é o "portão de entrada" do Supabase barrando antes de chegar na função, nem chegou a checar o `COLETA_SECRET` ainda | Adicione `-H "apikey: ..."` no comando (ver exemplo acima) |
+| `{"message":"Secret API key required",...}` (HTTP 401) | O `apikey` enviado é a chave `sb_publishable_...`, mas este projeto exige a `sb_secret_...` nesse cabeçalho | Troque pela chave que começa com `sb_secret_...` (Project Settings → API Keys) |
 | `{"erro":"GEMINI_API_KEY não configurada..."}` | Esqueceu o passo 3, ou publicou a função antes de adicionar o secret | Adicione o secret e publique a função de novo |
 | `processados` sempre 0 | Normal nas primeiras vezes (poucas notícias do RJ no feed no momento), ou a IA está marcando tudo como fora do RJ/estatística | Veja os **Logs** da função (próximo item) pra saber o motivo exato de cada notícia descartada |
 | Erro de rede/timeout | RSS do G1 ou a API do Gemini estavam fora do ar na hora | Tente de novo — a função não derruba nada, só aquela execução específica falha |
@@ -144,7 +145,7 @@ que você confirma o funcionamento de verdade, não só "sem erro na tela".
 ## 8. Agendar (GitHub Actions)
 
 O arquivo `.github/workflows/coletar-fontes.yml` já existe neste projeto — só falta configurar
-2 segredos do **repositório no GitHub** (diferente dos secrets da Edge Function, que já
+3 segredos do **repositório no GitHub** (diferente dos secrets da Edge Function, que já
 configurou antes):
 
 1. No GitHub, abra o repositório → **Settings** → **Secrets and variables** → **Actions** →
@@ -153,6 +154,14 @@ configurou antes):
    - Nome: `SUPABASE_FUNCTION_URL` — valor: `https://SEU-PROJETO.supabase.co/functions/v1/coletar-fontes`
    - Nome: `COLETA_SECRET` — valor: a MESMA senha do passo 4 (tem que ser idêntica à da Edge
      Function, senão a chamada é recusada)
+   - Nome: `SUPABASE_SECRET_API_KEY` — valor: a chave **secreta** do seu projeto (Project
+     Settings → **API Keys**, o valor que começa com `sb_secret_...`, diferente da
+     `sb_publishable_...` que está em `js/config.js`). O "portão de entrada" das Edge Functions
+     deste projeto exige essa chave pra deixar a chamada passar, antes mesmo dela chegar na
+     função — é uma exigência da infraestrutura do Supabase, separada da nossa própria
+     `COLETA_SECRET`, que continua sendo quem autoriza a coleta de verdade.
+     > ⚠️ Essa chave é sensível de verdade (equivale à antiga `service_role`, ignora o RLS).
+     > Só pode ficar como secret do GitHub — nunca em nenhum arquivo deste repositório.
 3. Pronto — o GitHub já vai chamar a função sozinho a cada 30 minutos (horário configurável no
    próprio arquivo `.yml`, comentado nele).
 

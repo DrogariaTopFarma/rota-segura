@@ -7,11 +7,15 @@
 # aperta o botão na hora certa.
 #
 # COMO CONFIGURAR: veja COMO_CONFIGURAR_COLETA_RJ.md — resumindo, você
-# precisa cadastrar 2 segredos deste repositório (Settings -> Secrets and
+# precisa cadastrar 3 segredos deste repositório (Settings -> Secrets and
 # variables -> Actions -> New repository secret):
 #   SUPABASE_FUNCTION_URL  ex.: https://SEU-PROJETO.supabase.co/functions/v1/coletar-fontes
 #   COLETA_SECRET           a MESMA senha que você configurou como secret
 #                            da Edge Function (Dashboard do Supabase)
+#   SUPABASE_SECRET_API_KEY a chave SECRETA (sb_secret_...) do seu projeto —
+#                            Project Settings -> API Keys. Sensível de
+#                            verdade (equivale à antiga service_role):
+#                            NUNCA cole ela direto neste arquivo.
 #
 # INTERVALO: */30 * * * * = a cada 30 minutos. Pra mudar, edite a linha do
 # "cron" abaixo (formato padrão do cron: minuto hora dia mês dia-da-semana).
@@ -55,18 +59,18 @@ jobs:
         env:
           URL_FUNCAO: ${{ secrets.SUPABASE_FUNCTION_URL }}
           SENHA: ${{ secrets.COLETA_SECRET }}
-          # Chave "anon" do Rota Segura — a mesma que já fica pública em
-          # js/config.js (feita pra isso, não é segredo). O "portão de
-          # entrada" do Supabase (Kong) exige esse cabeçalho pra deixar
-          # QUALQUER chamada passar até a função, antes mesmo dela rodar —
-          # é uma exigência da infraestrutura do Supabase, separada da
-          # nossa própria senha (COLETA_SECRET), que continua sendo quem de
-          # fato autoriza a coleta dentro do código da função.
-          CHAVE_ANON: sb_publishable_ZBpUZp9ZqjvnKMU0lNky_Q_poX_2huA
+          # O "portão de entrada" (gateway) das Edge Functions deste projeto
+          # exige uma chave SECRETA (sb_secret_...) no cabeçalho apikey, não
+          # a publishable/anon — por isso é um secret do repositório, nunca
+          # escrita aqui direto (diferente da anon key, essa é sensível de
+          # verdade: equivale à antiga service_role). Continua sendo a
+          # COLETA_SECRET, e não essa chave, quem de fato autoriza a coleta
+          # dentro do código da função.
+          CHAVE_SECRETA_SUPABASE: ${{ secrets.SUPABASE_SECRET_API_KEY }}
         run: |
           codigo=$(curl -s -o resposta.json -w "%{http_code}" \
             -X POST "$URL_FUNCAO" \
-            -H "apikey: $CHAVE_ANON" \
+            -H "apikey: $CHAVE_SECRETA_SUPABASE" \
             -H "Authorization: Bearer $SENHA" \
             -H "Content-Type: application/json")
           echo "Código HTTP: $codigo"

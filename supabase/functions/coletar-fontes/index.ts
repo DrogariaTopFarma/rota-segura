@@ -29,9 +29,10 @@
 //   COLETA_SECRET  — uma senha inventada por você, só pra esta função aceitar
 //                    só chamadas autorizadas (não é a anon key nem a service
 //                    role key do Supabase — é uma senha à parte, sua)
-// SECRETS QUE NORMALMENTE JÁ VÊM PRONTOS em toda Edge Function do Supabase
-// (confirme no Dashboard antes de supor que estão lá — ver tutorial):
-//   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+// SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY já vêm prontos automaticamente em
+// toda Edge Function do Supabase — não precisa (nem consegue) criar esses
+// dois manualmente: o Supabase reserva o prefixo "SUPABASE_" e recusa
+// qualquer secret criado com esse nome.
 // ============================================================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';

@@ -66,39 +66,46 @@ agendamento automático) consiga chamar a função e gastar sua cota de IA à to
    - Valor: a senha que você inventou
 3. Guarde essa mesma senha — você vai usar de novo no passo 6.
 
-## 5. Confirmar os secrets automáticos do Supabase
+## 5. `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` — não precisa fazer nada aqui
 
-Toda Edge Function do Supabase normalmente já recebe, sozinha, os secrets `SUPABASE_URL` e
-`SUPABASE_SERVICE_ROLE_KEY` — a função `coletar-fontes` usa esses dois pra gravar no banco (com
-permissão pra ignorar o RLS, já que é um robô, não uma usuária logada).
+Toda Edge Function do Supabase já recebe esses dois secrets **automaticamente**, sozinha — a
+função `coletar-fontes` usa eles pra gravar no banco (com permissão pra ignorar o RLS, já que é
+um robô, não uma usuária logada).
 
-**Confira se isso é verdade no SEU projeto** antes de seguir: painel do Supabase → **Edge
-Functions** → **coletar-fontes** → **Secrets**. Se `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`
-não aparecerem automaticamente na lista:
+**Não tente criar esses dois manualmente** — o Supabase reserva o prefixo `SUPABASE_` pra uso
+próprio e recusa qualquer secret que você tente criar com esse nome (se aparecer um erro dizendo
+que o nome não é aceito, é por isso; não é bug seu). Não tem o que configurar nesta etapa — só
+os dois secrets do passo 3 (`GEMINI_API_KEY`) e do passo 4 (`COLETA_SECRET`) precisam ser criados
+à mão.
 
-1. Vá em **Project Settings** → **API** e copie a **Project URL** e a chave **service_role**
-   (não é a mesma que a `anon` — cuidado pra não confundir).
-2. Adicione os dois como secrets manuais da função `coletar-fontes`, com esses nomes exatos.
-
-> ⚠️ A chave `service_role` ignora todas as regras de segurança do banco (RLS). Ela só pode
-> ficar como secret de Edge Function — nunca em `js/config.js`, nunca em nenhum arquivo que vá
-> pro GitHub.
+> ⚠️ A chave `service_role` (que já vem pronta em `SUPABASE_SERVICE_ROLE_KEY`) ignora todas as
+> regras de segurança do banco (RLS). Ela só existe dentro da Edge Function — nunca coloque essa
+> chave em `js/config.js` nem em nenhum arquivo que vá pro GitHub.
 
 ## 6. Testar a função manualmente (antes de agendar)
 
-Com `GEMINI_API_KEY`, `COLETA_SECRET`, `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` já
-configurados, dispare a função uma vez à mão pra confirmar que tudo funciona antes de agendar:
+Com `GEMINI_API_KEY` e `COLETA_SECRET` já configurados (o resto vem automático, passo 5), dispare
+a função uma vez à mão pra confirmar que tudo funciona antes de agendar:
 
 No terminal (ou em qualquer ferramenta que faça requisição HTTP, como o Postman):
 
 ```bash
 curl -X POST "https://SEU-PROJETO.supabase.co/functions/v1/coletar-fontes" \
+  -H "apikey: SUA_CHAVE_ANON_AQUI" \
   -H "Authorization: Bearer SUA_COLETA_SECRET_AQUI" \
   -H "Content-Type: application/json"
 ```
 
-Troque `SEU-PROJETO` pela URL de verdade do seu projeto e `SUA_COLETA_SECRET_AQUI` pela senha do
-passo 4.
+Troque `SEU-PROJETO` pela URL de verdade do seu projeto, `SUA_COLETA_SECRET_AQUI` pela senha do
+passo 4, e `SUA_CHAVE_ANON_AQUI` pela mesma chave `anon`/`publishable` que já está em
+`js/config.js` (`SUPABASE_ANON_KEY`).
+
+> O cabeçalho `apikey` é exigido pelo próprio "portão de entrada" do Supabase pra deixar
+> QUALQUER requisição passar até a função, antes mesmo dela rodar — é uma exigência da
+> infraestrutura do Supabase, separada da nossa senha própria (`COLETA_SECRET`), que continua
+> sendo quem autoriza a coleta de verdade dentro do código da função. A chave `anon` é pública
+> de propósito (é a mesma que já fica visível no navegador) — não tem problema ela aparecer
+> aqui ou no workflow do GitHub Actions.
 
 ### Como testar se deu certo
 
@@ -123,6 +130,7 @@ Depois, confira no **Table Editor** → `external_incidents`: devem existir linh
 | Erro | Causa | Solução |
 |---|---|---|
 | `{"erro":"Não autorizado."}` | `COLETA_SECRET` errado no `curl`, ou não configurado na função | Confira se a senha no comando é IGUAL à salva no secret da função |
+| `{"message":"No API key found in request",...}` (HTTP 401) | Faltou o cabeçalho `apikey` — isso é o "portão de entrada" do Supabase barrando antes de chegar na função, nem chegou a checar o `COLETA_SECRET` ainda | Adicione `-H "apikey: SUA_CHAVE_ANON"` no comando (ver exemplo acima) |
 | `{"erro":"GEMINI_API_KEY não configurada..."}` | Esqueceu o passo 3, ou publicou a função antes de adicionar o secret | Adicione o secret e publique a função de novo |
 | `processados` sempre 0 | Normal nas primeiras vezes (poucas notícias do RJ no feed no momento), ou a IA está marcando tudo como fora do RJ/estatística | Veja os **Logs** da função (próximo item) pra saber o motivo exato de cada notícia descartada |
 | Erro de rede/timeout | RSS do G1 ou a API do Gemini estavam fora do ar na hora | Tente de novo — a função não derruba nada, só aquela execução específica falha |

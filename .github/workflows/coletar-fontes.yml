@@ -1,0 +1,48 @@
+# ============================================================================
+# ROTA SEGURA — Agendamento da coleta de fontes públicas
+# ----------------------------------------------------------------------------
+# Só chama a Edge Function "coletar-fontes" de tempos em tempos — toda a
+# lógica de verdade (RSS, filtro do RJ, IA, deduplicação, confiança) mora
+# em supabase/functions/coletar-fontes/index.ts, não aqui. Este arquivo só
+# aperta o botão na hora certa.
+#
+# COMO CONFIGURAR: veja COMO_CONFIGURAR_COLETA_RJ.md — resumindo, você
+# precisa cadastrar 2 segredos deste repositório (Settings -> Secrets and
+# variables -> Actions -> New repository secret):
+#   SUPABASE_FUNCTION_URL  ex.: https://SEU-PROJETO.supabase.co/functions/v1/coletar-fontes
+#   COLETA_SECRET           a MESMA senha que você configurou como secret
+#                            da Edge Function (Dashboard do Supabase)
+#
+# INTERVALO: */30 * * * * = a cada 30 minutos. Pra mudar, edite a linha do
+# "cron" abaixo (formato padrão do cron: minuto hora dia mês dia-da-semana).
+# Intervalos menores gastam mais chamadas de IA por dia — veja a seção de
+# custos/limites em COMO_CONFIGURAR_COLETA_RJ.md antes de deixar mais
+# frequente.
+# ============================================================================
+name: Coletar fontes públicas (RJ)
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  # Permite disparar manualmente pela aba "Actions" do GitHub — use isso pra
+  # testar sem esperar o horário do cron.
+  workflow_dispatch: {}
+
+jobs:
+  coletar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Chamar a Edge Function coletar-fontes
+        run: |
+          codigo=$(curl -s -o resposta.json -w "%{http_code}" \
+            -X POST "${{ secrets.SUPABASE_FUNCTION_URL }}" \
+            -H "Authorization: Bearer ${{ secrets.COLETA_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "Código HTTP: $codigo"
+          echo "Resposta da função:"
+          cat resposta.json
+          if [ "$codigo" -ge 300 ]; then
+            echo ""
+            echo "A coleta falhou (HTTP $codigo). Confira os secrets deste repositório e os logs da Edge Function no Dashboard do Supabase (Edge Functions -> coletar-fontes -> Logs)."
+            exit 1
+          fi

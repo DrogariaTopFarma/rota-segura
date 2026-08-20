@@ -36,6 +36,25 @@ export const ROTULOS_PONTO = {
   outro: 'Outro'
 };
 
+// Categorias de external_incidents (fontes públicas coletadas — ver
+// supabase/functions/coletar-fontes) — as 6 primeiras são as mesmas de
+// ROTULOS_RELATO (mesmo vocabulário, pra caber junto no mesmo popup/filtro
+// mental), mais 4 categorias que só fazem sentido pra notícia, não pra
+// relato de usuária (acidente/bloqueio/obra não são coisas que a própria
+// usuária relataria sobre si mesma).
+export const ROTULOS_INCIDENTE_EXTERNO = {
+  assedio_verbal: 'Assédio verbal',
+  assedio_fisico: 'Assédio físico',
+  assalto: 'Assalto',
+  perseguicao: 'Perseguição',
+  rua_pouco_iluminada: 'Rua pouco iluminada',
+  local_isolado: 'Local isolado',
+  acidente: 'Acidente',
+  bloqueio: 'Via bloqueada',
+  obra: 'Obra',
+  outro: 'Outro'
+};
+
 /* --------------------------------------------------------------- Estado --- */
 let mapa = null;
 let camadas = {};
@@ -92,7 +111,13 @@ const ICONES = {
   comercio_24h: () => divIcon('predio', '#7C5CBF'),
   ponto_onibus: () => divIcon('onibus', '#7C5CBF'),
   delegacia: () => divIcon('predio', '#7C5CBF'),
-  busca: () => divIcon('pino', '#2D2430')
+  busca: () => divIcon('pino', '#2D2430'),
+  // Fonte pública (notícia): cor nova (nenhuma outra categoria usa teal),
+  // pra nunca ser confundida com relato de usuária. Ícone diferente
+  // (escudo em vez de megafone) quando bate com um relato de usuária de
+  // verdade — é o "indicador de múltiplas fontes" do pedido.
+  fonte_publica: () => divIcon('megafone', '#0097A7'),
+  fonte_publica_confirmada: () => divIcon('escudo', '#00695C')
 };
 
 /* ------------------------------------------------------------ Inicializar */
@@ -123,7 +148,11 @@ export function criarMapa(idElemento = 'mapa') {
     densidade: L.layerGroup().addTo(mapa),
     relatos: L.layerGroup().addTo(mapa),
     pontos: L.layerGroup().addTo(mapa),
-    delegacias: L.layerGroup().addTo(mapa)
+    delegacias: L.layerGroup().addTo(mapa),
+    // Só entra no mapa se o toggle (#filtro-fontes-publicas) estiver
+    // marcado — ver ligarFiltroDeFontesPublicas(). Começa dentro do mapa
+    // porque o checkbox começa marcado.
+    fontesPublicas: L.layerGroup().addTo(mapa)
   };
 
   // Recarrega os dados sempre que a pessoa arrasta ou dá zoom
@@ -287,7 +316,7 @@ export async function carregarDadosDaAreaVisivel() {
   const oeste = b.getWest(), leste = b.getEast();
 
   try {
-    const [relatos, pontos, delegacias] = await Promise.all([
+    const [relatos, pontos, delegacias, fontesPublicas] = await Promise.all([
       supabase.from('reports')
         .select('id,type,description,address,lat,lng,occurred_at,attention_level,status,created_at,image_url')
         .gte('lat', sul).lte('lat', norte)
@@ -305,16 +334,27 @@ export async function carregarDadosDaAreaVisivel() {
         .select('id,name,address,lat,lng,phone,is_women_only,opening_hours,status')
         .gte('lat', sul).lte('lat', norte)
         .gte('lng', oeste).lte('lng', leste)
+        .limit(100),
+
+      // external_incidents: RLS já restringe a leitura a status
+      // active/confirmed (ver sql/schema.sql, tabela 16) — nunca chega aqui
+      // uma notícia ainda "pending"/"disputed"/"rejected".
+      supabase.from('external_incidents')
+        .select('id,category,title,description,address,city,lat,lng,source_url,confidence,matched_report_id,occurred_at,published_at')
+        .gte('lat', sul).lte('lat', norte)
+        .gte('lng', oeste).lte('lng', leste)
         .limit(100)
     ]);
 
     if (relatos.error) throw relatos.error;
     if (pontos.error) throw pontos.error;
     if (delegacias.error) throw delegacias.error;
+    if (fontesPublicas.error) throw fontesPublicas.error;
 
     desenharRelatos(relatos.data || []);
     desenharPontos(pontos.data || []);
     desenharDelegacias(delegacias.data || []);
+    desenharFontesPublicas(fontesPublicas.data || []);
 
     ouvintes.forEach((fn) => fn(relatos.data || []));
   } catch (erro) {
@@ -398,6 +438,58 @@ function desenharDelegacias(lista) {
         ${d.opening_hours ? `<div class="popup__meta">${escapar(d.opening_hours)}</div>` : ''}
       `)
       .addTo(camadas.delegacias);
+  });
+}
+
+/** Nível de confiança em texto (nunca o número cru — quem vê a tela não
+    precisa saber a fórmula, só se pode confiar mais ou menos). Mesmos
+    limiares usados em supabase/functions/coletar-fontes/index.ts
+    (nivelDeConfianca) — se ajustar um lado, ajuste o outro. */
+function nivelDeConfiancaTexto(pontos) {
+  if (pontos >= 7) return 'Alta';
+  if (pontos >= 3) return 'Média';
+  return 'Baixa';
+}
+
+/** Notícias públicas coletadas e classificadas por IA (ver
+    supabase/functions/coletar-fontes) — nunca um relato de usuária, por
+    isso tem ícone/cor própria e nunca aparece sem coordenada confiável
+    (a Edge Function já filtra isso antes de gravar). Quando bate com um
+    relato de usuária de verdade (matched_report_id), muda de ícone pra
+    sinalizar "confirmado por mais de uma fonte" (item 29 do pedido). */
+function desenharFontesPublicas(lista) {
+  camadas.fontesPublicas.clearLayers();
+  lista.forEach((f) => {
+    if (typeof f.lat !== 'number' || typeof f.lng !== 'number') return;
+
+    const confirmado = !!f.matched_report_id;
+    const criador = confirmado ? ICONES.fonte_publica_confirmada : ICONES.fonte_publica;
+    const dataTexto = f.occurred_at || f.published_at ? formatarDataHora(f.occurred_at || f.published_at) : null;
+
+    L.marker([f.lat, f.lng], { icon: criador(), alt: f.title })
+      .bindPopup(`
+        <div class="popup__tipo">${escapar(ROTULOS_INCIDENTE_EXTERNO[f.category] || 'Outro')}</div>
+        <div class="popup__meta">${escapar(f.title)}</div>
+        ${f.description ? `<div class="popup__desc">${escapar(f.description)}</div>` : ''}
+        <div class="popup__meta">${escapar(f.address || f.city || '')}</div>
+        ${dataTexto ? `<div class="popup__meta">${escapar(dataTexto)}</div>` : ''}
+        <div class="popup__meta">Confiança: ${nivelDeConfiancaTexto(f.confidence)}</div>
+        <div class="popup__meta">${confirmado ? 'Notícia + relato da comunidade' : 'Fonte: notícia pública'}</div>
+        ${f.source_url ? `<a class="popup__link" href="${escapar(f.source_url)}" target="_blank" rel="noopener">Ver notícia original</a>` : ''}
+      `)
+      .addTo(camadas.fontesPublicas);
+  });
+}
+
+/** Liga o botão "mostrar fontes públicas" (pages/mapa.html) — só entra/sai
+    do mapa a CAMADA, os dados continuam sempre carregados junto com o
+    resto (mesma query de sempre); ligar/desligar não recarrega nada. */
+export function ligarFiltroDeFontesPublicas() {
+  const caixa = document.getElementById('filtro-fontes-publicas');
+  if (!caixa) return;
+  caixa.addEventListener('change', () => {
+    if (caixa.checked) camadas.fontesPublicas.addTo(mapa);
+    else mapa.removeLayer(camadas.fontesPublicas);
   });
 }
 

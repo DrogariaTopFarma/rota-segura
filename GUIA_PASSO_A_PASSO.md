@@ -26,6 +26,7 @@ Faça uma etapa por vez e só avance depois do teste de cada uma dar certo.
 - [Etapa 12 — Bloco 2: publicar a Edge Function no Supabase](#etapa-12--bloco-2-publicar-a-edge-function-no-supabase)
 - [Etapa 13 — Bloco 2: testar rotas e navegação ativa](#etapa-13--bloco-2-testar-rotas-e-navegação-ativa)
 - [Etapa 14 — Bloco 3: comunidade, perfil e contatos de emergência](#etapa-14--bloco-3-comunidade-perfil-e-contatos-de-emergência)
+- [Etapa 15 — Coleta de fontes públicas + IA (opcional)](#etapa-15--coleta-de-fontes-públicas--ia-opcional)
 - [Sobre o .env (leia antes de procurar por ele)](#sobre-o-env-leia-antes-de-procurar-por-ele)
 - [Dicionário rápido](#dicionário-rápido)
 
@@ -1161,6 +1162,23 @@ conta" desloga de verdade.
 | Botão SOS continua avisando "nenhum contato" mesmo depois de cadastrar | Cadastrou na Conta errada, ou não salvou | Confira se o contato aparece na lista em Perfil → Contatos de emergência |
 | Sino nunca mostra número | Curtidas testadas só com a própria conta (não gera aviso de propósito) | Teste com duas contas diferentes, como explicado acima |
 | Erro ao subir foto de perfil/publicação | Arquivo maior que 5 MB, ou formato que não é imagem | Use uma foto menor ou em JPG/PNG |
+
+---
+
+## Etapa 15 — Coleta de fontes públicas + IA (opcional)
+
+Funcionalidade extra: o app passa a coletar notícias públicas sobre o Rio de Janeiro (hoje, RSS
+do G1 Rio), classificar cada uma com IA (Google Gemini), cruzar com relatos que as usuárias já
+enviaram e mostrar no mapa com um selo de confiança — sempre deixando claro que é uma notícia,
+nunca confundindo com relato de usuária de verdade.
+
+É opcional: o resto do app (relatos, rotas, comunidade) funciona inteiro sem essa etapa. Só faça
+se quiser ativar essa camada a mais.
+
+Como o passo a passo é mais longo que o das outras etapas (banco + Edge Function + IA +
+agendamento), ele mora num documento próprio: **[COMO_CONFIGURAR_COLETA_RJ.md](COMO_CONFIGURAR_COLETA_RJ.md)**.
+A parte específica de criar/configurar a chave da IA está detalhada em
+**[README_AI_SETUP.md](README_AI_SETUP.md)**.
 
 ---
 

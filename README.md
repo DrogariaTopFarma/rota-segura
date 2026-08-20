@@ -64,6 +64,12 @@ e menu).
   só para preencher a tela
 - Menu expandido com Perfil, Meus relatos, Contatos de emergência, Notificações, Configurações
   (troca de senha), Termos de uso e Privacidade
+- **Coleta de fontes públicas + IA (opcional)**: um "robô" (Edge Function agendada) coleta
+  notícias públicas do Rio de Janeiro, usa IA (Google Gemini) para classificar/estruturar cada
+  uma, valida que é realmente do RJ, cruza com relatos já enviados pelas usuárias e calcula uma
+  pontuação de confiança antes de mostrar no mapa com ícone e selo próprios — nunca confundido
+  com relato de usuária de verdade, nunca publicado sem passar por essas checagens. Passo a
+  passo completo em [COMO_CONFIGURAR_COLETA_RJ.md](COMO_CONFIGURAR_COLETA_RJ.md)
 
 ---
 
@@ -114,11 +120,16 @@ rota-segura/
 │   ├── icons.js               ícones SVG (nenhum emoji)
 │   └── app.js                 ponto de entrada da Tela 1
 ├── supabase/functions/
-│   └── calcular-rota/index.ts Edge Function: fala com o OpenRouteService, esconde a chave
+│   ├── calcular-rota/index.ts  Edge Function: fala com o OpenRouteService, esconde a chave
+│   └── coletar-fontes/index.ts Edge Function: coleta notícias do RJ, classifica com IA (opcional)
+├── .github/workflows/
+│   └── coletar-fontes.yml     agenda a coleta de fontes públicas (opcional)
 ├── sql/schema.sql             banco completo, pronto para colar no Supabase
 ├── assets/
 ├── .gitignore
-└── .env.example
+├── .env.example
+├── README_AI_SETUP.md          como configurar a IA (Google Gemini) — opcional
+└── COMO_CONFIGURAR_COLETA_RJ.md guia completo da coleta de fontes públicas — opcional
 ```
 
 ---
@@ -138,7 +149,8 @@ criar uma conta gratuita no OpenRouteService e publicar a Edge Function
 navegador. Cada passo está detalhado clique por clique no
 [GUIA_PASSO_A_PASSO.md](GUIA_PASSO_A_PASSO.md) (Etapas 11 e 12). O **Bloco 3** (comunidade,
 perfil, contatos de emergência) **não precisa de nenhuma configuração extra** — as tabelas,
-o Storage e as regras de acesso já vêm no mesmo `sql/schema.sql` do passo 2.
+o Storage e as regras de acesso já vêm no mesmo `sql/schema.sql` do passo 2. A coleta de fontes
+públicas + IA é opcional e tem guia próprio: [COMO_CONFIGURAR_COLETA_RJ.md](COMO_CONFIGURAR_COLETA_RJ.md).
 
 ---
 
@@ -157,6 +169,8 @@ o Storage e as regras de acesso já vêm no mesmo `sql/schema.sql` do passo 2.
 | `post_likes` | Curtidas, com restrição de uma por pessoa por publicação |
 | `notifications` | Notificações do sino — hoje geradas quando alguém curte sua publicação |
 | `route_history` | Histórico de rotas, mostrado na tela de Perfil |
+| `external_incidents` | Notícias públicas coletadas e classificadas por IA (opcional) — só a
+  Edge Function `coletar-fontes` grava aqui, nunca o app diretamente |
 
 **Moderação:** `reports`, `support_points`, `police_stations` e `posts` têm o campo `status`
 com os valores `pending`, `approved` e `rejected`. No `schema.sql` o padrão é `approved` para

@@ -8,7 +8,7 @@ import { aplicarIcones } from './icons.js';
 import { prepararModais, prepararTrocaDeModal, abrirModal, fecharModal, prepararLightboxDeFotos } from './ui.js';
 import {
   criarMapa, localizarUsuario, carregarDadosDaAreaVisivel,
-  recentralizar, ligarRealtimeRelatos, posicaoUsuario
+  recentralizar, ligarRealtimeRelatos, posicaoUsuario, ligarFiltroDeFontesPublicas
 } from './map.js';
 import { carregarListaRelatos, prepararFormularioRelato, seletorDeLocalDoRelato } from './reports.js';
 import { prepararFormularioPonto, seletorDeLocalDoPonto } from './support-points.js';
@@ -38,6 +38,7 @@ async function iniciar() {
   criarMapa('mapa');
   document.getElementById('botao-recentralizar')
     ?.addEventListener('click', recentralizar);
+  ligarFiltroDeFontesPublicas();
 
   // 5 e 6. BUG DE PERFORMANCE QUE ISTO CORRIGE: antes, os relatos/pontos de
   // apoio/delegacias só começavam a carregar DEPOIS do GPS responder — e o

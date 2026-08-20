@@ -838,5 +838,91 @@ create policy "enderecos_rio_leitura"
 
 
 -- ============================================================================
+-- 16. TABELA: external_incidents — eventos/estatísticas vindos de fontes
+--     PÚBLICAS (ex.: notícia) ou de DADOS OFICIAIS — nunca digitados por uma
+--     usuária (isso continua sendo a tabela `reports`, sem duplicar nada
+--     aqui). Populada só pela Edge Function `coletar-fontes` — ver
+--     supabase/functions/coletar-fontes/index.ts e COMO_CONFIGURAR_COLETA_RJ.md.
+--
+--     Por que esta tabela existe separada de `reports`: cruzar relato de
+--     usuária com fonte externa exige saber, célula por célula, o que veio
+--     de onde — nunca misturar "o que a IA interpretou de uma notícia" com
+--     "o que uma pessoa relatou de verdade" na mesma linha sem dizer qual é
+--     qual (é a mesma razão de `posts` e `reports` já serem tabelas
+--     diferentes hoje, mesmo sendo os dois "conteúdo com localização").
+--
+--     `matched_report_id`: preenchido quando a Edge Function encontra um
+--     relato de usuária que parece ser o mesmo acontecimento — é o que faz
+--     o mapa mostrar "confirmado pela comunidade" numa notícia.
+--     `duplicate_of`: preenchido quando dois itens da mesma fonte (ou de
+--     fontes diferentes) parecem ser a mesma notícia republicada — evita
+--     contar cópia da mesma notícia como duas fontes independentes.
+--
+--     Só a Edge Function grava aqui, usando a service_role key (que ignora
+--     RLS) — de propósito NÃO existe policy de insert/update/delete para
+--     `authenticated`: ninguém publica isso pelo app, só a coleta automática.
+--     Mesmo padrão de `enderecos_rio` (tabela 15): só leitura pelo app.
+-- ============================================================================
+create table if not exists public.external_incidents (
+  id                uuid primary key default gen_random_uuid(),
+  source_type       text not null check (source_type in ('public_source', 'official_data')),
+  source            text not null,              -- identifica o adaptador, ex.: 'g1_rio_rss'
+  source_url        text,
+  source_id         text not null,              -- chave da própria fonte (guid da notícia etc.) — evita reprocessar
+  event_type        text not null check (event_type in ('event', 'statistic')),
+  category          text not null check (category in (
+                      'assedio_verbal', 'assedio_fisico', 'assalto', 'perseguicao',
+                      'rua_pouco_iluminada', 'local_isolado', 'acidente', 'bloqueio',
+                      'obra', 'outro'
+                    )),
+  title             text not null,
+  description       text,
+  state             text,
+  city              text,
+  neighborhood      text,
+  address           text,
+  lat               double precision,
+  lng               double precision,
+  occurred_at       timestamptz,
+  published_at      timestamptz,
+  collected_at      timestamptz not null default now(),
+  expires_at        timestamptz,
+  confidence        numeric not null default 0,
+  -- pending: acabou de entrar, ainda não decidido se aparece no mapa.
+  -- active/confirmed: aparece no mapa (confirmed = tem relato de usuária batendo).
+  -- disputed: fontes se contradizem — precisa de revisão antes de confiar.
+  -- expired: passou da validade (ver expires_at); rejected: descartado (fora do RJ etc.).
+  status            text not null default 'pending' check (status in (
+                      'pending', 'active', 'confirmed', 'disputed', 'expired', 'rejected'
+                    )),
+  ai_processed      boolean not null default false,
+  needs_review      boolean not null default false,
+  raw_data          jsonb,
+  matched_report_id uuid references public.reports(id) on delete set null,
+  duplicate_of      uuid references public.external_incidents(id) on delete set null,
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now(),
+  unique (source, source_id)
+);
+
+create index if not exists idx_external_incidents_status  on public.external_incidents(status);
+create index if not exists idx_external_incidents_lat_lng on public.external_incidents(lat, lng);
+create index if not exists idx_external_incidents_expires on public.external_incidents(expires_at);
+
+drop trigger if exists trg_external_incidents_updated_at on public.external_incidents;
+create trigger trg_external_incidents_updated_at
+  before update on public.external_incidents
+  for each row execute function public.set_updated_at();
+
+alter table public.external_incidents enable row level security;
+
+drop policy if exists "incidentes_externos_leitura" on public.external_incidents;
+create policy "incidentes_externos_leitura"
+  on public.external_incidents for select
+  to authenticated
+  using (status in ('active', 'confirmed'));
+
+
+-- ============================================================================
 -- FIM. Se rodou sem erro, você verá "Success. No rows returned".
 -- ============================================================================

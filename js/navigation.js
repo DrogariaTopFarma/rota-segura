@@ -270,8 +270,15 @@ function arredondarParaDezena(metros) {
     rota, a partir de onde a pessoa está agora (mesmo índice/fração que
     encontrarPontoMaisProximoNaRota devolve). Cada passo é anunciado no
     máximo duas vezes: uma com antecedência ("em 150 m, vire...") e uma bem
-    em cima da manobra ("vire...") — nunca repete o mesmo aviso.  */
-function processarInstrucaoDeVoz(indice, t) {
+    em cima da manobra ("vire...") — nunca repete o mesmo aviso.
+
+    `anuncioInicial`: só true na primeíssima chamada, ao iniciar a
+    navegação — um app de navegação de verdade já começa falando (ex.:
+    "Siga por 400 m, depois vire à direita..."), mesmo quando a próxima
+    manobra está mais longe que o limiar normal de aviso. Sem isso, uma
+    primeira rua comprida deixava a navegação muda até chegar perto da
+    primeira curva. */
+function processarInstrucaoDeVoz(indice, t, { anuncioInicial = false } = {}) {
   if (!rotaPassos.length) return;
 
   // Avança pro passo certo conforme a posição avança — nunca volta (a rota
@@ -291,7 +298,7 @@ function processarInstrucaoDeVoz(indice, t) {
   const distanciaAteManobra = distanciaAtePontoNaRota(indice, t, passo.indiceFim);
   atualizarBannerDeInstrucao(passo, distanciaAteManobra);
 
-  if (!avisoLongeFeito && distanciaAteManobra <= DISTANCIA_AVISO_VOZ_M) {
+  if (!avisoLongeFeito && (anuncioInicial || distanciaAteManobra <= DISTANCIA_AVISO_VOZ_M)) {
     avisoLongeFeito = true;
     // Passo curto (a manobra já está pertinho): pula direto pro aviso final,
     // sem falar "em 20 metros" e "agora" quase juntos.
@@ -467,7 +474,7 @@ export function iniciarNavegacao({ mapa: mapaRecebido, origem, destino, rota, ao
   // já sabe pra onde ir antes de dar o primeiro passo.
   if (rotaGeometria && rotaGeometria.length >= 2 && rotaPassos.length) {
     const inicial = encontrarPontoMaisProximoNaRota(origem.lat, origem.lng);
-    processarInstrucaoDeVoz(inicial.indice, inicial.t);
+    processarInstrucaoDeVoz(inicial.indice, inicial.t, { anuncioInicial: true });
   }
 
   const simulandoTeste = new URLSearchParams(location.search).get('simular') === '1';

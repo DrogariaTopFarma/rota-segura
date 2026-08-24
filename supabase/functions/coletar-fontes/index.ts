@@ -33,6 +33,11 @@
 //   COLETA_SECRET  — uma senha inventada por você, só pra esta função aceitar
 //                    só chamadas autorizadas (não é a anon key nem a service
 //                    role key do Supabase — é uma senha à parte, sua)
+//   FOGOCRUZADO_EMAIL / FOGOCRUZADO_PASSWORD — opcionais: só necessários se
+//                    você tiver conta na API do Instituto Fogo Cruzado (ver
+//                    COMO_CONFIGURAR_COLETA_RJ.md). Sem eles, essa fonte
+//                    específica fica indisponível, mas as outras continuam
+//                    funcionando normalmente.
 // SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY já vêm prontos automaticamente em
 // toda Edge Function do Supabase — não precisa (nem consegue) criar esses
 // dois manualmente: o Supabase reserva o prefixo "SUPABASE_" e recusa
@@ -328,9 +333,94 @@ async function coletarG1RioTransito() {
   return extrairItensRSS(xml);
 }
 
+/** Instituto Fogo Cruzado (ONG) — mapeia tiroteios/disparos de arma de fogo
+    no RJ desde 2016, com checagem humana por uma equipe de analistas antes
+    de publicar (não é post cru de rede social). Diferente do RSS do G1, cada
+    ocorrência já vem com coordenada exata, data exata e bairro estruturado
+    — por isso o item devolvido aqui carrega `coordenadaConhecida` e
+    `ocorridoEmConhecido`, que `processarItem` usa no lugar de geocodificar/
+    adivinhar (evita a perda de precisão de recair no Photon).
+
+    Classificado como `public_source` (não `official_data`) porque é uma ONG,
+    não um órgão de governo — mesmo com checagem humana, mantém o mesmo peso
+    de confiança de base do G1 nesta versão; reavalie se fizer sentido criar
+    um peso à parte.
+
+    Não tem cadastro público automático — pediu acesso por e-mail em
+    contato@fogocruzado.org.br. Credenciais vêm dos secrets
+    FOGOCRUZADO_EMAIL/FOGOCRUZADO_PASSWORD (nunca hardcoded aqui). Sem esses
+    secrets configurados, esta fonte fica indisponível mas não derruba as
+    outras (mesmo tratamento de qualquer fonte fora do ar). */
+async function coletarFogoCruzado() {
+  const email = Deno.env.get('FOGOCRUZADO_EMAIL');
+  const senha = Deno.env.get('FOGOCRUZADO_PASSWORD');
+  if (!email || !senha) throw new Error('FOGOCRUZADO_EMAIL/FOGOCRUZADO_PASSWORD não configurados');
+
+  const respostaLogin = await fetch('https://api-service.fogocruzado.org.br/api/v2/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password: senha })
+  });
+  if (!respostaLogin.ok) throw new Error(`Fogo Cruzado (login) respondeu ${respostaLogin.status}`);
+  const token = (await respostaLogin.json())?.data?.accessToken;
+  if (!token) throw new Error('Fogo Cruzado não devolveu accessToken no login');
+
+  // O id do estado "Rio de Janeiro" é buscado dinamicamente por NOME, nunca
+  // fixado no código — o UUID exato depende da base deles, e fixar um valor
+  // chutado seria exatamente o tipo de invenção que este projeto proíbe.
+  const respostaEstados = await fetch('https://api-service.fogocruzado.org.br/api/v2/states', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!respostaEstados.ok) throw new Error(`Fogo Cruzado (states) respondeu ${respostaEstados.status}`);
+  const estados = (await respostaEstados.json())?.data || [];
+  const rj = estados.find((e) => semAcento(e.name || '').toLowerCase() === 'rio de janeiro');
+  if (!rj?.id) throw new Error('Fogo Cruzado não retornou o estado "Rio de Janeiro" na lista de states');
+
+  const hoje = new Date();
+  const doisDiasAtras = new Date(hoje.getTime() - 2 * 24 * 3600 * 1000);
+  const paraData = (d) => d.toISOString().slice(0, 10);
+  const params = new URLSearchParams({
+    idState: rj.id,
+    initialdate: paraData(doisDiasAtras),
+    finaldate: paraData(hoje),
+    take: String(MAX_ITENS_POR_EXECUCAO),
+    order: 'DESC'
+  });
+
+  const respostaOcorrencias = await fetch(
+    `https://api-service.fogocruzado.org.br/api/v2/occurrences?${params}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (!respostaOcorrencias.ok) throw new Error(`Fogo Cruzado (occurrences) respondeu ${respostaOcorrencias.status}`);
+  const ocorrencias = (await respostaOcorrencias.json())?.data || [];
+
+  return ocorrencias.map((ocorrencia) => {
+    const cidade = ocorrencia.city?.name || 'Rio de Janeiro';
+    const bairro = ocorrencia.neighborhood?.name || null;
+    const motivo = ocorrencia.contextInfo?.mainReason?.name || 'não especificado';
+    const teveVitima = Array.isArray(ocorrencia.victims) && ocorrencia.victims.length > 0;
+    const lat = Number(ocorrencia.latitude);
+    const lng = Number(ocorrencia.longitude);
+
+    return {
+      tituloBruto: `Disparo de arma de fogo registrado em ${bairro || cidade}, ${cidade} (RJ)`,
+      resumoBruto: `Ocorrência de tiroteio/disparo de arma de fogo no Rio de Janeiro (RJ), `
+        + `classificada pelo Instituto Fogo Cruzado como "${motivo}". Endereço: `
+        + `${ocorrencia.address || `${bairro || ''}, ${cidade}, RJ`}.`
+        + (teveVitima ? ' Houve registro de vítima(s) no local.' : ''),
+      url: null,
+      idFonte: ocorrencia.id,
+      publicadoEm: ocorrencia.date || null,
+      coordenadaConhecida: Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null,
+      ocorridoEmConhecido: ocorrencia.date || null
+    };
+  });
+}
+
 const FONTES = [
   { nome: 'g1_rio_rss', tipo: 'public_source', coletar: coletarG1Rio },
-  { nome: 'g1_rio_transito_rss', tipo: 'public_source', coletar: coletarG1RioTransito }
+  { nome: 'g1_rio_transito_rss', tipo: 'public_source', coletar: coletarG1RioTransito },
+  { nome: 'fogo_cruzado', tipo: 'public_source', coletar: coletarFogoCruzado }
 ];
 
 /* ============================================================================
@@ -403,6 +493,9 @@ REGRAS OBRIGATÓRIAS:
   ocorrências no mês", "aumento de 10% no ano") — NUNCA crie um evento individual pra isso.
   eventType="event" só quando o texto descreve um acontecimento específico.
 - Se tiver qualquer dúvida sobre a localização, a categoria ou a relevância, needsReview=true.
+- Tiroteio, disparo de arma de fogo, confronto ou operação policial com troca de tiros: use
+  category="assalto" (é a categoria disponível mais próxima pra indicar risco de violência
+  armada no local — não existe categoria própria de "tiroteio" ainda).
 - NUNCA inclua nome completo, CPF, telefone, endereço residencial ou qualquer dado pessoal de
   vítima ou de terceiros em title/summary — descreva só o acontecimento em si.
 - summary deve ser baseado exclusivamente no texto fornecido, nunca em conhecimento externo.`;
@@ -534,7 +627,10 @@ async function processarItem(supabase, fonte, itemBruto, apiKey) {
     state: 'RJ',
     city: classificacao.city,
     neighborhood: classificacao.neighborhood || null,
-    occurred_at: classificacao.occurredAt || null,
+    // Fonte pode já trazer data exata confirmada (ex.: Fogo Cruzado) — nesse
+    // caso é mais confiável que a IA tentar extrair do texto que nós mesmos
+    // geramos a partir dela.
+    occurred_at: itemBruto.ocorridoEmConhecido || classificacao.occurredAt || null,
     published_at: itemBruto.publicadoEm,
     ai_processed: true,
     raw_data: { itemBruto, classificacao }
@@ -553,7 +649,10 @@ async function processarItem(supabase, fonte, itemBruto, apiKey) {
     return registroBase;
   }
 
-  const coordenada = await geocodificarBairro(classificacao.neighborhood, classificacao.city);
+  // Fonte pode já trazer coordenada exata e verificada (ex.: Fogo Cruzado) —
+  // aí nem tenta geocodificar por bairro, que é sempre menos preciso.
+  const coordenada = itemBruto.coordenadaConhecida
+    || await geocodificarBairro(classificacao.neighborhood, classificacao.city);
   // Sem localização confiável: nunca inventa pino (item 16 do pedido) — fica
   // marcado pra revisão, não aparece sozinho no mapa.
   const precisaLocalizacaoConfiavel = !coordenada;

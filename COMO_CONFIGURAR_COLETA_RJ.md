@@ -117,11 +117,17 @@ A resposta deve ser um JSON parecido com:
 {
   "fontes": {
     "g1_rio_rss": { "encontrados": 20, "processados": 3 },
-    "g1_rio_transito_rss": { "encontrados": 8, "processados": 2 }
+    "g1_rio_transito_rss": { "encontrados": 8, "processados": 2 },
+    "fogo_cruzado": { "encontrados": 16, "processados": 5 }
   },
   "erros": []
 }
 ```
+
+Se você não configurou os secrets `FOGOCRUZADO_EMAIL`/`FOGOCRUZADO_PASSWORD`, é normal
+`fogo_cruzado` aparecer como `{ "erro": "FOGOCRUZADO_EMAIL/FOGOCRUZADO_PASSWORD não
+configurados" }` em vez de `encontrados`/`processados` — as outras duas fontes continuam
+funcionando normalmente.
 
 `encontrados` é quantas notícias o RSS trouxe; `processados` é quantas passaram por TODOS os
 filtros (menciona o RJ, a IA confirmou relevância e localização, não é estatística) e foram
@@ -193,17 +199,17 @@ públicas no mapa"**, pra ligar/desligar essa camada.
 
 ## Fontes usadas nesta entrega
 
-| | Feed geral | Feed de trânsito |
-|---|---|---|
-| **Nome** | `g1_rio_rss` | `g1_rio_transito_rss` |
-| **URL** | `http://g1.globo.com/dynamo/rio-de-janeiro/rss2.xml` | `http://g1.globo.com/dynamo/rio-de-janeiro/transito/rss2.xml` |
-| **Tipo** | RSS 2.0, público | RSS 2.0, público |
-| **O que fornece** | Notícias gerais recentes sobre o Rio de Janeiro (mistura assuntos — a IA que filtra o que é relevante pro app) | Só acidente/interdição/bloqueio de via — já vem filtrado pelo próprio G1, testado ao vivo antes de adicionar |
-| **Precisa de chave?** | Não | Não |
-| **Gratuito?** | Sim | Sim |
-| **Limite** | Nenhum limite documentado publicamente — a função processa no máximo 20 itens por execução POR fonte (então até 40 no total, com as duas) | mesmo limite |
-| **Periodicidade** | A cada 30 min (configurável em `.github/workflows/coletar-fontes.yml`), as duas fontes juntas | idem |
-| **Como configurar** | Nada a configurar — já está pronta pra uso no código | idem |
+| | Feed geral | Feed de trânsito | Fogo Cruzado |
+|---|---|---|---|
+| **Nome** | `g1_rio_rss` | `g1_rio_transito_rss` | `fogo_cruzado` |
+| **URL** | `http://g1.globo.com/dynamo/rio-de-janeiro/rss2.xml` | `http://g1.globo.com/dynamo/rio-de-janeiro/transito/rss2.xml` | `api-service.fogocruzado.org.br/api/v2` |
+| **Tipo** | RSS 2.0, público | RSS 2.0, público | API REST, autenticada |
+| **O que fornece** | Notícias gerais recentes sobre o Rio de Janeiro (mistura assuntos — a IA que filtra o que é relevante pro app) | Só acidente/interdição/bloqueio de via — já vem filtrado pelo próprio G1, testado ao vivo antes de adicionar | Tiroteios/disparos de arma de fogo, com coordenada e data exatas |
+| **Precisa de chave?** | Não | Não | Sim (conta cadastrada — ver seção abaixo) |
+| **Gratuito?** | Sim | Sim | Sim |
+| **Limite** | Nenhum limite documentado publicamente — a função processa no máximo 20 itens por execução POR fonte | mesmo limite | mesmo limite |
+| **Periodicidade** | A cada 30 min (configurável em `.github/workflows/coletar-fontes.yml`), todas as fontes juntas | idem | idem |
+| **Como configurar** | Nada a configurar — já está pronta pra uso no código | idem | Opcional — secrets `FOGOCRUZADO_EMAIL`/`FOGOCRUZADO_PASSWORD` (ver abaixo) |
 
 **Por que só estas fontes por enquanto:** pesquisei as fontes oficiais citadas no pedido original
 (ISP-RJ, Data.Rio, dados abertos do Estado, portal de transparência da Prefeitura) antes de
@@ -216,7 +222,52 @@ polícia/violência/crime — testei vários caminhos prováveis (`policia`, `vi
 arquitetura deste projeto (`FONTES` dentro de `coletar-fontes/index.ts`) já é feita pra caber
 mais uma fonte sem reescrever nada — se você conseguir acesso a alguma dessas APIs no futuro, ou
 achar outro feed específico de ocorrência policial, é só escrever outra função `coletar*()` no
-mesmo formato e adicionar um item no array `FONTES`.
+mesmo formato e adicionar um item no array `FONTES` (foi exatamente assim que a terceira fonte,
+o Fogo Cruzado, abaixo, entrou).
+
+## Terceira fonte (opcional): API do Fogo Cruzado (tiroteios)
+
+**O que é**: Instituto Fogo Cruzado (ONG, CNPJ 41.138.166/0001-5) — mapeia tiroteios e disparos
+de arma de fogo no Rio de Janeiro desde julho de 2016, com checagem humana por uma equipe de
+analistas antes de publicar (não é post cru de rede social). É um tipo de dado bem mais próximo
+de "assalto"/violência armada do que o RSS de notícias gerais do G1, e cada ocorrência já vem
+com coordenada exata, data exata e bairro estruturado — testei ao vivo contra a API real e
+confirmei o formato de resposta (não é integração especulativa).
+
+**Diferente das outras duas fontes, esta é opcional** porque exige uma conta cadastrada na API
+deles (não tem cadastro público automático — se precisar pedir de novo no futuro, o canal é
+e-mail pra `contato@fogocruzado.org.br`). Sem os secrets abaixo configurados, esta fonte
+simplesmente fica indisponível a cada execução (aparece como erro só dela no resumo da coleta),
+sem afetar as outras duas.
+
+### Como ativar
+
+No Dashboard do Supabase → **Edge Functions** → **coletar-fontes** → **Secrets**, adicione:
+
+- Nome: `FOGOCRUZADO_EMAIL` — valor: o e-mail da conta cadastrada na API do Fogo Cruzado
+- Nome: `FOGOCRUZADO_PASSWORD` — valor: a senha dessa conta
+
+Depois publique a função de novo (colar o arquivo inteiro no editor do Dashboard, mesmo processo
+de sempre) — o código já faz login, busca o `id` do estado "Rio de Janeiro" dinamicamente (nunca
+fixo no código) e traz as ocorrências dos últimos 2 dias a cada execução.
+
+### Como funciona por baixo
+
+- **Login**: `POST https://api-service.fogocruzado.org.br/api/v2/auth/login` com
+  `{ "email", "password" }` → devolve um `accessToken` válido por 1h (a coleta é bem mais rápida
+  que isso, então não precisa renovar).
+- **Estados**: `GET .../api/v2/states` — usado só pra achar o `id` de "Rio de Janeiro" pelo nome
+  (o mesmo princípio de `cidadeEhDoRJ` deste projeto: nunca fixar um UUID chutado no código).
+- **Ocorrências**: `GET .../api/v2/occurrences?idState=...&initialdate=...&finaldate=...` — cada
+  item já traz `city.name`, `neighborhood.name`, `latitude`/`longitude`, `date` (ISO 8601) e o
+  motivo da ocorrência (`contextInfo.mainReason.name`, ex.: "Operação policial").
+- Como os dados já vêm exatos, o item pulа a geocodificação por bairro (Photon) e o "adivinhar
+  data" — usa a coordenada e a data que a própria fonte confirmou (`coordenadaConhecida`/
+  `ocorridoEmConhecido` em `processarItem`), o que tende a dar confiança mais alta que uma
+  notícia de RSS solta.
+- Sem categoria própria de "tiroteio" ainda no app, o prompt da IA foi instruído a classificar
+  esses casos como `assalto` (categoria mais próxima disponível pra indicar risco de violência
+  armada) — ver `PROMPT_SISTEMA` em `coletar-fontes/index.ts`.
 
 ## Custos e limites
 

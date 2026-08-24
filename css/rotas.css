@@ -279,6 +279,30 @@
    SVG novo só pra um chevron pra baixo. */
 .navegacao-flutuante--colapsar span[data-icone] { transform: rotate(-90deg); }
 
+.navegacao-flutuante--voz {
+  top: var(--esp-4); right: var(--esp-4);
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  color: var(--texto-principal);
+  display: flex; align-items: center; justify-content: center;
+}
+.navegacao-flutuante--voz[aria-pressed="true"] { color: var(--rosa-magenta); }
+
+/* Banner com a próxima manobra (texto sempre visível, reforça a voz) — fica
+   abaixo dos dois botões redondos do topo, nunca por cima deles. */
+.navegacao-instrucao {
+  position: absolute;
+  top: 68px; left: var(--esp-4); right: var(--esp-4);
+  z-index: var(--z-flutuante);
+  background: var(--branco);
+  border-radius: var(--raio-md);
+  box-shadow: var(--sombra-md);
+  padding: var(--esp-3) var(--esp-4);
+}
+.navegacao-instrucao[hidden] { display: none; }
+.navegacao-instrucao__distancia { font-size: var(--fs-xs); font-weight: 700; color: var(--rosa-magenta); }
+.navegacao-instrucao__texto { font-size: var(--fs-sm); font-weight: 600; margin-top: 2px; }
+
 .navegacao-flutuante--acao {
   top: calc((100% - var(--altura-folha-nav) - var(--altura-sos-nav)) / 2);
   right: var(--esp-4);

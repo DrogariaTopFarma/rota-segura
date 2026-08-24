@@ -10,7 +10,13 @@
 // passo completo na Etapa 12 do GUIA_PASSO_A_PASSO.md.
 //
 // Recebe:  { origem: {lat, lng}, destino: {lat, lng}, perfil?: "foot-walking" | "driving-car" }
-// Devolve: { rotas: [{ distanciaM, duracaoS, geometria: [[lat,lng], ...] }, ...] }
+// Devolve: { rotas: [{ distanciaM, duracaoS, geometria: [[lat,lng], ...], passos: [...] }, ...] }
+//
+// `passos` vem do OpenRouteService (instructions em português) — usado pela
+// navegação por voz (js/navigation.js): cada passo tem o texto da instrução
+// e o ÍNDICE, dentro de `geometria`, de onde a manobra acontece
+// (indiceInicio/indiceFim), pra saber quando anunciar cada um conforme a
+// posição da pessoa avança pela rota.
 //
 // Pede ao OpenRouteService até 3 caminhos alternativos (o máximo que ele
 // aceita) entre a mesma origem e destino, em vez de só o primeiro que ele
@@ -100,7 +106,12 @@ Deno.serve(async (req: Request) => {
           // share_factor são os valores recomendados na documentação do
           // OpenRouteService pra gerar alternativas realmente diferentes
           // entre si (não 3 variações quase idênticas da mesma rua).
-          alternative_routes: { target_count: 3, weight_factor: 1.4, share_factor: 0.6 }
+          alternative_routes: { target_count: 3, weight_factor: 1.4, share_factor: 0.6 },
+          // Instruções de navegação já em português, direto do ORS — não
+          // inventamos texto de manobra por conta própria (regra geral do
+          // projeto: nunca fabricar informação que dá pra pedir de verdade).
+          instructions: true,
+          language: "pt"
         })
       }
     );
@@ -137,14 +148,34 @@ Deno.serve(async (req: Request) => {
         const resumo = feature?.properties?.summary;
         const coordenadas = feature?.geometry?.coordinates;
         if (!resumo || !Array.isArray(coordenadas) || coordenadas.length < 2) return null;
+
+        // Um segmento por trecho entre pontos consecutivos da rota — como só
+        // pedimos origem+destino (2 coordenadas), o ORS sempre devolve 1
+        // segmento só, mas soma todos por segurança se isso mudar um dia.
+        const segmentos = Array.isArray(feature?.properties?.segments) ? feature.properties.segments : [];
+        const passos = segmentos
+          .flatMap((seg: any) => (Array.isArray(seg?.steps) ? seg.steps : []))
+          .map((passo: any) => {
+            const wp = Array.isArray(passo?.way_points) ? passo.way_points : null;
+            if (!passo?.instruction || !wp || wp.length < 2) return null;
+            return {
+              instrucao: String(passo.instruction),
+              distanciaM: Math.round(passo.distance || 0),
+              indiceInicio: wp[0],
+              indiceFim: wp[1]
+            };
+          })
+          .filter((p: unknown) => p !== null);
+
         return {
           distanciaM: Math.round(resumo.distance),
           duracaoS: Math.round(resumo.duration),
           // Devolve já no formato [lat, lng] que o Leaflet espera.
-          geometria: coordenadas.map(([lon, lat]: [number, number]) => [lat, lon])
+          geometria: coordenadas.map(([lon, lat]: [number, number]) => [lat, lon]),
+          passos
         };
       })
-      .filter((r: unknown): r is { distanciaM: number; duracaoS: number; geometria: number[][] } => r !== null);
+      .filter((r: unknown): r is { distanciaM: number; duracaoS: number; geometria: number[][]; passos: unknown[] } => r !== null);
 
     if (!rotas.length) {
       const meioDeTransporte = perfil === "driving-car" ? "de carro" : "a pé";

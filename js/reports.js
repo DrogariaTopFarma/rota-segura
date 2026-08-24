@@ -37,15 +37,17 @@ export async function carregarListaRelatos() {
 
   lista.innerHTML = htmlCarregando(2);
 
-  // Notícias públicas entram na MESMA lista dos relatos (a pedido), não como
-  // tela separada — ordenadas por published_at (quase sempre presente, ao
-  // contrário de occurred_at, que a IA só preenche quando o texto tem uma
-  // data explícita) pra não perder itens recentes no corte do .limit(100).
+  // Notícias públicas aparecem na mesma tela dos relatos, mas em seção
+  // PRÓPRIA — intercalar tudo numa linha do tempo só (testado antes) ficou
+  // confuso, difícil de separar "isso é da comunidade" de "isso é notícia".
   const [relatosResp, noticiasResp] = await Promise.all([
     supabase.from('reports')
       .select('id,type,address,occurred_at,attention_level,status,image_url,agrees_count,disagrees_count')
       .order('occurred_at', { ascending: false })
       .limit(100),
+    // published_at (quase sempre presente) em vez de occurred_at (só quando
+    // a IA acha uma data explícita no texto), pra não perder item recente
+    // no corte do .limit(100).
     supabase.from('external_incidents')
       .select('id,category,title,description,address,city,source_url,confidence,occurred_at,published_at,matched_report_id')
       .in('status', ['active', 'confirmed'])
@@ -58,12 +60,10 @@ export async function carregarListaRelatos() {
     return;
   }
 
-  const relatos = (relatosResp.data || []).map((r) => ({ ...r, _tipo: 'relato', _data: r.occurred_at }));
+  const relatos = relatosResp.data || [];
   // Se a busca de notícias falhar (RLS, rede), a lista de relatos continua
-  // aparecendo normalmente — só não mostra a parte de notícias desta vez.
-  const noticias = (noticiasResp.data || []).map((n) => ({ ...n, _tipo: 'noticia', _data: n.occurred_at || n.published_at }));
-
-  const itens = [...relatos, ...noticias].sort((a, b) => new Date(b._data || 0) - new Date(a._data || 0));
+  // aparecendo normalmente — só não mostra a seção de notícias desta vez.
+  const noticias = noticiasResp.data || [];
 
   // Voto da usuária atual em cada relato, pra já abrir a lista com o botão
   // certo destacado (nunca com os dois "apagados" quando ela já votou).
@@ -79,18 +79,28 @@ export async function carregarListaRelatos() {
     votos = new Map((meusVotos || []).map((v) => [v.report_id, v.vote]));
   }
 
-  renderizarLista(lista, itens, votos);
+  renderizarLista(lista, relatos, noticias, votos);
 }
 
-export function renderizarLista(container, dados, votos = new Map()) {
-  if (!dados.length) {
+export function renderizarLista(container, relatos, noticias = [], votos = new Map()) {
+  if (!relatos.length && !noticias.length) {
     container.innerHTML = htmlEstadoVazio('Nenhum relato registrado ainda. Seja a primeira a contribuir.');
     return;
   }
 
-  container.innerHTML = dados
-    .map((item) => (item._tipo === 'noticia' ? cardNoticia(item) : cardRelato(item, votos.get(item.id) || null)))
-    .join('');
+  const grupoRelatos = relatos.length ? `
+    <div class="lista-relatos__grupo">
+      <div class="lista-relatos__grupo-titulo">Relatos da comunidade</div>
+      ${relatos.map((r) => cardRelato(r, votos.get(r.id) || null)).join('')}
+    </div>` : '';
+
+  const grupoNoticias = noticias.length ? `
+    <div class="lista-relatos__grupo">
+      <div class="lista-relatos__grupo-titulo">Notícias públicas</div>
+      ${noticias.map((n) => cardNoticia(n)).join('')}
+    </div>` : '';
+
+  container.innerHTML = grupoRelatos + grupoNoticias;
 
   container.querySelectorAll('.card-lista__voto-btn').forEach((botao) => {
     botao.addEventListener('click', () => alternarVoto(botao.dataset.reportId, botao.dataset.voto, container));

@@ -37,10 +37,12 @@
    ============================================================================ */
 
 import { acompanharPosicao, mensagemDoMotivo } from './geolocation.js';
-import { abrirModal, fecharModal, toast, distanciaMetros } from './ui.js';
+import { abrirModal, fecharModal, toast, distanciaMetros, escapar } from './ui.js';
 import { APP_CONFIG } from './config.js';
 import { supabase } from './supabase.js';
 import { obterLinkDeCompartilhamento } from './emergency.js';
+import { falar, pararFala, vozLigada, alternarVoz, vozSuportada } from './voice.js';
+import { icone } from './icons.js';
 
 // "Saiu da rota": a margem cresce com a IMPRECISÃO relatada pelo próprio GPS
 // naquela leitura — não é um número fixo. Só confirma depois de ficar fora
@@ -68,6 +70,11 @@ const FRACAO_OFFSET_CAMERA_Y = 0.22;
 
 const DURACAO_ANIMACAO_GIRO_MS = 450;
 
+// Navegação por voz: duas chamadas por manobra — um aviso com antecedência
+// (dá tempo de reagir andando) e um bem em cima da hora (a manobra em si).
+const DISTANCIA_AVISO_VOZ_M = 150;
+const DISTANCIA_IMEDIATA_VOZ_M = 30;
+
 let mapa = null;
 let rotaGeometria = null;
 let rotaInfo = null;      // { distanciaM, duracaoS } da rota original
@@ -86,6 +93,13 @@ let seguindoAutomaticamente = true; // pausa quando a pessoa arrasta o mapa
 let posicaoAnterior = null;         // { lat, lng, quando } — pra calcular deslocamento, velocidade e rumo
 let rumoAtual = null;               // graus (0-360), null até termos um rumo confiável
 let detectorDeArrastoLigado = false; // liga o listener de dragstart só uma vez por página
+
+// Navegação por voz: passos vêm do OpenRouteService (via calcular-rota),
+// já em português — nunca inventamos o texto da manobra por conta própria.
+let rotaPassos = [];        // [{ instrucao, distanciaM, indiceInicio, indiceFim }]
+let passoAtualIndex = 0;
+let avisoLongeFeito = false; // já anunciou "em X metros, ..." pro passo atual?
+let avisoPertoFeito = false; // já anunciou a manobra em si (bem perto) pro passo atual?
 
 // O mapa da Tela 2 é criado com {rotate:true} (routes.js) — gira o mapa
 // inteiro pra manter a direção do trajeto sempre "pra cima" na tela (estilo
@@ -227,6 +241,101 @@ function distanciaRestanteNaRota(indice, t) {
   return restante;
 }
 
+/** Mesma ideia de distanciaRestanteNaRota, mas parando num ÍNDICE específico
+    da geometria em vez de ir até o fim da rota — usada pela voz pra saber
+    "quanto falta até a PRÓXIMA manobra", não até o destino. */
+function distanciaAtePontoNaRota(indice, t, indiceAlvo) {
+  if (indiceAlvo <= indice) return 0;
+  const [aLat, aLng] = rotaGeometria[indice];
+  const [bLat, bLng] = rotaGeometria[indice + 1];
+  let restante = distanciaMetros(
+    aLat + (bLat - aLat) * t, aLng + (bLng - aLng) * t,
+    bLat, bLng
+  );
+  for (let i = indice + 1; i < indiceAlvo; i++) {
+    const [x1, y1] = rotaGeometria[i];
+    const [x2, y2] = rotaGeometria[i + 1];
+    restante += distanciaMetros(x1, y1, x2, y2);
+  }
+  return restante;
+}
+
+/** Arredonda pra dezena mais próxima (150, 140, 130...) — falar "em 147
+    metros" soa robótico e sugere uma precisão que o GPS não tem de verdade. */
+function arredondarParaDezena(metros) {
+  return Math.max(10, Math.round(metros / 10) * 10);
+}
+
+/** Decide se é hora de anunciar (voz + texto na tela) o próximo passo da
+    rota, a partir de onde a pessoa está agora (mesmo índice/fração que
+    encontrarPontoMaisProximoNaRota devolve). Cada passo é anunciado no
+    máximo duas vezes: uma com antecedência ("em 150 m, vire...") e uma bem
+    em cima da manobra ("vire...") — nunca repete o mesmo aviso.  */
+function processarInstrucaoDeVoz(indice, t) {
+  if (!rotaPassos.length) return;
+
+  // Avança pro passo certo conforme a posição avança — nunca volta (a rota
+  // só anda pra frente). Reseta os avisos a cada passo novo.
+  while (
+    passoAtualIndex < rotaPassos.length - 1 &&
+    rotaPassos[passoAtualIndex + 1].indiceInicio <= indice
+  ) {
+    passoAtualIndex++;
+    avisoLongeFeito = false;
+    avisoPertoFeito = false;
+  }
+
+  const passo = rotaPassos[passoAtualIndex];
+  if (!passo) return;
+
+  const distanciaAteManobra = distanciaAtePontoNaRota(indice, t, passo.indiceFim);
+  atualizarBannerDeInstrucao(passo, distanciaAteManobra);
+
+  if (!avisoLongeFeito && distanciaAteManobra <= DISTANCIA_AVISO_VOZ_M) {
+    avisoLongeFeito = true;
+    // Passo curto (a manobra já está pertinho): pula direto pro aviso final,
+    // sem falar "em 20 metros" e "agora" quase juntos.
+    if (distanciaAteManobra <= DISTANCIA_IMEDIATA_VOZ_M) {
+      avisoPertoFeito = true;
+      falar(passo.instrucao);
+    } else {
+      falar(`Em ${arredondarParaDezena(distanciaAteManobra)} metros, ${passo.instrucao.toLowerCase()}.`);
+    }
+    return;
+  }
+  if (!avisoPertoFeito && distanciaAteManobra <= DISTANCIA_IMEDIATA_VOZ_M) {
+    avisoPertoFeito = true;
+    falar(passo.instrucao);
+  }
+}
+
+/** Texto sempre visível com a próxima manobra — reforça (e sobrevive a) a
+    voz: celular no silencioso, alto-falante ruim na rua, ou só preferência
+    de ler em vez de ouvir. Escondido quando a rota não tem passos (fonte de
+    rota antiga, por exemplo — nunca quebra por falta do dado). */
+function atualizarBannerDeInstrucao(passo, distanciaAteManobra) {
+  const banner = document.getElementById('navegacao-instrucao');
+  if (!banner) return;
+  banner.hidden = false;
+  banner.innerHTML = `
+    <div class="navegacao-instrucao__distancia">${formatarDistancia(distanciaAteManobra)}</div>
+    <div class="navegacao-instrucao__texto">${escapar(passo.instrucao)}</div>`;
+}
+
+/** Reflete o estado ligado/desligado no botão (ícone + aria-pressed) — some
+    o botão inteiro se o navegador não suportar síntese de voz, em vez de
+    mostrar um controle que não faz nada. */
+function atualizarBotaoDeVoz() {
+  const botao = document.getElementById('navegacao-voz');
+  if (!botao) return;
+  if (!vozSuportada()) { botao.hidden = true; return; }
+  const ligada = vozLigada();
+  botao.hidden = false;
+  botao.setAttribute('aria-pressed', String(ligada));
+  botao.setAttribute('aria-label', ligada ? 'Desligar narração por voz' : 'Ligar narração por voz');
+  botao.innerHTML = icone(ligada ? 'som' : 'semSom', 20);
+}
+
 /** Estimativa de rumo pra usar ANTES de ter qualquer deslocamento real do
     GPS — sem isso, o mapa começava a navegação sempre norte-pra-cima e só
     girava depois que a pessoa andasse alguns metros, o que não é como um
@@ -282,13 +391,14 @@ function direcaoDaRota(indice, t) {
  * @param {L.Map} args.mapa - mapa já criado pela Tela 2 (não cria um novo)
  * @param {{lat:number,lng:number,nome:string,fonte:'gps'|'manual'}} args.origem
  * @param {{lat:number,lng:number,nome:string}} args.destino
- * @param {{distanciaM:number,duracaoS:number,geometria:number[][]}} args.rota
+ * @param {{distanciaM:number,duracaoS:number,geometria:number[][],passos?:Array<{instrucao:string,distanciaM:number,indiceInicio:number,indiceFim:number}>}} args.rota
  * @param {() => void} args.aoSair - chamado quando a navegação termina (chegada, encerrar ou escolher outra rota)
  */
 export function iniciarNavegacao({ mapa: mapaRecebido, origem, destino, rota, aoSair }) {
   mapa = mapaRecebido;
   rotaGeometria = rota.geometria;
   rotaInfo = { distanciaM: rota.distanciaM, duracaoS: rota.duracaoS };
+  rotaPassos = rota.passos || [];
   destinoAtual = destino;
   aoSairCallback = aoSair;
 
@@ -299,9 +409,13 @@ export function iniciarNavegacao({ mapa: mapaRecebido, origem, destino, rota, ao
   seguindoAutomaticamente = true;
   posicaoAnterior = null;
   rumoAtual = null;
+  passoAtualIndex = 0;
+  avisoLongeFeito = false;
+  avisoPertoFeito = false;
 
   document.getElementById('painel-navegacao').hidden = false;
   document.getElementById('navegacao-destino').textContent = `Indo para ${destino.nome}`;
+  atualizarBotaoDeVoz();
 
   // Existe mais de um botão de recentralizar na tela (um flutuante por cima
   // do mapa, outro na fileira de ações rápidas da folha) — os dois fazem
@@ -323,6 +437,8 @@ export function iniciarNavegacao({ mapa: mapaRecebido, origem, destino, rota, ao
   document.getElementById('navegacao-colapsar').onclick = () => abrirModal('modal-encerrar-rota');
   document.getElementById('navegacao-opcoes').onclick = () => abrirModal('modal-opcoes-rota');
   document.getElementById('navegacao-compartilhar').onclick = compartilharRota;
+  const botaoVoz = document.getElementById('navegacao-voz');
+  if (botaoVoz) botaoVoz.onclick = () => { alternarVoz(); atualizarBotaoDeVoz(); };
   ligarBotoesDosModais();
   ligarDetectorDeArrasto();
 
@@ -345,6 +461,14 @@ export function iniciarNavegacao({ mapa: mapaRecebido, origem, destino, rota, ao
   mapa.setView(pontoComOffsetDeCamera([origem.lat, origem.lng]), APP_CONFIG.zoomNavegacao, { animate: true });
   desenharPosicaoAtual(origem.lat, origem.lng, null, Date.now());
   atualizarProgresso(distanciaMetros(origem.lat, origem.lng, destino.lat, destino.lng));
+
+  // Primeira instrução já ao iniciar (não espera a primeira leitura de GPS
+  // chegar) — é assim que um app de navegação de verdade se comporta: você
+  // já sabe pra onde ir antes de dar o primeiro passo.
+  if (rotaGeometria && rotaGeometria.length >= 2 && rotaPassos.length) {
+    const inicial = encontrarPontoMaisProximoNaRota(origem.lat, origem.lng);
+    processarInstrucaoDeVoz(inicial.indice, inicial.t);
+  }
 
   const simulandoTeste = new URLSearchParams(location.search).get('simular') === '1';
   if (simulandoTeste) {
@@ -393,6 +517,10 @@ function processarPosicao(lat, lng, precisaoM, quandoMs) {
   if (distRota <= limiteEfetivo) {
     conectouNaRota = true;
     desdeQuandoPareceForaDaRota = null;
+    // Só anuncia manobra com a posição CONFIÁVEL na rota — fora dela
+    // (limiteEfetivo ultrapassado) não dá pra saber com segurança qual é o
+    // próximo passo de verdade.
+    processarInstrucaoDeVoz(indice, t);
     return;
   }
 
@@ -628,6 +756,7 @@ function finalizarPorChegada() {
   // aviso abaixo é só uma confirmação por cima, não uma condição para isso
   // acontecer. Assim, fechar o aviso sem tocar em "Concluir" (Esc, clique
   // fora) não deixa a navegação numa tela morta.
+  falar('Você chegou ao seu destino.');
   abrirModal('modal-chegada');
   encerrar();
 }
@@ -639,6 +768,8 @@ function encerrar() {
   pararSimulacao?.();
   pararSimulacao = null;
   if (marcadorPosicaoAtual && mapa) { mapa.removeLayer(marcadorPosicaoAtual); marcadorPosicaoAtual = null; }
+  const banner = document.getElementById('navegacao-instrucao');
+  if (banner) banner.hidden = true;
   // Volta o mapa pra norte-pra-cima: fora da navegação ativa (Tela 2 em modo
   // planejamento) o mapa não deveria continuar torto do jeito que a última
   // navegação deixou. Anima pelo caminho mais curto, igual ao resto.
@@ -660,15 +791,18 @@ function ligarBotoesDosModais() {
   // nunca decide sozinho qual rota usar.
   document.getElementById('btn-escolher-outra-rota').onclick = () => {
     fecharModal('modal-saiu-rota');
+    pararFala();
     encerrar();
   };
   // O encerramento em si já aconteceu assim que a chegada foi detectada
-  // (finalizarPorChegada) — aqui só fecha o aviso.
+  // (finalizarPorChegada) — aqui só fecha o aviso. Não corta a fala: é aqui
+  // que "Você chegou ao seu destino" ainda está tocando.
   document.getElementById('btn-concluir-chegada').onclick = () => {
     fecharModal('modal-chegada');
   };
   document.getElementById('btn-confirmar-encerrar').onclick = () => {
     fecharModal('modal-encerrar-rota');
+    pararFala();
     encerrar();
   };
   // "Opções da rota": trocar de caminho volta pro planejamento (mesmo
@@ -676,6 +810,7 @@ function ligarBotoesDosModais() {
   // a mesma confirmação do botão de encerrar normal, sem duplicar o fluxo.
   document.getElementById('btn-trocar-rota').onclick = () => {
     fecharModal('modal-opcoes-rota');
+    pararFala();
     encerrar();
   };
   document.getElementById('btn-opcoes-encerrar').onclick = () => {

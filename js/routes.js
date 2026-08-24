@@ -59,7 +59,7 @@ let linhaRota = null;
 
 let origem = null;    // { lat, lng, nome, fonte: 'gps' | 'manual' }
 let destino = null;   // { lat, lng, nome }
-let rotaAtual = null; // { distanciaM, duracaoS, geometria }
+let rotaAtual = null; // { distanciaM, duracaoS, geometria, passos }
 let tokenRota = 0;    // evita que uma resposta atrasada sobrescreva uma mais nova
 let tokenOrigem = 0;  // evita que uma leitura de GPS atrasada sobrescreva uma origem escolhida à mão
 let perfil = 'foot-walking'; // 'foot-walking' | 'driving-car'
@@ -378,7 +378,10 @@ async function calcularRota() {
   const escolha = await escolherRotaMaisSegura(data.rotas);
   if (meuToken !== tokenRota) return;
 
-  rotaAtual = { distanciaM: escolha.distanciaM, duracaoS: escolha.duracaoS, geometria: escolha.geometria };
+  rotaAtual = {
+    distanciaM: escolha.distanciaM, duracaoS: escolha.duracaoS, geometria: escolha.geometria,
+    passos: escolha.passos || []
+  };
   linhaRota = L.polyline(rotaAtual.geometria, { color: '#E83D67', weight: 5, opacity: 0.9 }).addTo(mapa);
   mapa.fitBounds(linhaRota.getBounds(), { padding: [40, 40] });
   desenharContextoDaRota(escolha);
@@ -725,6 +728,7 @@ function voltarAoPlanejamento() {
   document.getElementById('rota-mapa-wrapper').classList.remove('rota-mapa-wrapper--navegando');
   document.getElementById('navegacao-colapsar').hidden = true;
   document.getElementById('navegacao-recentralizar-flutuante').hidden = true;
+  document.getElementById('navegacao-voz').hidden = true;
   mapa.invalidateSize();
 }
 

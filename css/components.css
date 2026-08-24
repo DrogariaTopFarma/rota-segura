@@ -61,6 +61,16 @@
   padding: var(--esp-5);
 }
 
+.lista-relatos__grupo + .lista-relatos__grupo { margin-top: var(--esp-6); }
+.lista-relatos__grupo-titulo {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--texto-secundario);
+  margin-bottom: var(--esp-2);
+}
+
 .card-lista {
   display: flex;
   align-items: flex-start;

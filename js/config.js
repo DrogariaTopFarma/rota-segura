@@ -17,6 +17,12 @@
 export const SUPABASE_URL = 'https://rmggyqqmhupkabgwmnzv.supabase.co';
 export const SUPABASE_ANON_KEY = 'sb_publishable_ZBpUZp9ZqjvnKMU0lNky_Q_poX_2huA';
 
+// Chave PÚBLICA do VAPID (alertas de segurança por notificação push) — assim
+// como a anon key acima, foi feita pra ficar visível no navegador; é a
+// contraparte da VAPID_PRIVATE_KEY, que fica só como secret da Edge Function
+// `enviar-alerta-proximidade` (nunca aqui). Ver COMO_CONFIGURAR_ALERTAS.md.
+export const VAPID_PUBLIC_KEY = 'BPtuvvldLgDai3ervwpJ7lJ349s9rOggI2nVaq8Uul8fvDeMhibxE8yMy_81XLhk3najJlvYvuwV-k3aIlvyBio';
+
 /* Configurações gerais do app (pode deixar como está) */
 export const APP_CONFIG = {
   // Centro inicial do mapa se o GPS for negado (Rio de Janeiro)

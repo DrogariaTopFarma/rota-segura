@@ -8,8 +8,10 @@ import { aplicarIcones } from './icons.js';
 import { prepararModais, prepararTrocaDeModal, abrirModal, fecharModal, prepararLightboxDeFotos } from './ui.js';
 import {
   criarMapa, localizarUsuario, carregarDadosDaAreaVisivel,
-  recentralizar, ligarRealtimeRelatos, posicaoUsuario, ligarFiltroDeFontesPublicas
+  recentralizar, ligarRealtimeRelatos, posicaoUsuario, ligarFiltroDeFontesPublicas,
+  aoAtualizarRelatos
 } from './map.js';
+import { ligarFiltroDeAlertasProximidade, acompanharLocalizacaoDoAlerta } from './push.js';
 import { carregarListaRelatos, prepararFormularioRelato, seletorDeLocalDoRelato } from './reports.js';
 import { prepararFormularioPonto, seletorDeLocalDoPonto } from './support-points.js';
 import { prepararFormularioPublicacao } from './community.js';
@@ -39,6 +41,12 @@ async function iniciar() {
   document.getElementById('botao-recentralizar')
     ?.addEventListener('click', recentralizar);
   ligarFiltroDeFontesPublicas();
+  ligarFiltroDeAlertasProximidade(posicaoUsuario);
+  // A "área de interesse" do alerta acompanha o GPS de verdade: este
+  // listener já dispara sempre que uma leitura nova recarrega os dados da
+  // área visível (criarMapa -> moveend), então é o gancho certo pra manter
+  // a assinatura atualizada sem inventar um watch novo só pra isso.
+  aoAtualizarRelatos(() => acompanharLocalizacaoDoAlerta(posicaoUsuario));
 
   // 5 e 6. BUG DE PERFORMANCE QUE ISTO CORRIGE: antes, os relatos/pontos de
   // apoio/delegacias só começavam a carregar DEPOIS do GPS responder — e o

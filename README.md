@@ -70,6 +70,14 @@ e menu).
   pontuação de confiança antes de mostrar no mapa com ícone e selo próprios — nunca confundido
   com relato de usuária de verdade, nunca publicado sem passar por essas checagens. Passo a
   passo completo em [COMO_CONFIGURAR_COLETA_RJ.md](COMO_CONFIGURAR_COLETA_RJ.md)
+- **Alertas de segurança por notificação push (opcional)**: quando um relato novo é aprovado ou
+  uma notícia pública vira confiável, quem estiver com o alerta ligado perto daquele ponto recebe
+  uma notificação — mesmo com o site fechado. Não é rastreamento contínuo (nenhum site consegue
+  isso de verdade): usa a última localização conhecida da pessoa. Passo a passo completo em
+  [COMO_CONFIGURAR_ALERTAS.md](COMO_CONFIGURAR_ALERTAS.md)
+- **Navegação por voz (Tela 2)**: a rota anuncia cada manobra em voz alta (Web Speech API do
+  navegador, texto em português vindo do OpenRouteService) — com antecedência e de novo bem em
+  cima da hora, mais um texto sempre visível reforçando. Dá pra desligar a qualquer momento.
 
 ---
 
@@ -78,6 +86,7 @@ e menu).
 ```
 rota-segura/
 ├── index.html                 Tela inicial (Entrar / Criar conta)
+├── sw.js                      Service Worker (alertas de segurança por push)
 ├── pages/
 │   ├── login.html
 │   ├── cadastro.html
@@ -110,6 +119,8 @@ rota-segura/
 │   ├── support-points.js      formulário de pontos de apoio e delegacias
 │   ├── routes.js              TELA 2 — origem/destino, cálculo de rota, card de segurança
 │   ├── navigation.js          navegação ativa: GPS real, saiu da rota, chegada
+│   ├── voice.js                voz da navegação (Web Speech API)
+│   ├── push.js                 alertas de segurança por notificação push (opcional)
 │   ├── emergency.js           SOS: link do WhatsApp com localização
 │   ├── community.js           feed, filtros, curtir/descurtir, formulário de publicação
 │   ├── alertas.js             ponto de entrada da TELA 3 (Comunidade)
@@ -121,15 +132,18 @@ rota-segura/
 │   └── app.js                 ponto de entrada da Tela 1
 ├── supabase/functions/
 │   ├── calcular-rota/index.ts  Edge Function: fala com o OpenRouteService, esconde a chave
-│   └── coletar-fontes/index.ts Edge Function: coleta notícias do RJ, classifica com IA (opcional)
+│   ├── coletar-fontes/index.ts Edge Function: coleta notícias do RJ, classifica com IA (opcional)
+│   └── enviar-alerta-proximidade/index.ts  Edge Function: manda a notificação push (opcional)
 ├── .github/workflows/
 │   └── coletar-fontes.yml     agenda a coleta de fontes públicas (opcional)
 ├── sql/schema.sql             banco completo, pronto para colar no Supabase
 ├── assets/
+│   └── icone-192.png          ícone usado nas notificações push
 ├── .gitignore
 ├── .env.example
 ├── README_AI_SETUP.md          como configurar a IA (Google Gemini) — opcional
-└── COMO_CONFIGURAR_COLETA_RJ.md guia completo da coleta de fontes públicas — opcional
+├── COMO_CONFIGURAR_COLETA_RJ.md guia completo da coleta de fontes públicas — opcional
+└── COMO_CONFIGURAR_ALERTAS.md   guia completo dos alertas de segurança por push — opcional
 ```
 
 ---
@@ -171,6 +185,10 @@ públicas + IA é opcional e tem guia próprio: [COMO_CONFIGURAR_COLETA_RJ.md](C
 | `route_history` | Histórico de rotas, mostrado na tela de Perfil |
 | `external_incidents` | Notícias públicas coletadas e classificadas por IA (opcional) — só a
   Edge Function `coletar-fontes` grava aqui, nunca o app diretamente |
+| `report_votes` | Validação "concordo/discordo" de relatos — 1 voto por pessoa, contadores
+  sincronizados em `reports.agrees_count`/`disagrees_count` |
+| `push_subscriptions` | Assinaturas de notificação push dos alertas de segurança (opcional) —
+  só a Edge Function `enviar-alerta-proximidade` lê entre todas as pessoas |
 
 **Moderação:** `reports`, `support_points`, `police_stations` e `posts` têm o campo `status`
 com os valores `pending`, `approved` e `rejected`. No `schema.sql` o padrão é `approved` para

@@ -1034,5 +1034,74 @@ create policy "report_votes_delete_proprio"
 
 
 -- ============================================================================
+-- 18. TABELA: push_subscriptions (alertas proativos de segurança perto de você)
+--     Diferente de tudo que existe até aqui, isso não é consultado pelo
+--     app quando VOCÊ abre uma tela — é o INVERSO: quando um relato novo é
+--     aprovado, ou uma notícia pública vira `active`/`confirmed`, o Supabase
+--     chama sozinho a Edge Function `enviar-alerta-proximidade` (via
+--     Database Webhook, configurado no Dashboard — ver
+--     COMO_CONFIGURAR_ALERTAS.md, não dá pra fazer isso só com SQL), que
+--     avisa por notificação push quem estiver com alerta ligado perto
+--     daquele ponto — mesmo com o site fechado.
+--
+--     `lat`/`lng`/`raio_m`: a "área de interesse" de cada pessoa — hoje é
+--     sempre a última localização conhecida dela (atualizada sempre que
+--     liga o alerta ou abre o Mapa com o alerta já ligado), não um
+--     rastreamento contínuo em segundo plano (navegador nenhum permite
+--     geolocalização em segundo plano de verdade pra um site).
+--
+--     `endpoint`/`p256dh`/`auth`: dados técnicos da assinatura Web Push do
+--     navegador (não são senha nem chave nossa) — únicos por navegador/
+--     aparelho, é o que a Edge Function usa pra endereçar a notificação.
+--
+--     Só a própria pessoa mexe na própria assinatura pelo app; só a Edge
+--     Function (service_role, ignora RLS) lê TODAS as linhas pra achar
+--     quem está perto de um novo relato/notícia.
+-- ============================================================================
+create table if not exists public.push_subscriptions (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  endpoint   text not null unique,
+  p256dh     text not null,
+  auth       text not null,
+  lat        double precision,
+  lng        double precision,
+  raio_m     integer not null default 1500,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_push_subscriptions_user     on public.push_subscriptions(user_id);
+create index if not exists idx_push_subscriptions_lat_lng  on public.push_subscriptions(lat, lng);
+
+drop trigger if exists trg_push_subscriptions_updated_at on public.push_subscriptions;
+create trigger trg_push_subscriptions_updated_at
+  before update on public.push_subscriptions
+  for each row execute function public.set_updated_at();
+
+alter table public.push_subscriptions enable row level security;
+
+drop policy if exists "push_subscriptions_select_proprio" on public.push_subscriptions;
+create policy "push_subscriptions_select_proprio"
+  on public.push_subscriptions for select
+  to authenticated using (auth.uid() = user_id);
+
+drop policy if exists "push_subscriptions_insert_proprio" on public.push_subscriptions;
+create policy "push_subscriptions_insert_proprio"
+  on public.push_subscriptions for insert
+  to authenticated with check (auth.uid() = user_id);
+
+drop policy if exists "push_subscriptions_update_proprio" on public.push_subscriptions;
+create policy "push_subscriptions_update_proprio"
+  on public.push_subscriptions for update
+  to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "push_subscriptions_delete_proprio" on public.push_subscriptions;
+create policy "push_subscriptions_delete_proprio"
+  on public.push_subscriptions for delete
+  to authenticated using (auth.uid() = user_id);
+
+
+-- ============================================================================
 -- FIM. Se rodou sem erro, você verá "Success. No rows returned".
 -- ============================================================================

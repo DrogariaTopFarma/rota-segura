@@ -376,6 +376,31 @@ async function carregarHistoricoRotas() {
     </article>`).join('');
 }
 
+function prepararHistoricoRotas() {
+  document.getElementById('perfil-limpar-rotas')?.addEventListener('click', () => {
+    abrirModal('modal-limpar-rotas');
+  });
+
+  document.getElementById('btn-confirmar-limpar-rotas')?.addEventListener('click', async () => {
+    const botao = document.getElementById('btn-confirmar-limpar-rotas');
+    const user = await usuarioAtual();
+    if (!user) return;
+
+    botaoCarregando(botao, true, 'Limpando...');
+    // RLS de route_history ("rotas_proprias_delete") só deixa apagar as
+    // próprias linhas mesmo sem o .eq('user_id', ...) aqui — mas escrevemos
+    // explícito de qualquer forma, pelo mesmo motivo de sempre: nunca contar
+    // só com o RLS pra dizer o que a query faz.
+    const { error } = await supabase.from('route_history').delete().eq('user_id', user.id);
+    botaoCarregando(botao, false);
+    fecharModal('modal-limpar-rotas');
+
+    if (error) { toast('Não foi possível limpar o histórico agora.', 'erro'); return; }
+    toast('Histórico de rotas limpo.', 'sucesso');
+    await carregarHistoricoRotas();
+  });
+}
+
 /* ========================================================================== */
 /* 3. CONTATOS DE EMERGÊNCIA                                                  */
 /* ========================================================================== */
@@ -578,6 +603,7 @@ async function iniciar() {
   prepararMeusPontos();
   prepararMeusRelatos();
   prepararMinhasPublicacoes();
+  prepararHistoricoRotas();
 
   await Promise.all([
     carregarMeusRelatos(),

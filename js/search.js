@@ -105,60 +105,89 @@ function mostrarResultado(container, titulo, texto, { aproximado = false } = {})
   container.hidden = false;
 }
 
+/** "3 relatos e 2 notícias registrados..." — nunca omite um dos dois lados
+    quando os dois existem, nem finge que só relato de usuária conta (a
+    pedido: a busca por rua precisa contar as duas fontes). */
+function textoResumoProximos(qtdRelatos, qtdNoticias) {
+  const partes = [];
+  if (qtdRelatos > 0) partes.push(`${qtdRelatos} relato${qtdRelatos === 1 ? '' : 's'}`);
+  if (qtdNoticias > 0) partes.push(`${qtdNoticias} notícia${qtdNoticias === 1 ? '' : 's'} pública${qtdNoticias === 1 ? '' : 's'}`);
+
+  if (!partes.length) return 'Nenhum relato ou notícia registrado próximo a este local.';
+
+  const plural = (qtdRelatos + qtdNoticias) > 1;
+  // Só notícia (nenhum relato): concordância no feminino ("registrada(s)",
+  // por causa de "notícia"). Com relato, sozinho ou misturado com notícia:
+  // masculino ("registrado(s)") — é a regra padrão do português pra
+  // gênero misto, e "relato" já é masculino sozinho.
+  const participio = qtdRelatos === 0
+    ? (plural ? 'registradas' : 'registrada')
+    : (plural ? 'registrados' : 'registrado');
+  return `${partes.join(' e ')} ${participio} a até 500 m deste local.`;
+}
+
 async function contarRelatosProximos(local, container) {
   const raio = APP_CONFIG.raioBuscaMetros;
   // ~0.01 grau de latitude ≈ 1,1 km. Buscamos um quadrado e depois filtramos pelo raio.
   const delta = raio / 111000;
-
-  const { data, error } = await supabase
-    .from('reports')
-    .select('id,type,address,occurred_at,attention_level,status,lat,lng,image_url')
-    // Mais recente primeiro, pela data/hora real do relato — não pela ordem
-    // de criação no banco. O filtro de raio abaixo usa .filter(), que
-    // preserva a ordem que já veio assim do banco.
-    .order('occurred_at', { ascending: false })
+  const caixa = (query) => query
     .gte('lat', local.lat - delta).lte('lat', local.lat + delta)
-    .gte('lng', local.lng - delta).lte('lng', local.lng + delta)
-    .limit(300);
+    .gte('lng', local.lng - delta).lte('lng', local.lng + delta);
+
+  const [relatosResp, noticiasResp] = await Promise.all([
+    caixa(supabase.from('reports')
+      .select('id,type,address,occurred_at,attention_level,status,lat,lng,image_url,agrees_count,disagrees_count')
+      // Mais recente primeiro, pela data/hora real do relato — não pela
+      // ordem de criação no banco. O filtro de raio abaixo usa .filter(),
+      // que preserva a ordem que já veio assim do banco.
+      .order('occurred_at', { ascending: false }))
+      .limit(300),
+    caixa(supabase.from('external_incidents')
+      .select('id,category,title,description,address,city,lat,lng,source_url,confidence,occurred_at,published_at,matched_report_id')
+      .in('status', ['active', 'confirmed'])
+      .order('published_at', { ascending: false }))
+      .limit(300)
+  ]);
 
   const titulo = local.nome.split(',').slice(0, 3).join(',');
   const opcoes = { aproximado: local.aproximado };
 
-  if (error) {
+  if (relatosResp.error) {
     mostrarResultado(container, titulo, 'Não foi possível carregar os dados. Tente novamente.', opcoes);
     return;
   }
 
-  const proximos = (data || []).filter(
+  const relatosProximos = (relatosResp.data || []).filter(
     (r) => distanciaMetros(local.lat, local.lng, r.lat, r.lng) <= raio
   );
+  // Notícia sem coordenada (fica sem pino no mapa também) não entra aqui —
+  // não dá pra saber se está perto sem uma coordenada de verdade.
+  const noticiasProximas = (noticiasResp.data || []).filter(
+    (n) => typeof n.lat === 'number' && typeof n.lng === 'number'
+      && distanciaMetros(local.lat, local.lng, n.lat, n.lng) <= raio
+  );
 
-  const texto = proximos.length === 0
-    ? 'Nenhum relato registrado próximo a este local.'
-    : proximos.length === 1
-      ? '1 relato registrado a até 500 m deste local.'
-      : `${proximos.length} relatos registrados a até 500 m deste local.`;
-
-  mostrarResultado(container, titulo, texto, opcoes);
-  mostrarListaDeProximos(container, proximos);
+  mostrarResultado(container, titulo, textoResumoProximos(relatosProximos.length, noticiasProximas.length), opcoes);
+  mostrarListaDeProximos(container, relatosProximos, noticiasProximas);
 }
 
-/** Preview dos relatos mais recentes perto do local pesquisado (a lista
-    completa já existe embaixo do mapa). mostrarResultado() já limpou o
-    container antes desta chamada, então é seguro só anexar. */
-function mostrarListaDeProximos(container, proximos) {
-  if (!container || !proximos.length) return;
+/** Preview dos relatos/notícias mais recentes perto do local pesquisado (a
+    lista completa já existe embaixo do mapa). mostrarResultado() já limpou
+    o container antes desta chamada, então é seguro só anexar. */
+function mostrarListaDeProximos(container, relatos, noticias) {
+  if (!container || (!relatos.length && !noticias.length)) return;
 
   const lista = document.createElement('div');
   lista.className = 'resultado-busca__lista';
-  renderizarLista(lista, proximos.slice(0, LIMITE_LISTA_PROXIMOS));
+  renderizarLista(lista, relatos.slice(0, LIMITE_LISTA_PROXIMOS), noticias.slice(0, LIMITE_LISTA_PROXIMOS));
   container.appendChild(lista);
 
-  const restantes = proximos.length - LIMITE_LISTA_PROXIMOS;
+  const restantes = Math.max(0, relatos.length - LIMITE_LISTA_PROXIMOS)
+    + Math.max(0, noticias.length - LIMITE_LISTA_PROXIMOS);
   if (restantes > 0) {
     const aviso = document.createElement('div');
     aviso.className = 'resultado-busca__mais';
-    aviso.textContent = `+ ${restantes} relato${restantes === 1 ? '' : 's'} não mostrado${restantes === 1 ? '' : 's'} aqui.`;
+    aviso.textContent = `+ ${restantes} não mostrado${restantes === 1 ? '' : 's'} aqui.`;
     container.appendChild(aviso);
   }
 }

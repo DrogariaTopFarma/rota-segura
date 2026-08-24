@@ -115,7 +115,10 @@ A resposta deve ser um JSON parecido com:
 
 ```json
 {
-  "fontes": { "g1_rio_rss": { "encontrados": 20, "processados": 3 } },
+  "fontes": {
+    "g1_rio_rss": { "encontrados": 20, "processados": 3 },
+    "g1_rio_transito_rss": { "encontrados": 8, "processados": 2 }
+  },
   "erros": []
 }
 ```
@@ -188,29 +191,32 @@ Depois que existir pelo menos uma linha em `external_incidents` com `status` `ac
 diferente de tudo que já existia) com um checkbox logo abaixo do mapa, **"Mostrar notícias
 públicas no mapa"**, pra ligar/desligar essa camada.
 
-## Fonte usada nesta entrega
+## Fontes usadas nesta entrega
 
-| | |
-|---|---|
-| **Nome** | RSS do G1 Rio de Janeiro |
-| **URL** | `http://g1.globo.com/dynamo/rio-de-janeiro/rss2.xml` |
-| **Tipo** | RSS 2.0, público |
-| **Precisa de chave?** | Não |
-| **Gratuito?** | Sim |
-| **Limite** | Nenhum limite documentado publicamente — a função já processa no máximo 20 itens por execução, então o uso é sempre moderado |
-| **Periodicidade** | A cada 30 min (configurável em `.github/workflows/coletar-fontes.yml`) |
-| **O que fornece** | Título, resumo e data de notícias recentes sobre o Rio de Janeiro |
-| **Como configurar** | Nada a configurar — já está pronta pra uso no código |
+| | Feed geral | Feed de trânsito |
+|---|---|---|
+| **Nome** | `g1_rio_rss` | `g1_rio_transito_rss` |
+| **URL** | `http://g1.globo.com/dynamo/rio-de-janeiro/rss2.xml` | `http://g1.globo.com/dynamo/rio-de-janeiro/transito/rss2.xml` |
+| **Tipo** | RSS 2.0, público | RSS 2.0, público |
+| **O que fornece** | Notícias gerais recentes sobre o Rio de Janeiro (mistura assuntos — a IA que filtra o que é relevante pro app) | Só acidente/interdição/bloqueio de via — já vem filtrado pelo próprio G1, testado ao vivo antes de adicionar |
+| **Precisa de chave?** | Não | Não |
+| **Gratuito?** | Sim | Sim |
+| **Limite** | Nenhum limite documentado publicamente — a função processa no máximo 20 itens por execução POR fonte (então até 40 no total, com as duas) | mesmo limite |
+| **Periodicidade** | A cada 30 min (configurável em `.github/workflows/coletar-fontes.yml`), as duas fontes juntas | idem |
+| **Como configurar** | Nada a configurar — já está pronta pra uso no código | idem |
 
-**Por que só esta fonte por enquanto:** pesquisei as fontes oficiais citadas no pedido original
+**Por que só estas fontes por enquanto:** pesquisei as fontes oficiais citadas no pedido original
 (ISP-RJ, Data.Rio, dados abertos do Estado, portal de transparência da Prefeitura) antes de
 implementar. Nenhuma delas tinha, no momento da pesquisa, uma API pública de "ocorrências em
 tempo real" acessível sem login institucional — o ISP só publica arquivos estatísticos pra
 baixar, e a API mais promissora que achei (dados do Centro de Operações Rio) exige autenticação
-municipal (Keycloak "Identidade Carioca"). A arquitetura deste projeto (`FONTES` dentro de
-`coletar-fontes/index.ts`) já é feita pra caber mais uma fonte sem reescrever nada — se você
-conseguir acesso a alguma dessas APIs no futuro, é só escrever outra função `coletar*()` no mesmo
-formato e adicionar um item no array `FONTES`.
+municipal (Keycloak "Identidade Carioca"). Também tentei achar um RSS do G1 específico pra
+polícia/violência/crime — testei vários caminhos prováveis (`policia`, `violencia`, `seguranca`,
+`criminalidade`, `furto-e-roubo`) e todos voltam vazios; só o de trânsito funciona de verdade. A
+arquitetura deste projeto (`FONTES` dentro de `coletar-fontes/index.ts`) já é feita pra caber
+mais uma fonte sem reescrever nada — se você conseguir acesso a alguma dessas APIs no futuro, ou
+achar outro feed específico de ocorrência policial, é só escrever outra função `coletar*()` no
+mesmo formato e adicionar um item no array `FONTES`.
 
 ## Custos e limites
 

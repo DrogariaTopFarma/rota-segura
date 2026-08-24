@@ -316,8 +316,21 @@ async function coletarG1Rio() {
   return extrairItensRSS(xml);
 }
 
+/** Feed do G1 já filtrado por editoria de trânsito (testado ao vivo: só traz
+    acidente/bloqueio de via, sem a mistura de assuntos do feed geral acima).
+    Outras editorias tentadas (policia, violencia, seguranca, criminalidade)
+    voltam vazias — o G1 não expõe RSS próprio pra ocorrência policial no Rio,
+    só pra trânsito. */
+async function coletarG1RioTransito() {
+  const resposta = await fetch('http://g1.globo.com/dynamo/rio-de-janeiro/transito/rss2.xml');
+  if (!resposta.ok) throw new Error(`G1 RSS (trânsito) respondeu ${resposta.status}`);
+  const xml = await resposta.text();
+  return extrairItensRSS(xml);
+}
+
 const FONTES = [
-  { nome: 'g1_rio_rss', tipo: 'public_source', coletar: coletarG1Rio }
+  { nome: 'g1_rio_rss', tipo: 'public_source', coletar: coletarG1Rio },
+  { nome: 'g1_rio_transito_rss', tipo: 'public_source', coletar: coletarG1RioTransito }
 ];
 
 /* ============================================================================

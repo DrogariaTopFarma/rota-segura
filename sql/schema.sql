@@ -924,5 +924,115 @@ create policy "incidentes_externos_leitura"
 
 
 -- ============================================================================
+-- 17. TABELA: report_votes (validação da comunidade: "concordo"/"discordo")
+--     Cada relato mostra uma porcentagem de "quão certeiro" ele parece, com
+--     base em quantas pessoas concordam com ele — mesmo espírito de
+--     post_likes (tabela 9), mas com DOIS lados em vez de só "curtir": 1 voto
+--     por pessoa por relato, pode trocar de lado a qualquer momento, ou tirar
+--     o voto por completo (delete). Contadores em `reports` sincronizados por
+--     gatilho — nunca calculados no client (evitaria 100 queries extras só
+--     pra montar a lista).
+-- ============================================================================
+create table if not exists public.report_votes (
+  id         uuid primary key default gen_random_uuid(),
+  report_id  uuid not null references public.reports(id) on delete cascade,
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  vote       text not null check (vote in ('concordo', 'discordo')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (report_id, user_id)
+);
+
+create index if not exists idx_report_votes_report on public.report_votes(report_id);
+create index if not exists idx_report_votes_user    on public.report_votes(user_id);
+
+drop trigger if exists trg_report_votes_updated_at on public.report_votes;
+create trigger trg_report_votes_updated_at
+  before update on public.report_votes
+  for each row execute function public.set_updated_at();
+
+-- "create table if not exists" acima não adiciona coluna nova a uma tabela
+-- "reports" que já existia antes deste recurso — por isso o "add column if
+-- not exists" separado aqui, idempotente e seguro de rodar de novo.
+alter table public.reports add column if not exists agrees_count    integer not null default 0;
+alter table public.reports add column if not exists disagrees_count integer not null default 0;
+
+-- Mantém reports.agrees_count/disagrees_count sempre corretos, inclusive
+-- quando a pessoa TROCA de voto (post_likes só trata insert/delete porque
+-- curtida não tem "lado" pra trocar — voto tem, por isso soma o caso UPDATE).
+create or replace function public.sync_report_votes_count()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if (tg_op = 'INSERT') then
+    if (new.vote = 'concordo') then
+      update public.reports set agrees_count = agrees_count + 1 where id = new.report_id;
+    else
+      update public.reports set disagrees_count = disagrees_count + 1 where id = new.report_id;
+    end if;
+    return new;
+  elsif (tg_op = 'UPDATE') then
+    if (old.vote <> new.vote) then
+      if (new.vote = 'concordo') then
+        update public.reports set
+          agrees_count = agrees_count + 1,
+          disagrees_count = greatest(disagrees_count - 1, 0)
+        where id = new.report_id;
+      else
+        update public.reports set
+          disagrees_count = disagrees_count + 1,
+          agrees_count = greatest(agrees_count - 1, 0)
+        where id = new.report_id;
+      end if;
+    end if;
+    return new;
+  elsif (tg_op = 'DELETE') then
+    if (old.vote = 'concordo') then
+      update public.reports set agrees_count = greatest(agrees_count - 1, 0) where id = old.report_id;
+    else
+      update public.reports set disagrees_count = greatest(disagrees_count - 1, 0) where id = old.report_id;
+    end if;
+    return old;
+  end if;
+  return null;
+end;
+$$;
+
+drop trigger if exists trg_report_votes_sync on public.report_votes;
+create trigger trg_report_votes_sync
+  after insert or update or delete on public.report_votes
+  for each row execute function public.sync_report_votes_count();
+
+alter table public.report_votes enable row level security;
+
+-- Leitura liberada a qualquer authenticated (mesmo padrão de post_likes):
+-- precisa ver o voto de TODO MUNDO pra saber se a usuária atual já votou e
+-- destacar o botão certo, não só o próprio voto.
+drop policy if exists "report_votes_leitura" on public.report_votes;
+create policy "report_votes_leitura"
+  on public.report_votes for select
+  to authenticated
+  using (true);
+
+drop policy if exists "report_votes_insert_proprio" on public.report_votes;
+create policy "report_votes_insert_proprio"
+  on public.report_votes for insert
+  to authenticated with check (auth.uid() = user_id);
+
+drop policy if exists "report_votes_update_proprio" on public.report_votes;
+create policy "report_votes_update_proprio"
+  on public.report_votes for update
+  to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "report_votes_delete_proprio" on public.report_votes;
+create policy "report_votes_delete_proprio"
+  on public.report_votes for delete
+  to authenticated using (auth.uid() = user_id);
+
+
+-- ============================================================================
 -- FIM. Se rodou sem erro, você verá "Success. No rows returned".
 -- ============================================================================

@@ -26,6 +26,10 @@
   --vermelho-suave: #FBEAEA;
   --roxo: #7C5CBF;
   --roxo-suave: #F1ECFB;
+  /* Mesma cor das notícias públicas no mapa (js/map.js, ICONES.fonte_publica)
+     — mantém a identidade visual entre o pino e o card da lista. */
+  --teal: #0097A7;
+  --teal-suave: #E0F4F6;
 
   /* ---------- Tipografia ---------- */
   --fonte: 'Poppins', 'Nunito', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;

@@ -64,6 +64,7 @@ let marcadorBusca = null;
 let pararWatch = null;
 let ultimaPosicao = null;
 let carregando = false;
+let popupAberto = false;
 const ouvintes = [];
 
 /* Controle do aviso de precisão.
@@ -161,6 +162,13 @@ export function criarMapa(idElemento = 'mapa') {
     clearTimeout(timer);
     timer = setTimeout(carregarDadosDaAreaVisivel, 350);
   });
+
+  // Enquanto um popup estiver aberto, o redesenho dos pinos (que sempre
+  // limpa e recria a camada inteira) pausa — sem isto, um leve arrasto
+  // acidental ao tocar num pino (comum no toque) já disparava moveend e
+  // fechava o popup sozinho antes de dar tempo de ler.
+  mapa.on('popupopen', () => { popupAberto = true; });
+  mapa.on('popupclose', () => { popupAberto = false; });
 
   return mapa;
 }
@@ -351,10 +359,16 @@ export async function carregarDadosDaAreaVisivel() {
     if (delegacias.error) throw delegacias.error;
     if (fontesPublicas.error) throw fontesPublicas.error;
 
-    desenharRelatos(relatos.data || []);
-    desenharPontos(pontos.data || []);
-    desenharDelegacias(delegacias.data || []);
-    desenharFontesPublicas(fontesPublicas.data || []);
+    // Os dados em si (bounding box, lista abaixo do mapa etc.) continuam
+    // atualizando normalmente — só o redesenho dos PINOS pausa, porque ele
+    // sempre limpa a camada inteira e derrubaria um popup aberto no meio da
+    // leitura (ver comentário no listener de popupopen/popupclose acima).
+    if (!popupAberto) {
+      desenharRelatos(relatos.data || []);
+      desenharPontos(pontos.data || []);
+      desenharDelegacias(delegacias.data || []);
+      desenharFontesPublicas(fontesPublicas.data || []);
+    }
 
     ouvintes.forEach((fn) => fn(relatos.data || []));
   } catch (erro) {
@@ -445,7 +459,7 @@ function desenharDelegacias(lista) {
     precisa saber a fórmula, só se pode confiar mais ou menos). Mesmos
     limiares usados em supabase/functions/coletar-fontes/index.ts
     (nivelDeConfianca) — se ajustar um lado, ajuste o outro. */
-function nivelDeConfiancaTexto(pontos) {
+export function nivelDeConfiancaTexto(pontos) {
   if (pontos >= 7) return 'Alta';
   if (pontos >= 3) return 'Média';
   return 'Baixa';

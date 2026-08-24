@@ -85,11 +85,39 @@
 .card-lista__icone--atencao { background: var(--amarelo); }
 .card-lista__icone--verde { background: var(--verde); }
 .card-lista__icone--roxo { background: var(--roxo); }
+.card-lista__icone--teal { background: var(--teal); }
 
 .card-lista__conteudo { flex: 1; min-width: 0; }
 .card-lista__titulo { font-weight: 600; font-size: var(--fs-md); }
 .card-lista__meta { font-size: var(--fs-xs); color: var(--texto-secundario); }
 .card-lista__endereco { font-size: var(--fs-sm); font-weight: 500; margin-top: 2px; }
+.card-lista__desc { font-size: var(--fs-sm); color: var(--texto-secundario); margin-top: 4px; }
+.card-lista__link { display: inline-block; margin-top: var(--esp-2); font-size: var(--fs-xs); font-weight: 600; color: var(--teal); }
+
+/* ---------------- Validação de relato (concordo/discordo) ---------------- */
+.card-lista__votos {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  margin-top: var(--esp-3);
+  flex-wrap: wrap;
+}
+.card-lista__voto-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: var(--raio-full);
+  border: 1.5px solid var(--borda);
+  background: var(--branco);
+  color: var(--texto-secundario);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+.card-lista__voto-btn:hover:not([disabled]) { border-color: var(--rosa-claro); }
+.card-lista__voto-btn--concordo.ativo { background: var(--verde-suave); border-color: var(--verde); color: #2E7D5B; }
+.card-lista__voto-btn--discordo.ativo { background: var(--vermelho-suave); border-color: var(--vermelho); color: var(--vermelho); }
+.card-lista__percentual { font-size: var(--fs-xs); color: var(--texto-secundario); }
 
 .card-lista__foto {
   display: block;
@@ -151,6 +179,7 @@
 .tag--amarelo { background: var(--amarelo-suave); color: #B26A22; }
 .tag--vermelho { background: var(--vermelho-suave); color: var(--vermelho); }
 .tag--roxo { background: var(--roxo-suave); color: var(--roxo); }
+.tag--teal { background: var(--teal-suave); color: var(--teal); }
 
 .badge {
   position: absolute;

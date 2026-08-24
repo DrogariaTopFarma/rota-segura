@@ -14,7 +14,7 @@ projeto evita serviços que exigem cartão) e **suportar resposta em JSON estrut
 tentar interpretar na mão — isso é o que impede a IA de "inventar" um campo fora do formato).
 
 - **Site**: <https://aistudio.google.com/>
-- **Modelo usado**: `gemini-2.5-flash-lite`
+- **Modelo usado**: `gemini-3.5-flash-lite`
 - **Nível gratuito**: existe, sem cartão de crédito pra começar. O Google não publica um número
   fixo de requisições por dia em documentação pública — o limite exato da SUA chave aparece no
   próprio AI Studio (veja o passo 5 abaixo). Por isso não afirmo aqui um número exato de
@@ -88,12 +88,18 @@ O modelo está numa única constante, no topo da função `classificarComIA` em
 `supabase/functions/coletar-fontes/index.ts`:
 
 ```js
-const modelo = 'gemini-2.5-flash-lite';
+const modelo = 'gemini-3.5-flash-lite';
 ```
 
-Troque por outro nome de modelo do Gemini (ex.: `gemini-2.5-flash`, mais capaz porém com limite
+Troque por outro nome de modelo do Gemini (ex.: `gemini-3.5-flash`, mais capaz porém com limite
 gratuito menor) se precisar de mais qualidade de classificação e não se importar com um limite
 diário menor. Depois de editar, publique a função de novo (colar o arquivo inteiro no Dashboard).
+
+> ⚠️ O Google descontinua/renomeia modelos do Gemini de tempos em tempos (foi o que aconteceu
+> com o `gemini-2.5-flash-lite`, usado originalmente aqui — deixou de aceitar contas novas e o
+> próprio erro da API já indica o substituto). Se a coleta parar de processar notícias e o log
+> mostrar erro 404 "model ... is no longer available", é sinal de que o nome do modelo mudou de
+> novo — confira o nome atual em <https://aistudio.google.com/> e atualize a constante acima.
 
 ## Custos e limites (o que confirmei, nada inventado)
 

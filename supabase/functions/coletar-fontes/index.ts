@@ -399,7 +399,7 @@ function esperar(ms) {
 }
 
 async function classificarComIA(texto, apiKey) {
-  const modelo = 'gemini-2.5-flash-lite';
+  const modelo = 'gemini-3.5-flash-lite';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`;
   const corpo = {
     systemInstruction: { parts: [{ text: PROMPT_SISTEMA }] },

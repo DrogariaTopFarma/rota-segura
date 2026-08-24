@@ -135,7 +135,7 @@ Depois, confira no **Table Editor** → `external_incidents`: devem existir linh
 | `{"message":"No API key found in request",...}` (HTTP 401) | Faltou o cabeçalho `apikey` — isso é o "portão de entrada" do Supabase barrando antes de chegar na função | Adicione `-H "apikey: ..."` no comando (ver exemplo acima) |
 | `{"message":"Secret API key required",...}` (HTTP 401) | `apikey`/`Authorization` foram enviados com a chave `sb_publishable_...` (ou com a `COLETA_SECRET` no lugar errado) — este projeto exige a `sb_secret_...` nesses dois cabeçalhos | Confira se `apikey` E `Authorization` levam a chave `sb_secret_...`, e se a `COLETA_SECRET` está só no `x-coleta-secret` |
 | `{"erro":"GEMINI_API_KEY não configurada..."}` | Esqueceu o passo 3, ou publicou a função antes de adicionar o secret | Adicione o secret e publique a função de novo |
-| `processados` sempre 0 | Normal nas primeiras vezes (poucas notícias do RJ no feed no momento), ou a IA está marcando tudo como fora do RJ/estatística | Veja os **Logs** da função (próximo item) pra saber o motivo exato de cada notícia descartada |
+| `processados` sempre 0 | Pode ser normal (poucas notícias relevantes no feed no momento), mas se acontecer em TODA execução, veja os **Logs** — se aparecer `Falha ao classificar com IA: Error: Gemini respondeu 404 ... is no longer available`, é sinal de que o Google descontinuou o modelo configurado | Abra `supabase/functions/coletar-fontes/index.ts`, ache `const modelo = '...'` (dentro de `classificarComIA`) e troque pelo nome de modelo que o próprio erro sugere (ou confira o nome atual em <https://aistudio.google.com/>). Publique a função de novo depois de editar |
 | Erro de rede/timeout | RSS do G1 ou a API do Gemini estavam fora do ar na hora | Tente de novo — a função não derruba nada, só aquela execução específica falha |
 
 ## 7. Ver os logs
@@ -217,7 +217,7 @@ formato e adicionar um item no array `FONTES`.
 | Serviço | Gratuito? | Precisa cartão? | Limite |
 |---|---|---|---|
 | RSS do G1 | Sim | Não | Nenhum documentado |
-| Google Gemini (`gemini-2.5-flash-lite`) | Sim, nível gratuito real | Não, pra começar | Varia por conta — confira a sua no AI Studio (ver `README_AI_SETUP.md`) |
+| Google Gemini (`gemini-3.5-flash-lite`) | Sim, nível gratuito real | Não, pra começar | Varia por conta — confira a sua no AI Studio (ver `README_AI_SETUP.md`) |
 | Photon (geocodificação do bairro) | Sim, mesmo serviço já usado no resto do site | Não | Uso moderado (no máx. 20 consultas por execução da coleta) |
 | GitHub Actions | Sim, em repositório público | Não | 2.000 minutos/mês grátis em conta gratuita — esta tarefa usa poucos segundos por execução, bem longe do limite |
 | Supabase (banco/Edge Function) | Já está configurado no plano que você já usa no resto do projeto | — | Mesmo limite que o resto do app já respeita |

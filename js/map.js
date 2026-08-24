@@ -9,11 +9,10 @@
 
 import { supabase } from './supabase.js';
 import { APP_CONFIG } from './config.js';
-import { pinoMapa, icone } from './icons.js';
+import { pinoMapa } from './icons.js';
 import { toast, escapar, formatarDataHora, distanciaMetros } from './ui.js';
 import {
-  obterPosicao, acompanharPosicao, mensagemDoMotivo,
-  descreverPrecisao, precisaoRuim
+  obterPosicao, acompanharPosicao, mensagemDoMotivo, descreverPrecisao
 } from './geolocation.js';
 
 /* ------------------------------------------------------------- Rótulos --- */
@@ -66,16 +65,6 @@ let ultimaPosicao = null;
 let carregando = false;
 let popupAberto = false;
 const ouvintes = [];
-
-/* Controle do aviso de precisão.
-   BUG QUE ISTO CORRIGE: o aviso era redesenhado a cada leitura do GPS
-   (o watchPosition dispara várias vezes por minuto), então ele reaparecia
-   sozinho para sempre e não tinha como fechar. Agora: mostra no máximo uma
-   vez, some sozinho depois de alguns segundos, e tem botão de fechar que
-   vale para o resto da sessão. */
-let avisoPrecisaoDispensado = false;
-let avisoPrecisaoJaMostrado = false;
-let temporizadorAviso = null;
 
 /** Permite que outros módulos saibam quando os relatos foram recarregados. */
 export function aoAtualizarRelatos(fn) { ouvintes.push(fn); }
@@ -181,7 +170,6 @@ function mostrarPosicaoNoMapa(pos) {
 }
 
 export async function localizarUsuario({ silencioso = false } = {}) {
-  const aviso = document.getElementById('mapa-aviso');
   try {
     const pos = await obterPosicao({
       precisaoDesejada: 25,
@@ -193,8 +181,6 @@ export async function localizarUsuario({ silencioso = false } = {}) {
       aoObterAproximada: mostrarPosicaoNoMapa
     });
     mostrarPosicaoNoMapa(pos);
-    if (aviso && !precisaoRuim(pos.precisao)) aviso.hidden = true;
-    mostrarAvisoDePrecisao(pos.precisao);
 
     // Acompanha em tempo real (útil quando a pessoa está andando)
     if (!pararWatch) {
@@ -264,46 +250,6 @@ function desenharUsuario({ lat, lng, precisao }) {
        <div class="popup__meta">${escapar(descreverPrecisao(precisao))}</div>`
     );
   }
-}
-
-/**
- * Avisa UMA VEZ quando o navegador não sabe direito onde você está.
- * Some sozinho em 12 segundos e tem botão de fechar definitivo.
- */
-function mostrarAvisoDePrecisao(precisao) {
-  const aviso = document.getElementById('mapa-aviso');
-  if (!aviso) return;
-
-  // Você já fechou este aviso: respeitamos e não insistimos mais.
-  if (avisoPrecisaoDispensado) { aviso.hidden = true; return; }
-
-  if (!precisaoRuim(precisao)) {
-    aviso.hidden = true;
-    return;
-  }
-
-  // Já mostramos uma vez nesta sessão: não repetimos.
-  if (avisoPrecisaoJaMostrado) return;
-  avisoPrecisaoJaMostrado = true;
-
-  aviso.innerHTML = `
-    <div class="mapa-aviso__texto">
-      <strong>Localização aproximada</strong> — ${escapar(descreverPrecisao(precisao))}.
-      Em notebook o navegador usa o Wi-Fi, não o GPS. No celular a precisão é bem melhor.
-    </div>
-    <button type="button" class="mapa-aviso__fechar" aria-label="Fechar aviso">
-      ${icone('fechar', 16)}
-    </button>`;
-  aviso.hidden = false;
-
-  aviso.querySelector('.mapa-aviso__fechar')?.addEventListener('click', () => {
-    avisoPrecisaoDispensado = true;
-    aviso.hidden = true;
-    clearTimeout(temporizadorAviso);
-  });
-
-  clearTimeout(temporizadorAviso);
-  temporizadorAviso = setTimeout(() => { aviso.hidden = true; }, 12000);
 }
 
 export function recentralizar() {

@@ -179,36 +179,6 @@
   background: rgba(211, 47, 47, 0.35);
 }
 
-.mapa-aviso {
-  position: absolute;
-  top: 12px; left: 12px; right: 12px;
-  z-index: var(--z-flutuante);
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  background: var(--branco);
-  border-left: 4px solid var(--amarelo);
-  border-radius: var(--raio-md);
-  padding: 10px 10px 10px 14px;
-  font-size: var(--fs-xs);
-  line-height: 1.5;
-  box-shadow: var(--sombra-md);
-  color: var(--texto-principal);
-}
-.mapa-aviso strong { color: #B26A22; }
-.mapa-aviso__texto { flex: 1; }
-.mapa-aviso__fechar {
-  flex-shrink: 0;
-  width: 26px; height: 26px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--texto-secundario);
-}
-.mapa-aviso__fechar:hover { background: var(--cinza-muito-claro); color: var(--texto-principal); }
-.mapa-aviso[hidden] { display: none; }
-
 /* Marcadores SVG customizados */
 .marcador {
   display: flex;

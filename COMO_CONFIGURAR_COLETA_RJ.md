@@ -147,13 +147,14 @@ que você confirma o funcionamento de verdade, não só "sem erro na tela".
 ## 8. Agendar (GitHub Actions)
 
 O arquivo `.github/workflows/coletar-fontes.yml` já existe neste projeto — só falta configurar
-3 segredos do **repositório no GitHub** (diferente dos secrets da Edge Function, que já
-configurou antes):
+2 segredos do **repositório no GitHub** (diferente dos secrets da Edge Function, que já
+configurou antes). A URL da função já vem **fixa dentro do próprio arquivo do workflow**
+(não é secreta — é só o endereço; quem protege a chamada de verdade são os dois secrets
+abaixo), então não precisa cadastrar nada relacionado a ela.
 
 1. No GitHub, abra o repositório → **Settings** → **Secrets and variables** → **Actions** →
    **New repository secret**.
 2. Adicione:
-   - Nome: `SUPABASE_FUNCTION_URL` — valor: `https://SEU-PROJETO.supabase.co/functions/v1/coletar-fontes`
    - Nome: `COLETA_SECRET` — valor: a MESMA senha do passo 4 (tem que ser idêntica à da Edge
      Function, senão a chamada é recusada)
    - Nome: `SUPABASE_SECRET_API_KEY` — valor: a chave **secreta** do seu projeto (Project

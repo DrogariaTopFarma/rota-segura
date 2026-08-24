@@ -6,16 +6,24 @@
 # em supabase/functions/coletar-fontes/index.ts, não aqui. Este arquivo só
 # aperta o botão na hora certa.
 #
+# A URL da função fica FIXA aqui embaixo (não é secreta — é só o endereço;
+# quem realmente protege a chamada são os dois secrets abaixo). Isso evita
+# um problema real que já aconteceu: colar a URL errada/incompleta num
+# secret do GitHub e não ter como conferir o valor depois (secrets não
+# mostram o conteúdo salvo, só dá pra sobrescrever).
+#
 # COMO CONFIGURAR: veja COMO_CONFIGURAR_COLETA_RJ.md — resumindo, você
-# precisa cadastrar 3 segredos deste repositório (Settings -> Secrets and
+# precisa cadastrar 2 segredos deste repositório (Settings -> Secrets and
 # variables -> Actions -> New repository secret):
-#   SUPABASE_FUNCTION_URL  ex.: https://SEU-PROJETO.supabase.co/functions/v1/coletar-fontes
 #   COLETA_SECRET           a MESMA senha que você configurou como secret
 #                            da Edge Function (Dashboard do Supabase)
 #   SUPABASE_SECRET_API_KEY a chave SECRETA (sb_secret_...) do seu projeto —
 #                            Project Settings -> API Keys. Sensível de
 #                            verdade (equivale à antiga service_role):
 #                            NUNCA cole ela direto neste arquivo.
+#
+# Se um dia trocar de projeto Supabase, troque a URL na linha "URL_FUNCAO:"
+# abaixo.
 #
 # INTERVALO: */30 * * * * = a cada 30 minutos. Pra mudar, edite a linha do
 # "cron" abaixo (formato padrão do cron: minuto hora dia mês dia-da-semana).
@@ -36,28 +44,11 @@ jobs:
   coletar:
     runs-on: ubuntu-latest
     steps:
-      # Usar "env:" (em vez de colar ${{ secrets.X }} direto dentro do
-      # script) evita que um caractere especial no valor do secret quebre o
-      # comando — o GitHub troca ${{ }} pelo texto ANTES de rodar o shell,
-      # então um valor com aspas ou cifrão, por exemplo, podia virar um
-      # comando bash inválido sem isso.
-      - name: Diagnosticar os secrets (sem revelar o valor)
-        env:
-          URL_FUNCAO: ${{ secrets.SUPABASE_FUNCTION_URL }}
-          SENHA: ${{ secrets.COLETA_SECRET }}
-        run: |
-          echo "SUPABASE_FUNCTION_URL tem ${#URL_FUNCAO} caracteres."
-          if [ -n "$URL_FUNCAO" ]; then
-            echo "Começa com: $(echo "$URL_FUNCAO" | cut -c1-8)"
-            echo "Termina com: $(echo "$URL_FUNCAO" | rev | cut -c1-15 | rev)"
-          else
-            echo "Está VAZIO — o secret não existe ou o nome está diferente de SUPABASE_FUNCTION_URL."
-          fi
-          echo "COLETA_SECRET tem ${#SENHA} caracteres."
-
       - name: Chamar a Edge Function coletar-fontes
         env:
-          URL_FUNCAO: ${{ secrets.SUPABASE_FUNCTION_URL }}
+          # Fixa de propósito (ver explicação no topo do arquivo) — não é
+          # secreta, só o endereço da função.
+          URL_FUNCAO: https://rmggyqqmhupkabgwmnzv.supabase.co/functions/v1/coletar-fontes
           SENHA: ${{ secrets.COLETA_SECRET }}
           # O "portão de entrada" (gateway) das Edge Functions deste projeto
           # confere apikey E authorization contra uma credencial de verdade
@@ -67,6 +58,8 @@ jobs:
           # x-coleta-secret, que é o único que o código da função confere).
           CHAVE_SECRETA_SUPABASE: ${{ secrets.SUPABASE_SECRET_API_KEY }}
         run: |
+          echo "COLETA_SECRET tem ${#SENHA} caracteres (0 = secret vazio ou com nome errado)."
+          echo "SUPABASE_SECRET_API_KEY tem ${#CHAVE_SECRETA_SUPABASE} caracteres (0 = secret vazio ou com nome errado)."
           codigo=$(curl -s -o resposta.json -w "%{http_code}" \
             -X POST "$URL_FUNCAO" \
             -H "apikey: $CHAVE_SECRETA_SUPABASE" \

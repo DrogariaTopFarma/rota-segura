@@ -6,6 +6,8 @@
   <meta name="description" content="Rota Segura — plataforma colaborativa de segurança para mulheres em deslocamentos urbanos.">
   <meta name="theme-color" content="#E83D67">
   <title>Rota Segura</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="assets/icone-192.png">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -35,7 +37,9 @@
   <script type="module">
     import { aplicarIcones } from './js/icons.js';
     import { redirecionarSeLogado } from './js/auth.js';
+    import { registrarServiceWorker } from './js/pwa.js';
     aplicarIcones();
+    registrarServiceWorker('sw.js');
     redirecionarSeLogado('pages/mapa.html');
   </script>
 </body>

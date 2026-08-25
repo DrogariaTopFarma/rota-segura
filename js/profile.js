@@ -17,6 +17,7 @@ import {
 import { marcarItemAtivo, atualizarBadgeNotificacoes, ligarRealtimeBadgeNotificacoes } from './nav.js';
 import { prepararNotificacoes } from './notifications.js';
 import { ROTULOS_PONTO, ROTULOS_RELATO } from './map.js';
+import { registrarServiceWorker } from './pwa.js';
 
 const ROTULOS_CATEGORIA = { alerta: 'Alerta', dica: 'Dica', apoio: 'Apoio', noticia: 'Notícia' };
 
@@ -581,6 +582,7 @@ function prepararTrocaDeSenha() {
 
 async function iniciar() {
   aplicarIcones();
+  registrarServiceWorker('../sw.js');
   const usuario = await exigirLogin();
   if (!usuario) return;
 

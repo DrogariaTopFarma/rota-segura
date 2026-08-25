@@ -12,16 +12,19 @@ import {
   aoAtualizarRelatos
 } from './map.js';
 import { ligarFiltroDeAlertasProximidade, acompanharLocalizacaoDoAlerta } from './push.js';
+import { ligarRiscoPorHorario } from './risco-horario.js';
 import { carregarListaRelatos, prepararFormularioRelato, seletorDeLocalDoRelato } from './reports.js';
 import { prepararFormularioPonto, seletorDeLocalDoPonto } from './support-points.js';
 import { prepararFormularioPublicacao } from './community.js';
 import { prepararNotificacoes } from './notifications.js';
 import { prepararBusca } from './search.js';
 import { marcarItemAtivo, prepararBotaoCentral, atualizarBadgeNotificacoes, ligarRealtimeBadgeNotificacoes } from './nav.js';
+import { registrarServiceWorker } from './pwa.js';
 
 async function iniciar() {
   // 1. Ícones SVG em todo lugar que tem data-icone
   aplicarIcones();
+  registrarServiceWorker('../sw.js');
 
   // 2. Sem login, ninguém entra
   const usuario = await exigirLogin();
@@ -60,6 +63,7 @@ async function iniciar() {
   localizarUsuario({ silencioso: true });
 
   await carregarDadosDaAreaVisivel();
+  ligarRiscoPorHorario();
   await carregarListaRelatos();
   await atualizarBadgeNotificacoes();
   ligarRealtimeBadgeNotificacoes();

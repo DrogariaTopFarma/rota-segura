@@ -20,6 +20,7 @@ import { obterLinkDeEmergencia } from './emergency.js';
 import { iniciarNavegacao } from './navigation.js';
 import { marcarItemAtivo } from './nav.js';
 import { ROTULOS_RELATO } from './map.js';
+import { registrarServiceWorker } from './pwa.js';
 
 // Mesmas cores/ícones do mapa da Tela 1 (map.js), para os marcadores ao
 // longo da rota serem reconhecíveis nas duas telas.
@@ -67,6 +68,7 @@ let perfil = 'foot-walking'; // 'foot-walking' | 'driving-car'
 /* ------------------------------------------------------------ Inicializar */
 async function iniciar() {
   aplicarIcones();
+  registrarServiceWorker('../sw.js');
   const usuario = await exigirLogin();
   if (!usuario) return;
 

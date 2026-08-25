@@ -1,0 +1,15 @@
+{
+  "name": "Rota Segura",
+  "short_name": "Rota Segura",
+  "description": "Segurança urbana colaborativa: relatos, rotas mais seguras e alertas em tempo real.",
+  "start_url": "index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFF0F3",
+  "theme_color": "#E83D67",
+  "icons": [
+    { "src": "assets/icone-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icone-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

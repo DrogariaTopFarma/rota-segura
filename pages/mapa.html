@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#E83D67">
   <title>Mapa — Rota Segura</title>
+  <link rel="manifest" href="../manifest.json">
+  <link rel="apple-touch-icon" href="../assets/icone-192.png">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -80,6 +82,11 @@
             <small class="campo-checkbox__ajuda">Coletadas automaticamente e cruzadas com relatos da comunidade — nunca substituem um relato de verdade.</small>
           </span>
         </label>
+
+        <div class="card risco-horario">
+          <h2 class="risco-horario__titulo">Horário mais arriscado nesta área</h2>
+          <div id="risco-horario"></div>
+        </div>
 
         <label class="campo-checkbox">
           <input type="checkbox" id="filtro-alertas-proximidade">

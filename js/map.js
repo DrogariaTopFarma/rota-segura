@@ -65,12 +65,22 @@ let ultimaPosicao = null;
 let carregando = false;
 let popupAberto = false;
 const ouvintes = [];
+let ultimosRelatos = [];
+let ultimasFontesPublicas = [];
 
 /** Permite que outros módulos saibam quando os relatos foram recarregados. */
 export function aoAtualizarRelatos(fn) { ouvintes.push(fn); }
 
 export function mapaAtual() { return mapa; }
 export function posicaoUsuario() { return ultimaPosicao; }
+
+/** Últimos relatos/notícias já carregados pra área visível — reaproveitado
+    por quem precisa dos mesmos dados sem fazer outra consulta ao banco
+    (ex.: o painel de risco por horário). Sempre a MESMA leitura que já
+    desenhou os pinos no mapa, nunca uma busca à parte que poderia divergir. */
+export function dadosAtuaisDaArea() {
+  return { relatos: ultimosRelatos, noticias: ultimasFontesPublicas };
+}
 
 /* ---------------------------------------------------------- Ícones Leaflet */
 // Um L.divIcon é só uma "receita" (imutável) — o mesmo objeto pode ser
@@ -315,6 +325,11 @@ export async function carregarDadosDaAreaVisivel() {
       desenharDelegacias(delegacias.data || []);
       desenharFontesPublicas(fontesPublicas.data || []);
     }
+
+    // Guardado pra quem precisar dos mesmos dados sem fazer outra consulta
+    // (ex.: o painel de risco por horário) — ver dadosAtuaisDaArea().
+    ultimosRelatos = relatos.data || [];
+    ultimasFontesPublicas = fontesPublicas.data || [];
 
     ouvintes.forEach((fn) => fn(relatos.data || []));
   } catch (erro) {

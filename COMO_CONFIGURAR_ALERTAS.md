@@ -126,7 +126,16 @@ fica em **Integrations → Database Webhooks**:
   enquanto você anda por aí com o site fechado.
 - **iPhone/iOS**: notificação push em site (sem ser um app da App Store) só
   funciona depois de "Adicionar à Tela de Início" (a partir do iOS 16.4) —
-  isso é uma limitação da própria Apple, não deste código.
+  isso é uma limitação da própria Apple, não deste código. Testando direto
+  pelo Safari normal (aba do navegador), o pedido de permissão nem aparece
+  — não é bug, é a Apple bloqueando de propósito. Passo certo no iPhone:
+  1. Abra o site no Safari (não em outro navegador — só o Safari instala).
+  2. Toque no ícone de **compartilhar** (o quadrado com uma seta pra cima),
+     na barra de baixo.
+  3. Role e toque em **"Adicionar à Tela de Início"** → **Adicionar**.
+  4. Abra o app pelo **ícone que apareceu na tela de início** (não mais
+     pelo Safari) — só rodando assim é que o pedido de permissão de
+     notificação funciona.
 - **Precisa de HTTPS.** Funciona no GitHub Pages (já é HTTPS) e em
   `http://localhost` durante teste local — não funciona testando com o
   arquivo aberto direto (`file://`) nem num IP puro sem HTTPS.

@@ -19,12 +19,13 @@ import { prepararFormularioPublicacao } from './community.js';
 import { prepararNotificacoes } from './notifications.js';
 import { prepararBusca } from './search.js';
 import { marcarItemAtivo, prepararBotaoCentral, atualizarBadgeNotificacoes, ligarRealtimeBadgeNotificacoes } from './nav.js';
-import { registrarServiceWorker } from './pwa.js';
+import { registrarServiceWorker, ligarBotaoInstalarApp } from './pwa.js';
 
 async function iniciar() {
   // 1. Ícones SVG em todo lugar que tem data-icone
   aplicarIcones();
   registrarServiceWorker('../sw.js');
+  ligarBotaoInstalarApp();
 
   // 2. Sem login, ninguém entra
   const usuario = await exigirLogin();

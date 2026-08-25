@@ -14,11 +14,12 @@ import {
   carregarFeed, prepararFiltrosDeComunidade, ligarRealtimePosts,
   prepararFormularioPublicacao, prepararComentarios
 } from './community.js';
-import { registrarServiceWorker } from './pwa.js';
+import { registrarServiceWorker, ligarBotaoInstalarApp } from './pwa.js';
 
 async function iniciar() {
   aplicarIcones();
   registrarServiceWorker('../sw.js');
+  ligarBotaoInstalarApp();
   const usuario = await exigirLogin();
   if (!usuario) return;
 

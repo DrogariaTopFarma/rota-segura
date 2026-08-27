@@ -47,7 +47,9 @@ const CAMINHOS = {
   votoNegativo: '<circle cx="12" cy="12" r="9"/><path d="M12 8v8"/><path d="m8 12 4 4 4-4"/>',
   som: '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/>',
   semSom: '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="m17 9 5 6"/><path d="m22 9-5 6"/>',
-  baixar: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>'
+  baixar: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
+  setaManobra: '<path d="M12 20V6"/><path d="m5 13 7-7 7 7"/>',
+  rotatoria: '<circle cx="12" cy="13" r="7"/><path d="M12 6v3"/><path d="m9 3 3 3 3-3"/>'
 };
 
 /**

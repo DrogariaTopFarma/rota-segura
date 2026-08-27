@@ -70,6 +70,13 @@
   color: var(--texto-secundario);
   margin-bottom: var(--esp-2);
 }
+.lista-relatos__ver-todos {
+  display: block;
+  width: 100%;
+  margin-top: var(--esp-2);
+  text-align: center;
+  font-weight: 700;
+}
 
 .card-lista {
   display: flex;

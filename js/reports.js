@@ -82,29 +82,76 @@ export async function carregarListaRelatos() {
   renderizarLista(lista, relatos, noticias, votos);
 }
 
-export function renderizarLista(container, relatos, noticias = [], votos = new Map()) {
+// Quantos cards aparecem de cara em cada grupo antes do "Ver todos" — só
+// quando `colapsar` está ligado (lista principal da Tela 1); o preview de
+// busca (search.js) já é compacto por conta própria e não usa isso.
+const PREVIA_POR_GRUPO = 3;
+
+export function renderizarLista(container, relatos, noticias = [], votos = new Map(), { colapsar = true } = {}) {
   if (!relatos.length && !noticias.length) {
     container.innerHTML = htmlEstadoVazio('Nenhum relato registrado ainda. Seja a primeira a contribuir.');
     return;
   }
 
-  const grupoRelatos = relatos.length ? `
-    <div class="lista-relatos__grupo">
-      <div class="lista-relatos__grupo-titulo">Relatos da comunidade</div>
-      ${relatos.map((r) => cardRelato(r, votos.get(r.id) || null)).join('')}
-    </div>` : '';
+  const grupoRelatos = montarGrupo({
+    tituloSecao: 'Relatos da comunidade',
+    tituloBotao: 'Ver todos os relatos da comunidade',
+    chave: 'relatos',
+    itens: relatos,
+    montarCard: (r) => cardRelato(r, votos.get(r.id) || null),
+    colapsar
+  });
 
-  const grupoNoticias = noticias.length ? `
-    <div class="lista-relatos__grupo">
-      <div class="lista-relatos__grupo-titulo">Notícias públicas</div>
-      ${noticias.map((n) => cardNoticia(n)).join('')}
-    </div>` : '';
+  const grupoNoticias = montarGrupo({
+    tituloSecao: 'Notícias públicas',
+    tituloBotao: 'Ver todos os relatos públicos',
+    chave: 'noticias',
+    itens: noticias,
+    montarCard: cardNoticia,
+    colapsar
+  });
 
   container.innerHTML = grupoRelatos + grupoNoticias;
 
   container.querySelectorAll('.card-lista__voto-btn').forEach((botao) => {
     botao.addEventListener('click', () => alternarVoto(botao.dataset.reportId, botao.dataset.voto, container));
   });
+
+  // "Ver todos": só revela os cards já renderizados (escondidos por CSS) —
+  // sem re-render, sem nova consulta ao banco. O botão some depois de usado.
+  container.querySelectorAll('[data-expandir-grupo]').forEach((botao) => {
+    botao.addEventListener('click', () => {
+      const chave = botao.dataset.expandirGrupo;
+      container.querySelectorAll(`[data-oculto-do-grupo="${chave}"]`).forEach((el) => { el.hidden = false; });
+      botao.remove();
+    });
+  });
+}
+
+function montarGrupo({ tituloSecao, tituloBotao, chave, itens, montarCard, colapsar }) {
+  if (!itens.length) return '';
+
+  const limite = colapsar ? PREVIA_POR_GRUPO : itens.length;
+  const cardsHtml = itens.map((item, i) => {
+    const html = montarCard(item);
+    if (i < limite) return html;
+    // Continuam no DOM (não é paginação de verdade) — só ficam escondidos
+    // até "Ver todos", então os botões de voto já funcionam assim que
+    // aparecerem, sem religar handler nenhum.
+    return `<div data-oculto-do-grupo="${chave}" hidden>${html}</div>`;
+  }).join('');
+
+  const restantes = itens.length - limite;
+  const botaoVerTodos = restantes > 0
+    ? `<button type="button" class="btn btn-texto lista-relatos__ver-todos" data-expandir-grupo="${chave}">${escapar(tituloBotao)} (${itens.length})</button>`
+    : '';
+
+  return `
+    <div class="lista-relatos__grupo">
+      <div class="lista-relatos__grupo-titulo">${escapar(tituloSecao)}</div>
+      ${cardsHtml}
+      ${botaoVerTodos}
+    </div>`;
 }
 
 function textoPercentual(agrees, disagrees) {

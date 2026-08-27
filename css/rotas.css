@@ -280,7 +280,9 @@
 .navegacao-flutuante--colapsar span[data-icone] { transform: rotate(-90deg); }
 
 .navegacao-flutuante--voz {
-  top: var(--esp-4); right: var(--esp-4);
+  top: calc((100% - var(--altura-folha-nav) - var(--altura-sos-nav)) / 2);
+  right: var(--esp-4);
+  transform: translateY(-50%);
   width: 44px; height: 44px;
   border-radius: 50%;
   color: var(--texto-principal);
@@ -289,7 +291,7 @@
 .navegacao-flutuante--voz[aria-pressed="true"] { color: var(--rosa-magenta); }
 
 /* Banner com a próxima manobra (texto sempre visível, reforça a voz) — fica
-   abaixo dos dois botões redondos do topo, nunca por cima deles. */
+   abaixo do botão de encerrar no topo, nunca por cima dele. */
 .navegacao-instrucao {
   position: absolute;
   top: 68px; left: var(--esp-4); right: var(--esp-4);
@@ -298,18 +300,31 @@
   border-radius: var(--raio-md);
   box-shadow: var(--sombra-md);
   padding: var(--esp-3) var(--esp-4);
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
 }
 .navegacao-instrucao[hidden] { display: none; }
+.navegacao-instrucao__seta {
+  flex-shrink: 0;
+  color: var(--rosa-magenta);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.navegacao-instrucao__conteudo { min-width: 0; }
 .navegacao-instrucao__distancia { font-size: var(--fs-xs); font-weight: 700; color: var(--rosa-magenta); }
 .navegacao-instrucao__texto { font-size: var(--fs-sm); font-weight: 600; margin-top: 2px; }
 
+/* Ancorado acima do banner de SOS (pela altura de verdade dele, igual ao
+   próprio #rota-sos flutuante) em vez de flutuar no meio da tela — deixa o
+   lado direito livre pro botão de voz e evita cobrir o mapa por cima. */
 .navegacao-flutuante--acao {
-  top: calc((100% - var(--altura-folha-nav) - var(--altura-sos-nav)) / 2);
-  right: var(--esp-4);
-  transform: translateY(-50%);
+  left: var(--esp-4);
+  bottom: calc(var(--altura-folha-nav) + var(--altura-sos-nav) + var(--esp-3));
   border-radius: var(--raio-md);
   padding: 10px 14px;
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  display: flex; flex-direction: row; align-items: center; gap: 6px;
   color: var(--rosa-magenta-escuro);
   font-size: var(--fs-xs);
   font-weight: 700;

@@ -17,7 +17,7 @@
    apaga qualquer cache de versão anterior automaticamente.
    ============================================================================ */
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_NAME = `rota-segura-${CACHE_VERSION}`;
 
 const ARQUIVOS_DO_APP = [
@@ -108,7 +108,18 @@ self.addEventListener('push', (evento) => {
     tag: dados.tag || 'rota-segura-alerta'
   };
 
-  evento.waitUntil(self.registration.showNotification(titulo, opcoes));
+  evento.waitUntil(
+    Promise.all([
+      self.registration.showNotification(titulo, opcoes),
+      // Se o app estiver aberto (em especial navegando, Tela 2), avisa a
+      // página direto — é o que deixa navigation.js falar o alerta em voz
+      // alta na hora, além da notificação do sistema (útil andando, com o
+      // celular no bolso: você ESCUTA sem precisar olhar a tela).
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientes) => {
+        clientes.forEach((cliente) => cliente.postMessage({ tipo: 'alerta-proximidade', title: titulo, body: opcoes.body }));
+      })
+    ])
+  );
 });
 
 self.addEventListener('notificationclick', (evento) => {

@@ -179,7 +179,7 @@ function mostrarListaDeProximos(container, relatos, noticias) {
 
   const lista = document.createElement('div');
   lista.className = 'resultado-busca__lista';
-  renderizarLista(lista, relatos.slice(0, LIMITE_LISTA_PROXIMOS), noticias.slice(0, LIMITE_LISTA_PROXIMOS));
+  renderizarLista(lista, relatos.slice(0, LIMITE_LISTA_PROXIMOS), noticias.slice(0, LIMITE_LISTA_PROXIMOS), new Map(), { colapsar: false });
   container.appendChild(lista);
 
   const restantes = Math.max(0, relatos.length - LIMITE_LISTA_PROXIMOS)

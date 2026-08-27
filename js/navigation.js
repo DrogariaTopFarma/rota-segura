@@ -87,6 +87,7 @@ let pararSimulacao = null;
 let desdeQuandoPareceForaDaRota = null; // timestamp (ms) da 1ª leitura seguida fora
 let jaAvisouSaida = false;
 let navegacaoAtiva = false;
+let ultimoIndiceConfirmado = 0; // último índice da geometria confiável (ver encontrarPontoMaisProximoNaRota)
 let conectouNaRota = false; // já chegou perto o bastante da rota, pelo menos 1x nesta navegação
 
 let seguindoAutomaticamente = true; // pausa quando a pessoa arrasta o mapa
@@ -208,18 +209,48 @@ function projetarPontoNoSegmento(lat, lng, aLat, aLng, bLat, bLng) {
   return { dist, t };
 }
 
-/** Acha, em toda a geometria da rota, o ponto mais próximo da posição atual
-    — testando cada segmento, não só os vértices. Devolve a distância até a
-    rota, o índice do segmento e o quanto dele já foi percorrido (t: 0 a 1). */
-function encontrarPontoMaisProximoNaRota(lat, lng) {
+/** Varre um trecho [inicio,fim] da geometria (usado tanto pela busca com
+    janela quanto pela busca cheia, abaixo) e devolve o ponto mais próximo
+    dele, testando cada segmento, não só os vértices. */
+function melhorPontoNoTrecho(lat, lng, inicio, fim) {
   let melhor = { dist: Infinity, indice: 0, t: 0 };
-  for (let i = 0; i < rotaGeometria.length - 1; i++) {
+  const de = Math.max(0, inicio);
+  const ate = Math.min(rotaGeometria.length - 1, fim);
+  for (let i = de; i < ate; i++) {
     const [aLat, aLng] = rotaGeometria[i];
     const [bLat, bLng] = rotaGeometria[i + 1];
     const { dist, t } = projetarPontoNoSegmento(lat, lng, aLat, aLng, bLat, bLng);
     if (dist < melhor.dist) melhor = { dist, indice: i, t };
   }
   return melhor;
+}
+
+// Quantos segmentos pra cada lado do último índice confirmado a busca "com
+// memória" olha primeiro — generoso o bastante pra cobrir uma curva de
+// quarteirão sem deixar a rota inteira ser candidata de novo a cada leitura.
+const JANELA_BUSCA_INDICE = 40;
+
+/** Acha o ponto mais próximo da posição atual NA ROTA — devolve a distância
+    até ela, o índice do segmento e o quanto dele já foi percorrido (t: 0 a
+    1). Prioriza um trecho pequeno ao redor de onde a pessoa estava da
+    última vez CONFIRMADA na rota (ultimoIndiceConfirmado), em vez de varrer
+    a geometria inteira toda leitura de GPS.
+
+    BUG QUE ISTO CORRIGE: sem a janela, uma rota que passa perto de si mesma
+    (duas ruas paralelas, um cruzamento repetido, uma volta de quarteirão)
+    podia fazer a busca "encaixar" a posição atual num trecho bem mais à
+    frente ou atrás da rota — geometricamente perto, mas fora de ordem no
+    PROGRESSO da rota. A voz então anunciava a manobra certa (o texto vem
+    direto do OpenRouteService, nunca inventado aqui), só que da curva
+    errada da sequência — parecia "direção trocada" sem ser, de verdade, um
+    texto errado. Buscar primeiro perto de onde a pessoa realmente estava
+    evita esse salto; só cai pra busca na rota inteira se nada na janela
+    estiver perto o bastante pra ser confiável (situação genuinely fora da
+    rota, ou o pulo grande do modo de simulação por clique). */
+function encontrarPontoMaisProximoNaRota(lat, lng) {
+  const naJanela = melhorPontoNoTrecho(lat, lng, ultimoIndiceConfirmado - JANELA_BUSCA_INDICE, ultimoIndiceConfirmado + JANELA_BUSCA_INDICE);
+  if (naJanela.dist <= LIMITE_MAXIMO_EFETIVO_M) return naJanela;
+  return melhorPontoNoTrecho(lat, lng, 0, rotaGeometria.length);
 }
 
 /** Distância restante SEGUINDO a geometria da rota a partir do ponto mais
@@ -266,6 +297,19 @@ function arredondarParaDezena(metros) {
   return Math.max(10, Math.round(metros / 10) * 10);
 }
 
+/** Texto falado da distância — troca pra quilômetros (1 casa decimal) a
+    partir de 1000 m. Sem isso, o primeiro anúncio de uma rua bem comprida
+    (o aviso inicial ignora o limiar de 150 m — ver anuncioInicial) saía
+    dizendo "Em 2400 metros", o que soa estranho e é difícil de acompanhar
+    de ouvido; "Em 2,4 quilômetros" é como alguém falaria de verdade. */
+function textoDistanciaFalada(metros) {
+  if (metros >= 1000) {
+    const km = Math.round(metros / 100) / 10;
+    return `${String(km).replace('.', ',')} quilômetro${km === 1 ? '' : 's'}`;
+  }
+  return `${arredondarParaDezena(metros)} metros`;
+}
+
 /** Decide se é hora de anunciar (voz + texto na tela) o próximo passo da
     rota, a partir de onde a pessoa está agora (mesmo índice/fração que
     encontrarPontoMaisProximoNaRota devolve). Cada passo é anunciado no
@@ -306,7 +350,7 @@ function processarInstrucaoDeVoz(indice, t, { anuncioInicial = false } = {}) {
       avisoPertoFeito = true;
       falar(passo.instrucao);
     } else {
-      falar(`Em ${arredondarParaDezena(distanciaAteManobra)} metros, ${passo.instrucao.toLowerCase()}.`);
+      falar(`Em ${textoDistanciaFalada(distanciaAteManobra)}, ${passo.instrucao.toLowerCase()}.`);
     }
     return;
   }
@@ -316,17 +360,49 @@ function processarInstrucaoDeVoz(indice, t, { anuncioInicial = false } = {}) {
   }
 }
 
-/** Texto sempre visível com a próxima manobra — reforça (e sobrevive a) a
-    voz: celular no silencioso, alto-falante ruim na rua, ou só preferência
-    de ler em vez de ouvir. Escondido quando a rota não tem passos (fonte de
-    rota antiga, por exemplo — nunca quebra por falta do dado). */
+/** Ícone + rotação da seta de manobra a partir do código numérico que o
+    OpenRouteService devolve (mesma tabela do OSRM/GraphHopper, em que o ORS
+    se baseia — 0 a 13). Só decide qual DESENHO mostrar; o texto falado/
+    escrito nunca depende disso, sempre vem de `instrucao` (nunca inventado
+    aqui). Tipo desconhecido (rota antiga sem esse campo, ou um código que o
+    ORS ainda não documenta aqui) cai no padrão "siga em frente" em vez de
+    não mostrar seta nenhuma. */
+function iconeDaManobra(tipo) {
+  if (tipo === 10) return { nome: 'bandeira', rotacao: 0 };       // chegou ao destino
+  if (tipo === 7 || tipo === 8) return { nome: 'rotatoria', rotacao: 0 }; // rotatória
+
+  const ROTACAO_POR_TIPO = {
+    0: -90,  // vire à esquerda
+    1: 90,   // vire à direita
+    2: -135, // vire bastante à esquerda
+    3: 135,  // vire bastante à direita
+    4: -45,  // vire levemente à esquerda
+    5: 45,   // vire levemente à direita
+    6: 0,    // siga em frente
+    9: 180,  // retorno
+    11: 0,   // partida
+    12: -30, // mantenha-se à esquerda
+    13: 30   // mantenha-se à direita
+  };
+  return { nome: 'setaManobra', rotacao: ROTACAO_POR_TIPO[tipo] ?? 0 };
+}
+
+/** Banner sempre visível com a próxima manobra (seta + distância + texto) —
+    reforça (e sobrevive a) a voz: celular no silencioso, alto-falante ruim
+    na rua, ou só preferência de ler em vez de ouvir. Escondido quando a
+    rota não tem passos (fonte de rota antiga, por exemplo — nunca quebra
+    por falta do dado). */
 function atualizarBannerDeInstrucao(passo, distanciaAteManobra) {
   const banner = document.getElementById('navegacao-instrucao');
   if (!banner) return;
   banner.hidden = false;
+  const { nome, rotacao } = iconeDaManobra(passo.tipo);
   banner.innerHTML = `
-    <div class="navegacao-instrucao__distancia">${formatarDistancia(distanciaAteManobra)}</div>
-    <div class="navegacao-instrucao__texto">${escapar(passo.instrucao)}</div>`;
+    <div class="navegacao-instrucao__seta" style="transform: rotate(${rotacao}deg)">${icone(nome, 28)}</div>
+    <div class="navegacao-instrucao__conteudo">
+      <div class="navegacao-instrucao__distancia">${formatarDistancia(distanciaAteManobra)}</div>
+      <div class="navegacao-instrucao__texto">${escapar(passo.instrucao)}</div>
+    </div>`;
 }
 
 /** Reflete o estado ligado/desligado no botão (ícone + aria-pressed) — some
@@ -419,6 +495,7 @@ export function iniciarNavegacao({ mapa: mapaRecebido, origem, destino, rota, ao
   passoAtualIndex = 0;
   avisoLongeFeito = false;
   avisoPertoFeito = false;
+  ultimoIndiceConfirmado = 0;
 
   document.getElementById('painel-navegacao').hidden = false;
   document.getElementById('navegacao-destino').textContent = `Indo para ${destino.nome}`;
@@ -491,6 +568,30 @@ export function iniciarNavegacao({ mapa: mapaRecebido, origem, destino, rota, ao
 /* --------------------------------------------------- Processar posição --- */
 function processarPosicao(lat, lng, precisaoM, quandoMs) {
   if (!navegacaoAtiva) return;
+
+  const { dist: distRota, indice, t } = encontrarPontoMaisProximoNaRota(lat, lng);
+
+  // A margem cresce com a imprecisão QUE O PRÓPRIO GPS relatou nesta leitura
+  // (pos.coords.accuracy) — uma leitura de 80m de precisão não pode usar a
+  // mesma régua rígida que uma de 5m. O teto evita que um GPS péssimo
+  // desligue a checagem por completo.
+  const limiteEfetivo = Math.min(
+    LIMITE_MAXIMO_EFETIVO_M,
+    LIMITE_BASE_FORA_DA_ROTA_M + (precisaoM || 0) * FATOR_MARGEM_PRECISAO
+  );
+
+  // Antes de conectar à rota pela primeira vez, uma leitura "longe" não é um
+  // desvio — é só a distância entre "onde o GPS te encontrou" (dentro de
+  // casa, de um condomínio, de um estacionamento) e "onde a via mapeada
+  // começa". Enquanto isso não muda, o pino, a distância e o tempo restante
+  // continuam ancorados no ponto de partida (do jeito que iniciarNavegacao
+  // já desenhou) — a pessoa pode abrir a navegação ainda dentro de casa só
+  // pra ver quanto tempo o trajeto leva, sem o pino "pular" pra onde o GPS
+  // achou que ela está e a estimativa de chegada oscilar com ruído antes
+  // mesmo de sair andando. Só depois de já ter estado na rota é que "ficar
+  // longe dela" passa a significar "saiu do caminho".
+  if (!conectouNaRota && distRota > limiteEfetivo) return;
+
   desenharPosicaoAtual(lat, lng, precisaoM, quandoMs ?? Date.now());
 
   // Chegada: distância direta até o destino mesmo (no fim da rota, distância
@@ -503,8 +604,6 @@ function processarPosicao(lat, lng, precisaoM, quandoMs) {
     return;
   }
 
-  const { dist: distRota, indice, t } = encontrarPontoMaisProximoNaRota(lat, lng);
-
   // "Faltam X m": segue a GEOMETRIA da rota a partir do ponto mais próximo
   // dela, não a linha reta até o destino — a linha reta erra bastante numa
   // rota com curvas ou voltas de quarteirão. Soma também o quanto falta pra
@@ -512,18 +611,13 @@ function processarPosicao(lat, lng, precisaoM, quandoMs) {
   // de conectar (ex.: ainda saindo de dentro de um condomínio).
   atualizarProgresso(distRota + distanciaRestanteNaRota(indice, t));
 
-  // A margem cresce com a imprecisão QUE O PRÓPRIO GPS relatou nesta leitura
-  // (pos.coords.accuracy) — uma leitura de 80m de precisão não pode usar a
-  // mesma régua rígida que uma de 5m. O teto evita que um GPS péssimo
-  // desligue a checagem por completo.
-  const limiteEfetivo = Math.min(
-    LIMITE_MAXIMO_EFETIVO_M,
-    LIMITE_BASE_FORA_DA_ROTA_M + (precisaoM || 0) * FATOR_MARGEM_PRECISAO
-  );
-
   if (distRota <= limiteEfetivo) {
     conectouNaRota = true;
     desdeQuandoPareceForaDaRota = null;
+    // Atualiza a "memória" de progresso ANTES de qualquer coisa que
+    // dependa dela na próxima leitura (a busca com janela em
+    // encontrarPontoMaisProximoNaRota usa este valor).
+    ultimoIndiceConfirmado = indice;
     // Só anuncia manobra com a posição CONFIÁVEL na rota — fora dela
     // (limiteEfetivo ultrapassado) não dá pra saber com segurança qual é o
     // próximo passo de verdade.
@@ -531,18 +625,12 @@ function processarPosicao(lat, lng, precisaoM, quandoMs) {
     return;
   }
 
-  // Antes de ter conectado à rota pelo menos uma vez, um afastamento não é
-  // um desvio — é só a distância entre "onde o GPS te encontrou" (dentro de
-  // casa, de um condomínio, de um estacionamento) e "onde a via mapeada
-  // começa". Ninguém devia precisar sair na rua pra poder iniciar. Só depois
-  // de já ter estado na rota é que "ficar longe dela" passa a significar
-  // "saiu do caminho".
-  if (!conectouNaRota) return;
-
-  // Parece fora da rota — só confirma se isso persistir por um tempo mínimo.
-  // Uma leitura isolada de ruído nunca chega a somar esse tempo, porque a
-  // primeira leitura BOA que chegar no meio do caminho já reseta o relógio
-  // acima. É isso que impede o aviso de aparecer/sumir repetidamente.
+  // Chegou até aqui já tendo conectado à rota antes (quem nunca conectou
+  // voltou lá em cima) — então ficar longe agora é de fato um desvio. Só
+  // confirma se isso persistir por um tempo mínimo: uma leitura isolada de
+  // ruído nunca chega a somar esse tempo, porque a primeira leitura BOA que
+  // chegar no meio do caminho já reseta o relógio abaixo. É isso que impede
+  // o aviso de aparecer/sumir repetidamente.
   if (desdeQuandoPareceForaDaRota === null) {
     desdeQuandoPareceForaDaRota = Date.now();
     return;
@@ -667,6 +755,7 @@ function desenharPosicaoAtual(lat, lng, precisaoM, quandoMs) {
       LIMITE_BASE_FORA_DA_ROTA_M + (precisaoM || 0) * FATOR_MARGEM_PRECISAO
     );
     if (encaixe.dist <= limiteEfetivo) {
+      ultimoIndiceConfirmado = encaixe.indice;
       const [aLat, aLng] = rotaGeometria[encaixe.indice];
       const [bLat, bLng] = rotaGeometria[encaixe.indice + 1];
       latExibido = aLat + (bLat - aLat) * encaixe.t;
@@ -876,6 +965,18 @@ function ligarSimulacao() {
   const aoClicar = (e) => processarPosicao(e.latlng.lat, e.latlng.lng, 10, Date.now());
   mapa.on('click', aoClicar);
   pararSimulacao = () => mapa.off('click', aoClicar);
+}
+
+/* ---------------------------------- Alerta de proximidade falado em voz --- */
+// A Edge Function enviar-alerta-proximidade manda a notificação push
+// (sw.js), que por sua vez avisa a página aberta por postMessage — aqui só
+// escuta e fala, e só quando a navegação está de verdade ativa (não faz
+// sentido narrar um alerta de proximidade fora da Tela 2, navegando).
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (evento) => {
+    if (evento.data?.tipo !== 'alerta-proximidade' || !navegacaoAtiva) return;
+    falar(`Atenção: ${evento.data.title}. ${evento.data.body || ''}`);
+  });
 }
 
 /* --------------------------------------------------------------- Limpeza --- */

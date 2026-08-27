@@ -162,7 +162,13 @@ Deno.serve(async (req: Request) => {
               instrucao: String(passo.instruction),
               distanciaM: Math.round(passo.distance || 0),
               indiceInicio: wp[0],
-              indiceFim: wp[1]
+              indiceFim: wp[1],
+              // Código numérico do tipo de manobra, direto do ORS (0=esquerda,
+              // 1=direita, 6=siga em frente, 10=chegou, etc. — tabela completa
+              // em js/navigation.js, iconeDaManobra) — usado só pra escolher
+              // qual seta mostrar no banner, nunca pra decidir o texto falado
+              // (esse continua vindo de `instrucao`, sem reinterpretação).
+              tipo: typeof passo.type === 'number' ? passo.type : null
             };
           })
           .filter((p: unknown) => p !== null);

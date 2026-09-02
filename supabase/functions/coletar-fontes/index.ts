@@ -335,6 +335,18 @@ async function coletarG1RioTransito() {
   return extrairItensRSS(xml);
 }
 
+/** RSS da categoria Rio de Janeiro do R7 (Record) — testado ao vivo, mesmo
+    formato RSS 2.0 do G1 (reaproveita extrairItensRSS sem mudança nenhuma).
+    Achado navegando pela plataforma deles (Arc XP): robots.txt lista os
+    outbound feeds em /arc/outboundfeeds/, e /rss/category/rio-de-janeiro/
+    devolve notícia real e atual da editoria certa. */
+async function coletarR7Rio() {
+  const resposta = await fetch('https://noticias.r7.com/arc/outboundfeeds/rss/category/rio-de-janeiro/');
+  if (!resposta.ok) throw new Error(`R7 RSS respondeu ${resposta.status}`);
+  const xml = await resposta.text();
+  return extrairItensRSS(xml);
+}
+
 /** Instituto Fogo Cruzado (ONG) — mapeia tiroteios/disparos de arma de fogo
     no RJ desde 2016, com checagem humana por uma equipe de analistas antes
     de publicar (não é post cru de rede social). Diferente do RSS do G1, cada
@@ -422,20 +434,25 @@ async function coletarFogoCruzado() {
 const FONTES = [
   { nome: 'g1_rio_rss', tipo: 'public_source', coletar: coletarG1Rio },
   { nome: 'g1_rio_transito_rss', tipo: 'public_source', coletar: coletarG1RioTransito },
+  { nome: 'r7_rio_rss', tipo: 'public_source', coletar: coletarR7Rio },
   { nome: 'fogo_cruzado', tipo: 'public_source', coletar: coletarFogoCruzado }
 ];
 
 /* ============================================================================
    5. GEOCODIFICAÇÃO (item 17 do pedido) — Photon/OSM, mesmo serviço gratuito
-      já usado no resto do site (js/geocoding.js), sem chave. Só geocodifica
-      o BAIRRO que a IA extraiu (localização aproximada, mas honesta — nunca
-      inventa endereço exato que a notícia não deu). Se não achar nada
-      dentro do RJ, devolve null — o item fica salvo sem pino no mapa,
-      marcado pra revisão, em vez de mostrar um marcador em lugar errado.
+      já usado no resto do site (js/geocoding.js), sem chave. Geocodifica o
+      termo de localização mais específico que a IA extraiu — bairro
+      (`neighborhood`) OU, quando a notícia não menciona bairro mas cita uma
+      rua/avenida/rodovia específica (comum em notícia de trânsito: "BR-393",
+      "Via Dutra"), o texto livre em `locationText` — nunca inventa endereço
+      exato que a notícia não deu, só tenta geocodificar o que já está
+      escrito nela. Se não achar nada dentro do RJ, devolve null — o item
+      fica salvo sem pino no mapa, marcado pra revisão, em vez de mostrar um
+      marcador em lugar errado.
    ============================================================================ */
-async function geocodificarBairro(bairro, cidade) {
-  if (!bairro) return null;
-  const consulta = encodeURIComponent(`${bairro}, ${cidade || 'Rio de Janeiro'}, RJ, Brasil`);
+async function geocodificarBairro(local, cidade) {
+  if (!local) return null;
+  const consulta = encodeURIComponent(`${local}, ${cidade || 'Rio de Janeiro'}, RJ, Brasil`);
   try {
     const resposta = await fetch(`https://photon.komoot.io/api?q=${consulta}&limit=1&lat=-22.9068&lon=-43.1729&zoom=10`);
     if (!resposta.ok) return null;
@@ -465,6 +482,7 @@ const ESQUEMA_CLASSIFICACAO = {
     state: { type: 'string', nullable: true },
     city: { type: 'string', nullable: true },
     neighborhood: { type: 'string', nullable: true },
+    locationText: { type: 'string', nullable: true },
     eventType: { type: 'string', enum: ['event', 'statistic'] },
     category: {
       type: 'string',
@@ -502,6 +520,11 @@ REGRAS OBRIGATÓRIAS:
   segurança — use category="geral" pra essas.
 - Se um campo não estiver escrito no texto, ele é null — nunca adivinhe endereço, bairro, data
   ou hora que não estejam explícitos no texto.
+- locationText: quando o texto citar um lugar específico o bastante pra localizar no mapa (nome
+  de rua, avenida, rodovia, praça, ponto de referência), coloque aqui exatamente como está
+  escrito — mesmo que a notícia NÃO mencione o bairro (comum em notícia de trânsito de rodovia,
+  ex.: "BR-393", "Via Dutra na altura de Piraí"). Se não houver nenhum lugar específico
+  mencionado (só o nome da cidade), deixe null.
 - eventType="statistic" quando o texto fala de números agregados ou período (ex.: "50
   ocorrências no mês", "aumento de 10% no ano") — NUNCA crie um evento individual pra isso.
   eventType="event" só quando o texto descreve um acontecimento específico.
@@ -670,16 +693,20 @@ async function processarItem(supabase, fonte, itemBruto, apiKey) {
   }
 
   // Fonte pode já trazer coordenada exata e verificada (ex.: Fogo Cruzado) —
-  // aí nem tenta geocodificar por bairro, que é sempre menos preciso.
+  // aí nem tenta geocodificar por bairro/rua. Bairro é sempre a primeira
+  // tentativa (mais preciso administrativamente); locationText (rua/avenida/
+  // rodovia citada no texto) é o plano B — sem isso, notícia de trânsito de
+  // rodovia (que raramente cita bairro) nunca conseguia coordenada nenhuma.
+  const localParaGeocodificar = classificacao.neighborhood || classificacao.locationText;
   const coordenada = itemBruto.coordenadaConhecida
-    || await geocodificarBairro(classificacao.neighborhood, classificacao.city);
+    || await geocodificarBairro(localParaGeocodificar, classificacao.city);
   // Sem localização confiável: nunca inventa pino (item 16 do pedido) — fica
   // marcado pra revisão, não aparece sozinho no mapa.
   const precisaLocalizacaoConfiavel = !coordenada;
 
   const registro = {
     ...registroBase,
-    address: classificacao.neighborhood ? `${classificacao.neighborhood}, ${classificacao.city}` : null,
+    address: localParaGeocodificar ? `${localParaGeocodificar}, ${classificacao.city}` : null,
     lat: coordenada?.lat ?? null,
     lng: coordenada?.lng ?? null,
     needs_review: !!classificacao.needsReview || precisaLocalizacaoConfiavel

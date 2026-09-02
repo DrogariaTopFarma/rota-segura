@@ -341,17 +341,17 @@ públicas no mapa"**, pra ligar/desligar essa camada.
 
 ## Fontes usadas nesta entrega
 
-| | Feed geral | Feed de trânsito | Fogo Cruzado |
-|---|---|---|---|
-| **Nome** | `g1_rio_rss` | `g1_rio_transito_rss` | `fogo_cruzado` |
-| **URL** | `http://g1.globo.com/dynamo/rio-de-janeiro/rss2.xml` | `http://g1.globo.com/dynamo/rio-de-janeiro/transito/rss2.xml` | `api-service.fogocruzado.org.br/api/v2` |
-| **Tipo** | RSS 2.0, público | RSS 2.0, público | API REST, autenticada |
-| **O que fornece** | Notícias gerais recentes sobre o Rio de Janeiro (mistura assuntos — a IA que filtra o que é relevante pro app) | Só acidente/interdição/bloqueio de via — já vem filtrado pelo próprio G1, testado ao vivo antes de adicionar | Tiroteios/disparos de arma de fogo, com coordenada e data exatas |
-| **Precisa de chave?** | Não | Não | Sim (conta cadastrada — ver seção abaixo) |
-| **Gratuito?** | Sim | Sim | Sim |
-| **Limite** | Nenhum limite documentado publicamente — a função processa no máximo 20 itens por execução POR fonte | mesmo limite | mesmo limite |
-| **Periodicidade** | A cada 30 min (configurável no `cron.schedule` do pg_cron — ver seção 8), todas as fontes juntas | idem | idem |
-| **Como configurar** | Nada a configurar — já está pronta pra uso no código | idem | Opcional — secrets `FOGOCRUZADO_EMAIL`/`FOGOCRUZADO_PASSWORD` (ver abaixo) |
+| | Feed geral (G1) | Feed de trânsito (G1) | Feed geral (R7) | Fogo Cruzado |
+|---|---|---|---|---|
+| **Nome** | `g1_rio_rss` | `g1_rio_transito_rss` | `r7_rio_rss` | `fogo_cruzado` |
+| **URL** | `http://g1.globo.com/dynamo/rio-de-janeiro/rss2.xml` | `http://g1.globo.com/dynamo/rio-de-janeiro/transito/rss2.xml` | `https://noticias.r7.com/arc/outboundfeeds/rss/category/rio-de-janeiro/` | `api-service.fogocruzado.org.br/api/v2` |
+| **Tipo** | RSS 2.0, público | RSS 2.0, público | RSS 2.0, público | API REST, autenticada |
+| **O que fornece** | Notícias gerais recentes sobre o Rio de Janeiro (mistura assuntos — a IA que filtra o que é relevante pro app) | Só acidente/interdição/bloqueio de via — já vem filtrado pelo próprio G1, testado ao vivo antes de adicionar | Notícias gerais da editoria Rio de Janeiro do R7 (Record) — mesmo formato do G1, achado no `robots.txt` deles (`/arc/outboundfeeds/`), testado ao vivo | Tiroteios/disparos de arma de fogo, com coordenada e data exatas |
+| **Precisa de chave?** | Não | Não | Não | Sim (conta cadastrada — ver seção abaixo) |
+| **Gratuito?** | Sim | Sim | Sim | Sim |
+| **Limite** | Nenhum limite documentado publicamente — a função processa no máximo 20 itens por execução POR fonte | mesmo limite | mesmo limite | mesmo limite |
+| **Periodicidade** | A cada 30 min (configurável no `cron.schedule` do pg_cron — ver seção 8), todas as fontes juntas | idem | idem | idem |
+| **Como configurar** | Nada a configurar — já está pronta pra uso no código | idem | idem | Opcional — secrets `FOGOCRUZADO_EMAIL`/`FOGOCRUZADO_PASSWORD` (ver abaixo) |
 
 **Por que só estas fontes por enquanto:** pesquisei as fontes oficiais citadas no pedido original
 (ISP-RJ, Data.Rio, dados abertos do Estado, portal de transparência da Prefeitura) antes de
@@ -366,6 +366,21 @@ mais uma fonte sem reescrever nada — se você conseguir acesso a alguma dessas
 achar outro feed específico de ocorrência policial, é só escrever outra função `coletar*()` no
 mesmo formato e adicionar um item no array `FONTES` (foi exatamente assim que a terceira fonte,
 o Fogo Cruzado, abaixo, entrou).
+
+**Duas fontes pedidas e testadas ao vivo, mas que ficaram de fora — com motivo:**
+- **"Cidade Alerta"**: é um programa de TV (Record), apresentado ao vivo — não existe site
+  próprio nem feed de notícia pra coletar, só transmissão de TV/redes sociais. Não dá pra
+  transformar isso numa fonte automática sem um serviço de transcrição de vídeo ao vivo, fora do
+  escopo deste projeto.
+- **"AlertaUrgente" (alertaurgente.com)**, o resultado mais próximo que achei pra "Tempo Real
+  Rio": tem uma API real (`/api/latest`) com alertas de segurança do Rio — só que testei o
+  conteúdo dela e cada item vem com `"(fonte: G1)"` no final do texto e o `link` aponta direto
+  pra uma URL de `g1.globo.com`. Ou seja: não é uma fonte independente, é um espelho/reprocessa-
+  mento do próprio G1 (provavelmente com uma IA deles por trás, do mesmo jeito que este projeto
+  já faz) — coletar de lá seria processar a mesma notícia do G1 de novo, através de um
+  intermediário que a gente não controla nem consegue validar o critério de classificação. Preferi
+  não adicionar por esse motivo, mantendo o princípio deste arquivo de sempre rastrear até a
+  fonte primária.
 
 ## Terceira fonte (opcional): API do Fogo Cruzado (tiroteios)
 
@@ -411,6 +426,16 @@ fixo no código) e traz as ocorrências dos últimos 2 dias a cada execução.
   `coletar-fontes/index.ts`) — antes virava `assalto` por falta dessa categoria, o que misturava
   risco de assalto com risco de violência armada no mesmo selo; agora os dois aparecem
   separados no mapa.
+
+## Geocodificação também tenta rua/rodovia, não só bairro
+
+Notícia de trânsito raramente cita um bairro ("BR-393", "Via Dutra na altura de Piraí" não são
+bairro) — antes disso, esses itens nunca conseguiam coordenada e ficavam permanentemente sem
+pino no mapa. A IA agora também extrai `locationText` (rua/avenida/rodovia/ponto de referência
+citado no texto, só quando está escrito de verdade — nunca inventado) e a Edge Function tenta
+geocodificar isso quando não há bairro. Ainda assim, sem NENHUM lugar específico no texto (só o
+nome da cidade), o item continua sem pino — o princípio de "nunca inventar localização" não
+mudou, só ficou menos exigente sobre que tipo de lugar conta como específico o bastante.
 
 ## Custos e limites
 

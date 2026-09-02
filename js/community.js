@@ -25,6 +25,7 @@ const COR_CATEGORIA = { alerta: 'vermelho', dica: 'amarelo', apoio: 'verde', not
 const ROTULOS_FONTE = {
   g1_rio_rss: 'G1 Rio',
   g1_rio_transito_rss: 'G1 Rio — Trânsito',
+  r7_rio_rss: 'R7 Rio',
   fogo_cruzado: 'Instituto Fogo Cruzado'
 };
 

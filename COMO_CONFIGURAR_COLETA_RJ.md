@@ -341,17 +341,21 @@ públicas no mapa"**, pra ligar/desligar essa camada.
 
 ## Fontes usadas nesta entrega
 
-| | Feed geral (G1) | Feed de trânsito (G1) | Feed geral (R7) | Fogo Cruzado |
-|---|---|---|---|---|
-| **Nome** | `g1_rio_rss` | `g1_rio_transito_rss` | `r7_rio_rss` | `fogo_cruzado` |
-| **URL** | `http://g1.globo.com/dynamo/rio-de-janeiro/rss2.xml` | `http://g1.globo.com/dynamo/rio-de-janeiro/transito/rss2.xml` | `https://noticias.r7.com/arc/outboundfeeds/rss/category/rio-de-janeiro/` | `api-service.fogocruzado.org.br/api/v2` |
-| **Tipo** | RSS 2.0, público | RSS 2.0, público | RSS 2.0, público | API REST, autenticada |
-| **O que fornece** | Notícias gerais recentes sobre o Rio de Janeiro (mistura assuntos — a IA que filtra o que é relevante pro app) | Só acidente/interdição/bloqueio de via — já vem filtrado pelo próprio G1, testado ao vivo antes de adicionar | Notícias gerais da editoria Rio de Janeiro do R7 (Record) — mesmo formato do G1, achado no `robots.txt` deles (`/arc/outboundfeeds/`), testado ao vivo | Tiroteios/disparos de arma de fogo, com coordenada e data exatas |
-| **Precisa de chave?** | Não | Não | Não | Sim (conta cadastrada — ver seção abaixo) |
-| **Gratuito?** | Sim | Sim | Sim | Sim |
-| **Limite** | Nenhum limite documentado publicamente — a função processa no máximo 20 itens por execução POR fonte | mesmo limite | mesmo limite | mesmo limite |
-| **Periodicidade** | A cada 30 min (configurável no `cron.schedule` do pg_cron — ver seção 8), todas as fontes juntas | idem | idem | idem |
-| **Como configurar** | Nada a configurar — já está pronta pra uso no código | idem | idem | Opcional — secrets `FOGOCRUZADO_EMAIL`/`FOGOCRUZADO_PASSWORD` (ver abaixo) |
+| | Feed geral (G1) | Feed de trânsito (G1) | Feed geral (R7) | TempoRealRJ | Fogo Cruzado |
+|---|---|---|---|---|---|
+| **Nome** | `g1_rio_rss` | `g1_rio_transito_rss` | `r7_rio_rss` | `temporealrj_rss` | `fogo_cruzado` |
+| **URL** | `http://g1.globo.com/dynamo/rio-de-janeiro/rss2.xml` | `http://g1.globo.com/dynamo/rio-de-janeiro/transito/rss2.xml` | `https://noticias.r7.com/arc/outboundfeeds/rss/category/rio-de-janeiro/` | `https://temporealrj.com/feed/` | `api-service.fogocruzado.org.br/api/v2` |
+| **Tipo** | RSS 2.0, público | RSS 2.0, público | RSS 2.0, público | RSS 2.0, público (WordPress) | API REST, autenticada |
+| **O que fornece** | Notícias gerais recentes sobre o Rio de Janeiro (mistura assuntos — a IA que filtra o que é relevante pro app) | Só acidente/interdição/bloqueio de via — já vem filtrado pelo próprio G1, testado ao vivo antes de adicionar | Notícias gerais da editoria Rio de Janeiro do R7 (Record) — mesmo formato do G1, achado no `robots.txt` deles (`/arc/outboundfeeds/`), testado ao vivo | Portal de notícia local independente do Rio (política, Justiça, serviço público, ocorrência) — testado ao vivo, redação própria, não é espelho de outro veículo | Tiroteios/disparos de arma de fogo, com coordenada e data exatas |
+| **Precisa de chave?** | Não | Não | Não | Não | Sim (conta cadastrada — ver seção abaixo) |
+| **Gratuito?** | Sim | Sim | Sim | Sim | Sim |
+| **Limite** | Nenhum limite documentado publicamente — a função processa no máximo 20 itens por execução POR fonte | mesmo limite | mesmo limite | mesmo limite | mesmo limite |
+| **Periodicidade** | A cada 30 min (configurável no `cron.schedule` do pg_cron — ver seção 8), todas as fontes juntas | idem | idem | idem | idem |
+| **Como configurar** | Nada a configurar — já está pronta pra uso no código | idem | idem | idem | Opcional — secrets `FOGOCRUZADO_EMAIL`/`FOGOCRUZADO_PASSWORD` (ver abaixo) |
+
+> O `robots.txt` do TempoRealRJ pede pra buscador (Google etc.) não indexar `/feed/` — isso é
+> configuração comum de SEO em WordPress (evita "conteúdo duplicado" no Google), não uma proibição
+> de acesso. Um leitor de RSS de verdade (que é o que esta função é) não é afetado por isso.
 
 **Por que só estas fontes por enquanto:** pesquisei as fontes oficiais citadas no pedido original
 (ISP-RJ, Data.Rio, dados abertos do Estado, portal de transparência da Prefeitura) antes de
@@ -367,20 +371,16 @@ achar outro feed específico de ocorrência policial, é só escrever outra fun�
 mesmo formato e adicionar um item no array `FONTES` (foi exatamente assim que a terceira fonte,
 o Fogo Cruzado, abaixo, entrou).
 
-**Duas fontes pedidas e testadas ao vivo, mas que ficaram de fora — com motivo:**
+**Uma fonte pedida e testada ao vivo, mas que ficou de fora — com motivo:**
 - **"Cidade Alerta"**: é um programa de TV (Record), apresentado ao vivo — não existe site
   próprio nem feed de notícia pra coletar, só transmissão de TV/redes sociais. Não dá pra
   transformar isso numa fonte automática sem um serviço de transcrição de vídeo ao vivo, fora do
   escopo deste projeto.
-- **"AlertaUrgente" (alertaurgente.com)**, o resultado mais próximo que achei pra "Tempo Real
-  Rio": tem uma API real (`/api/latest`) com alertas de segurança do Rio — só que testei o
-  conteúdo dela e cada item vem com `"(fonte: G1)"` no final do texto e o `link` aponta direto
-  pra uma URL de `g1.globo.com`. Ou seja: não é uma fonte independente, é um espelho/reprocessa-
-  mento do próprio G1 (provavelmente com uma IA deles por trás, do mesmo jeito que este projeto
-  já faz) — coletar de lá seria processar a mesma notícia do G1 de novo, através de um
-  intermediário que a gente não controla nem consegue validar o critério de classificação. Preferi
-  não adicionar por esse motivo, mantendo o princípio deste arquivo de sempre rastrear até a
-  fonte primária.
+
+(A primeira tentativa de achar "Tempo Real Rio" me levou a `alertaurgente.com`, cujo conteúdo é
+um espelho do próprio G1 — cada item vinha marcado `"(fonte: G1)"` com link pra `g1.globo.com`,
+então não virou fonte. O link certo, `temporealrj.com`, veio depois direto de você — esse sim é
+independente, testado e já está na tabela acima.)
 
 ## Terceira fonte (opcional): API do Fogo Cruzado (tiroteios)
 

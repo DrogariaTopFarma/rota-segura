@@ -347,6 +347,23 @@ async function coletarR7Rio() {
   return extrairItensRSS(xml);
 }
 
+/** RSS do TempoRealRJ (temporealrj.com) — testado ao vivo: portal de
+    notícia local do Rio, WordPress próprio, redação própria (não é espelho
+    de G1/R7 — conferido: nenhum item cita "(fonte: ...)" nem linka pra
+    outro veículo). Cobre política/Justiça/serviço público e também
+    ocorrência (achou até acidente de rodovia num teste ao vivo — exatamente
+    o tipo de notícia que se beneficia do geocodificarBairro por
+    locationText, já que rodovia raramente tem bairro). O robots.txt deles
+    pede pra buscador de busca (Google etc.) não indexar /feed/, mas isso é
+    só pra SEO (evitar conteúdo duplicado no Google) — não impede leitor de
+    feed de verdade, que é exatamente o propósito de existir um RSS. */
+async function coletarTempoRealRJ() {
+  const resposta = await fetch('https://temporealrj.com/feed/');
+  if (!resposta.ok) throw new Error(`TempoRealRJ RSS respondeu ${resposta.status}`);
+  const xml = await resposta.text();
+  return extrairItensRSS(xml);
+}
+
 /** Instituto Fogo Cruzado (ONG) — mapeia tiroteios/disparos de arma de fogo
     no RJ desde 2016, com checagem humana por uma equipe de analistas antes
     de publicar (não é post cru de rede social). Diferente do RSS do G1, cada
@@ -435,6 +452,7 @@ const FONTES = [
   { nome: 'g1_rio_rss', tipo: 'public_source', coletar: coletarG1Rio },
   { nome: 'g1_rio_transito_rss', tipo: 'public_source', coletar: coletarG1RioTransito },
   { nome: 'r7_rio_rss', tipo: 'public_source', coletar: coletarR7Rio },
+  { nome: 'temporealrj_rss', tipo: 'public_source', coletar: coletarTempoRealRJ },
   { nome: 'fogo_cruzado', tipo: 'public_source', coletar: coletarFogoCruzado }
 ];
 

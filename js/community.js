@@ -26,6 +26,7 @@ const ROTULOS_FONTE = {
   g1_rio_rss: 'G1 Rio',
   g1_rio_transito_rss: 'G1 Rio — Trânsito',
   r7_rio_rss: 'R7 Rio',
+  temporealrj_rss: 'Tempo Real RJ',
   fogo_cruzado: 'Instituto Fogo Cruzado'
 };
 

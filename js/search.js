@@ -142,8 +142,13 @@ async function contarRelatosProximos(local, container) {
       // que preserva a ordem que já veio assim do banco.
       .order('occurred_at', { ascending: false }))
       .limit(300),
+    // category="geral" (notícia local sem relação com segurança) fica de
+    // fora daqui — essa busca é sobre segurança perto de um endereço, não
+    // sobre notícia em geral (essa mora na aba "Notícias externas" da
+    // Comunidade).
     caixa(supabase.from('external_incidents')
       .select('id,category,title,description,address,city,lat,lng,source_url,confidence,occurred_at,published_at,matched_report_id')
+      .neq('category', 'geral')
       .in('status', ['active', 'confirmed'])
       .order('published_at', { ascending: false }))
       .limit(300)

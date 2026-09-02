@@ -102,6 +102,21 @@
 .post-card__curtir.ativo { color: var(--rosa-magenta); }
 .post-card__curtir:disabled { opacity: .6; }
 
+/* ---------------- Notícia pública (coletada automaticamente, não é post de
+   usuária) — mesma estrutura de card, cor teal em vez do avatar/tag rosa,
+   pra nunca ser confundida com publicação de uma pessoa de verdade. ---- */
+.post-card__avatar--fonte { background: var(--teal-suave); color: var(--teal); }
+.post-card__rodape-externo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--esp-3);
+  font-size: var(--fs-xs);
+  color: var(--texto-secundario);
+}
+.post-card__rodape-externo a { color: var(--teal); font-weight: 600; }
+
 /* ---------------- Modal de comentários ---------------- */
 .comentarios-lista {
   display: flex;

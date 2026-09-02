@@ -66,6 +66,7 @@ const VALIDADE_PADRAO_HORAS = {
   rua_pouco_iluminada: 24 * 30,
   local_isolado: 24 * 30,
   tiroteio: 24 * 3,
+  geral: 24 * 7,
   outro: 24 * 3
 };
 
@@ -470,7 +471,7 @@ const ESQUEMA_CLASSIFICACAO = {
       enum: [
         'assedio_verbal', 'assedio_fisico', 'assalto', 'perseguicao',
         'rua_pouco_iluminada', 'local_isolado', 'acidente', 'bloqueio',
-        'obra', 'tiroteio', 'outro'
+        'obra', 'tiroteio', 'geral', 'outro'
       ]
     },
     title: { type: 'string' },
@@ -485,9 +486,20 @@ const PROMPT_SISTEMA = `Você é um classificador de notícias para o Rota Segur
 segurança urbana do Rio de Janeiro. Sua ÚNICA fonte de informação é o texto fornecido — nunca
 invente nada que não esteja escrito nele.
 
+IMPORTANTE SOBRE "relevant": este app usa notícia de duas formas — ocorrência de segurança
+(vira pino no mapa) E notícia geral do RJ (vira só um card na aba "Notícias externas" da
+Comunidade, nunca aparece no mapa). "relevant" cobre AS DUAS — não é só sobre segurança.
+
 REGRAS OBRIGATÓRIAS:
 - Se a notícia não for sobre a cidade do Rio de Janeiro ou qualquer outro município do estado
   do RJ, responda relevant=false.
+- Esporte (jogo, resultado, time), política nacional sem nenhum efeito local direto, e
+  entretenimento/celebridade: responda relevant=false mesmo que mencionem o Rio de Janeiro de
+  passagem (ex.: "Flamengo perde jogo no Maracanã" não é relevante; um bloqueio de trânsito
+  causado pelo mesmo jogo, sim).
+- Qualquer outra notícia real sobre a vida na cidade (serviço público, obra, clima, trânsito,
+  administração municipal/estadual com efeito local) é relevant=true, mesmo sem ligação com
+  segurança — use category="geral" pra essas.
 - Se um campo não estiver escrito no texto, ele é null — nunca adivinhe endereço, bairro, data
   ou hora que não estejam explícitos no texto.
 - eventType="statistic" quando o texto fala de números agregados ou período (ex.: "50
@@ -497,6 +509,9 @@ REGRAS OBRIGATÓRIAS:
 - Tiroteio, disparo de arma de fogo, confronto ou operação policial com troca de tiros: use
   category="tiroteio". Só use category="assalto" quando o texto descrever roubo/furto mediante
   ameaça ou violência (sem menção a tiro/disparo/arma de fogo) — nunca misture os dois.
+- category="outro" é só pra ocorrência de segurança que não se encaixa nas outras categorias
+  específicas. category="geral" é pra notícia local que NÃO é sobre segurança/mobilidade —
+  nunca confunda as duas.
 - NUNCA inclua nome completo, CPF, telefone, endereço residencial ou qualquer dado pessoal de
   vítima ou de terceiros em title/summary — descreva só o acontecimento em si.
 - summary deve ser baseado exclusivamente no texto fornecido, nunca em conhecimento externo.`;

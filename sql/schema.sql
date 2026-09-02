@@ -884,10 +884,15 @@ create table if not exists public.external_incidents (
   source_url        text,
   source_id         text not null,              -- chave da própria fonte (guid da notícia etc.) — evita reprocessar
   event_type        text not null check (event_type in ('event', 'statistic')),
+  -- "geral": notícia local do RJ sem relação com segurança (serviço
+  -- público, clima, evento etc.) — existe só pra alimentar a aba "Notícias
+  -- externas" da Comunidade; o Mapa (Tela 1) nunca mostra pino dessa
+  -- categoria (ver filtro em js/map.js, carregarDadosDaAreaVisivel), pra
+  -- não misturar notícia geral com ocorrência de segurança no mesmo lugar.
   category          text not null check (category in (
                       'assedio_verbal', 'assedio_fisico', 'assalto', 'perseguicao',
                       'rua_pouco_iluminada', 'local_isolado', 'acidente', 'bloqueio',
-                      'obra', 'tiroteio', 'outro'
+                      'obra', 'tiroteio', 'geral', 'outro'
                     )),
   title             text not null,
   description       text,
@@ -937,16 +942,17 @@ create policy "incidentes_externos_leitura"
   using (status in ('active', 'confirmed'));
 
 -- MIGRAÇÃO: mesmo motivo do "reports_type_check" lá em cima — "create table
--- if not exists" não altera uma tabela que já existe. Adiciona a categoria
+-- if not exists" não altera uma tabela que já existe. Adiciona as categorias
 -- "tiroteio" (antes, todo tiroteio/disparo de arma vinha classificado como
--- "assalto" por falta de categoria própria — ver PROMPT_SISTEMA em
--- coletar-fontes/index.ts). Não apaga nem invalida nenhuma linha já
--- gravada: itens antigos continuam "assalto" até a próxima coleta.
+-- "assalto" por falta de categoria própria) e "geral" (notícia local do RJ
+-- sem relação com segurança, só pra aba "Notícias externas" da Comunidade
+-- — ver PROMPT_SISTEMA em coletar-fontes/index.ts). Não apaga nem invalida
+-- nenhuma linha já gravada.
 alter table public.external_incidents drop constraint if exists external_incidents_category_check;
 alter table public.external_incidents add constraint external_incidents_category_check check (category in (
   'assedio_verbal', 'assedio_fisico', 'assalto', 'perseguicao',
   'rua_pouco_iluminada', 'local_isolado', 'acidente', 'bloqueio',
-  'obra', 'tiroteio', 'outro'
+  'obra', 'tiroteio', 'geral', 'outro'
 ));
 
 

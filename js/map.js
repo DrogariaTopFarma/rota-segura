@@ -71,6 +71,7 @@ export const ROTULOS_INCIDENTE_EXTERNO = {
   bloqueio: 'Via bloqueada',
   obra: 'Obra',
   tiroteio: 'Tiroteio',
+  geral: 'Notícia geral',
   outro: 'Outro'
 };
 
@@ -316,9 +317,13 @@ export async function carregarDadosDaAreaVisivel() {
 
       // external_incidents: RLS já restringe a leitura a status
       // active/confirmed (ver sql/schema.sql, tabela 16) — nunca chega aqui
-      // uma notícia ainda "pending"/"disputed"/"rejected".
+      // uma notícia ainda "pending"/"disputed"/"rejected". category="geral"
+      // (notícia local sem relação com segurança) nunca vira pino aqui — ela
+      // só aparece na aba "Notícias externas" da Comunidade (community.js),
+      // pra não misturar notícia geral com ocorrência de segurança no mapa.
       supabase.from('external_incidents')
         .select('id,category,title,description,address,city,lat,lng,source_url,confidence,matched_report_id,occurred_at,published_at')
+        .neq('category', 'geral')
         .gte('lat', sul).lte('lat', norte)
         .gte('lng', oeste).lte('lng', leste)
         .limit(100)

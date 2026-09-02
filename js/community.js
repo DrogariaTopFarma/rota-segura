@@ -14,6 +14,7 @@ import {
   htmlEstadoVazio, htmlCarregando, abrirModal, fecharModal, mostrarMensagem, limparMensagem
 } from './ui.js';
 import { criarSeletorLocal } from './location-picker.js';
+import { ROTULOS_INCIDENTE_EXTERNO, nivelDeConfiancaTexto } from './map.js';
 
 const ROTULOS_CATEGORIA = { alerta: 'Alerta', dica: 'Dica', apoio: 'Apoio', noticia: 'Notícia' };
 const COR_CATEGORIA = { alerta: 'vermelho', dica: 'amarelo', apoio: 'verde', noticia: 'roxo' };
@@ -31,30 +32,66 @@ export async function carregarFeed(filtro = filtroAtual) {
   if (!container) return;
   container.innerHTML = htmlCarregando(3);
 
+  // "__externas__" é o filtro dedicado só a notícias coletadas
+  // automaticamente (ver abaixo) — nunca um category de verdade de `posts`,
+  // então a busca de posts nem roda nesse caso (evita trazer publicação de
+  // gente pra uma aba que é só de fonte pública).
+  const ehFiltroExternas = filtro === '__externas__';
+
   // posts_publico (não a tabela posts direto): já vem com o user_id trocado
   // por null quando a publicação é anônima — a identidade de quem postou
   // nunca chega até aqui pra ser escondida só na tela (ver sql/schema.sql).
-  let consulta = supabase
-    .from('posts_publico')
-    .select('id,user_id,category,title,content,address,lat,lng,image_url,likes_count,comments_count,created_at,is_anonymous')
-    .order('created_at', { ascending: false })
-    .limit(50);
-  if (filtro) consulta = consulta.eq('category', filtro);
+  let consultaPosts = null;
+  if (!ehFiltroExternas) {
+    consultaPosts = supabase
+      .from('posts_publico')
+      .select('id,user_id,category,title,content,address,lat,lng,image_url,likes_count,comments_count,created_at,is_anonymous')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (filtro) consultaPosts = consultaPosts.eq('category', filtro);
+  }
 
-  const { data, error } = await consulta;
+  // Notícias coletadas automaticamente (G1, Fogo Cruzado — ver
+  // supabase/functions/coletar-fontes) entram no feed "Todos" e na aba
+  // dedicada "Notícias externas" — nunca misturadas com alerta/dica/apoio,
+  // e na aba dedicada nem mistura com o que a comunidade posta (nem com
+  // publicação categorizada como "Notícia" por uma pessoa — são coisas
+  // diferentes). Nunca é a mesma tabela de `posts` — ninguém "postou" isso,
+  // por isso o card delas embaixo não tem curtir/comentar, só o selo de
+  // fonte pública (mesmo padrão do mapa, Tela 1).
+  const incluirExternas = !filtro || ehFiltroExternas;
+  const promessas = [
+    consultaPosts ?? Promise.resolve({ data: [], error: null })
+  ];
+  if (incluirExternas) {
+    promessas.push(
+      supabase
+        .from('external_incidents')
+        .select('id,category,title,description,address,city,lat,lng,occurred_at,published_at,source_url,confidence,matched_report_id')
+        .in('status', ['active', 'confirmed'])
+        .order('published_at', { ascending: false })
+        .limit(20)
+    );
+  }
+
+  const [{ data, error }, respostaExternas] = await Promise.all(promessas);
   if (error) {
     container.innerHTML = `<div class="mensagem mensagem--erro">Não foi possível carregar a comunidade. Tente novamente.</div>`;
     return;
   }
 
   const posts = data || [];
-  if (!posts.length) {
+  const externas = incluirExternas ? (respostaExternas?.data || []) : [];
+
+  if (!posts.length && !externas.length) {
     // Mensagem diferente quando é o filtro que está vazio (pode haver
     // publicações em outras categorias) do que quando a comunidade toda
     // ainda não tem nada — a mesma frase nos dois casos confundia.
-    const texto = filtro
-      ? `Nenhuma publicação em "${ROTULOS_CATEGORIA[filtro] || filtro}" ainda.`
-      : 'Nenhuma publicação por aqui ainda. Seja a primeira a compartilhar.';
+    const texto = ehFiltroExternas
+      ? 'Nenhuma notícia pública coletada ainda por aqui.'
+      : filtro
+        ? `Nenhuma publicação em "${ROTULOS_CATEGORIA[filtro] || filtro}" ainda.`
+        : 'Nenhuma publicação por aqui ainda. Seja a primeira a compartilhar.';
     container.innerHTML = htmlEstadoVazio(texto);
     return;
   }
@@ -77,7 +114,7 @@ export async function carregarFeed(filtro = filtroAtual) {
   const { data: sessao } = await supabase.auth.getUser();
   const user = sessao?.user;
   let curtidos = new Set();
-  if (user) {
+  if (user && posts.length) {
     const { data: likes } = await supabase
       .from('post_likes')
       .select('post_id')
@@ -86,48 +123,20 @@ export async function carregarFeed(filtro = filtroAtual) {
     curtidos = new Set((likes || []).map((l) => l.post_id));
   }
 
-  renderizarFeed(container, posts, autores, curtidos);
+  // Junta as duas fontes num feed só, ordenado por data — pra notícia nova
+  // aparecer misturada no lugar certo, não sempre no topo ou sempre no fim.
+  const itens = [
+    ...posts.map((p) => ({ tipo: 'post', dado: p, quando: p.created_at })),
+    ...externas.map((n) => ({ tipo: 'externa', dado: n, quando: n.published_at || n.occurred_at }))
+  ].sort((a, b) => new Date(b.quando) - new Date(a.quando));
+
+  renderizarFeed(container, itens, autores, curtidos);
 }
 
-function renderizarFeed(container, posts, autores, curtidos) {
-  container.innerHTML = posts.map((p) => {
-    const autor = p.is_anonymous ? null : autores[p.user_id];
-    const nome = p.is_anonymous ? 'Anônimo' : (autor?.full_name || 'Alguém da comunidade');
-    const avatar = autor?.avatar_url
-      ? `<img src="${escapar(autor.avatar_url)}" alt="">`
-      : icone('perfil', 20);
-    const jaCurtido = curtidos.has(p.id);
-    const cor = COR_CATEGORIA[p.category] || 'rosa';
-
-    return `
-      <article class="post-card">
-        <div class="post-card__topo">
-          <div class="post-card__avatar">${avatar}</div>
-          <div class="post-card__autor">
-            <div class="post-card__nome">${escapar(nome)}</div>
-            <div class="post-card__hora">${escapar(formatarDataHora(p.created_at))}</div>
-          </div>
-          <span class="tag tag--${cor}">${escapar(ROTULOS_CATEGORIA[p.category] || 'Publicação')}</span>
-        </div>
-        ${p.title ? `<h3 class="post-card__titulo">${escapar(p.title)}</h3>` : ''}
-        <p class="post-card__conteudo">${escapar(p.content)}</p>
-        ${p.address ? `
-          <div class="post-card__local">${icone('pino', 14)}<span>${escapar(p.address)}</span></div>
-        ` : ''}
-        ${p.image_url ? `<img class="post-card__imagem" src="${escapar(p.image_url)}" alt="">` : ''}
-        <div class="post-card__acoes">
-          <button type="button" class="post-card__curtir${jaCurtido ? ' ativo' : ''}"
-                  data-post-id="${p.id}" data-curtido="${jaCurtido}"
-                  aria-pressed="${jaCurtido}" aria-label="Curtir publicação de ${escapar(nome)}">
-            ${icone('coracao', 18)} <span>${p.likes_count}</span>
-          </button>
-          <button type="button" class="post-card__comentar"
-                  data-post-id="${p.id}" aria-label="Ver comentários da publicação de ${escapar(nome)}">
-            ${icone('comentario', 18)} <span>${p.comments_count || 0}</span>
-          </button>
-        </div>
-      </article>`;
-  }).join('');
+function renderizarFeed(container, itens, autores, curtidos) {
+  container.innerHTML = itens.map((item) => (
+    item.tipo === 'externa' ? cardNoticiaExterna(item.dado) : cardPost(item.dado, autores, curtidos)
+  )).join('');
 
   container.querySelectorAll('.post-card__curtir').forEach((botao) => {
     botao.addEventListener('click', () => {
@@ -138,6 +147,75 @@ function renderizarFeed(container, posts, autores, curtidos) {
   container.querySelectorAll('.post-card__comentar').forEach((botao) => {
     botao.addEventListener('click', () => abrirComentarios(botao.dataset.postId));
   });
+}
+
+function cardPost(p, autores, curtidos) {
+  const autor = p.is_anonymous ? null : autores[p.user_id];
+  const nome = p.is_anonymous ? 'Anônimo' : (autor?.full_name || 'Alguém da comunidade');
+  const avatar = autor?.avatar_url
+    ? `<img src="${escapar(autor.avatar_url)}" alt="">`
+    : icone('perfil', 20);
+  const jaCurtido = curtidos.has(p.id);
+  const cor = COR_CATEGORIA[p.category] || 'rosa';
+
+  return `
+    <article class="post-card">
+      <div class="post-card__topo">
+        <div class="post-card__avatar">${avatar}</div>
+        <div class="post-card__autor">
+          <div class="post-card__nome">${escapar(nome)}</div>
+          <div class="post-card__hora">${escapar(formatarDataHora(p.created_at))}</div>
+        </div>
+        <span class="tag tag--${cor}">${escapar(ROTULOS_CATEGORIA[p.category] || 'Publicação')}</span>
+      </div>
+      ${p.title ? `<h3 class="post-card__titulo">${escapar(p.title)}</h3>` : ''}
+      <p class="post-card__conteudo">${escapar(p.content)}</p>
+      ${p.address ? `
+        <div class="post-card__local">${icone('pino', 14)}<span>${escapar(p.address)}</span></div>
+      ` : ''}
+      ${p.image_url ? `<img class="post-card__imagem" src="${escapar(p.image_url)}" alt="">` : ''}
+      <div class="post-card__acoes">
+        <button type="button" class="post-card__curtir${jaCurtido ? ' ativo' : ''}"
+                data-post-id="${p.id}" data-curtido="${jaCurtido}"
+                aria-pressed="${jaCurtido}" aria-label="Curtir publicação de ${escapar(nome)}">
+          ${icone('coracao', 18)} <span>${p.likes_count}</span>
+        </button>
+        <button type="button" class="post-card__comentar"
+                data-post-id="${p.id}" aria-label="Ver comentários da publicação de ${escapar(nome)}">
+          ${icone('comentario', 18)} <span>${p.comments_count || 0}</span>
+        </button>
+      </div>
+    </article>`;
+}
+
+/** Notícia coletada automaticamente (nunca um post de usuária — por isso não
+    tem curtir/comentar, nem avatar de pessoa: o selo "Notícia pública" e a
+    cor teal deixam isso claro, mesmo padrão visual do mapa/Tela 1. */
+function cardNoticiaExterna(n) {
+  const dataTexto = n.occurred_at || n.published_at ? formatarDataHora(n.occurred_at || n.published_at) : null;
+  const confirmada = !!n.matched_report_id;
+
+  return `
+    <article class="post-card post-card--externo">
+      <div class="post-card__topo">
+        <div class="post-card__avatar post-card__avatar--fonte">${icone('megafone', 20)}</div>
+        <div class="post-card__autor">
+          <div class="post-card__nome">Notícia pública</div>
+          ${dataTexto ? `<div class="post-card__hora">${escapar(dataTexto)}</div>` : ''}
+        </div>
+        <span class="tag tag--teal">${escapar(ROTULOS_INCIDENTE_EXTERNO[n.category] || 'Notícia')}</span>
+      </div>
+      <h3 class="post-card__titulo">${escapar(n.title)}</h3>
+      ${n.description ? `<p class="post-card__conteudo">${escapar(n.description)}</p>` : ''}
+      ${n.address || n.city ? `
+        <div class="post-card__local">${icone('pino', 14)}<span>${escapar(n.address || n.city)}</span></div>
+      ` : ''}
+      <div class="post-card__rodape-externo">
+        <span>Confiança: ${nivelDeConfiancaTexto(n.confidence)}</span>
+        ${confirmada ? '<span>· Confirmada por relato da comunidade</span>' : ''}
+        ${n.source_url ? `<a href="${escapar(n.source_url)}" target="_blank" rel="noopener">Ver notícia original</a>` : ''}
+      </div>
+    </article>`;
 }
 
 async function alternarCurtida(postId, jaCurtido, botao) {

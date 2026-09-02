@@ -17,7 +17,7 @@
    apaga qualquer cache de versão anterior automaticamente.
    ============================================================================ */
 
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const CACHE_NAME = `rota-segura-${CACHE_VERSION}`;
 
 const ARQUIVOS_DO_APP = [
@@ -32,7 +32,12 @@ const ARQUIVOS_DO_APP = [
   'js/notifications.js', 'js/nav.js', 'js/ui.js', 'js/icons.js', 'js/app.js',
   'pages/login.html', 'pages/cadastro.html', 'pages/recuperar-senha.html', 'pages/nova-senha.html',
   'pages/mapa.html', 'pages/rotas.html', 'pages/alertas.html', 'pages/perfil.html', 'pages/termos.html',
-  'assets/icone-192.png', 'assets/icone-512.png'
+  'assets/icone-192.png', 'assets/icone-512.png',
+  'vendor/leaflet/leaflet.css', 'vendor/leaflet/leaflet.js',
+  'vendor/leaflet/images/layers.png', 'vendor/leaflet/images/layers-2x.png',
+  'vendor/leaflet/images/marker-icon.png', 'vendor/leaflet/images/marker-icon-2x.png',
+  'vendor/leaflet/images/marker-shadow.png',
+  'vendor/leaflet-rotate/leaflet-rotate-src.js'
 ];
 
 self.addEventListener('install', (evento) => {

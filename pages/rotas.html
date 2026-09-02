@@ -20,9 +20,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <!-- Leaflet (mapa) -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <!-- Leaflet (mapa) — arquivo local (vendor/), não CDN: evita bloqueio de
+       "Tracking Prevention" do navegador pra domínio de terceiro. -->
+  <link rel="stylesheet" href="../vendor/leaflet/leaflet.css">
 
   <link rel="stylesheet" href="../css/variables.css">
   <link rel="stylesheet" href="../css/global.css">
@@ -270,14 +270,12 @@
   </div>
 
   <!-- ================= SCRIPTS ================= -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="../vendor/leaflet/leaflet.js"></script>
   <!-- Plugin de rotação do mapa (câmera "de frente", estilo navegação por GPS
        de verdade): mantém tiles/rotas girando com o rumo, mas ícones/marcadores
        ficam retos na tela sozinhos — sem isso, não dá pra rotacionar o mapa
        com Leaflet puro. -->
-  <script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js"
-          integrity="sha256-+Qs8D9zbGHhw1CGR1C/Ty+hiG/oYv998Rs2DntIXIrY=" crossorigin=""></script>
+  <script src="../vendor/leaflet-rotate/leaflet-rotate-src.js"></script>
   <script type="module" src="../js/routes.js"></script>
 </body>
 </html>

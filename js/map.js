@@ -329,10 +329,17 @@ export async function carregarDadosDaAreaVisivel() {
         .limit(100)
     ]);
 
+    // Só relatos é dado essencial do mapa — se ELE falhar, aí sim aborta
+    // tudo (cai no catch abaixo). pontos/delegacias/fontesPublicas são
+    // complementares: antes, uma falha em qualquer um deles (ex.: só a
+    // consulta de notícias externas) jogava um throw que abortava a função
+    // inteira ANTES de desenhar qualquer coisa — inclusive os relatos, que
+    // tinham vindo certinho. Uma fonte fora do ar nunca pode esconder as
+    // outras (mesmo princípio já usado em community.js).
     if (relatos.error) throw relatos.error;
-    if (pontos.error) throw pontos.error;
-    if (delegacias.error) throw delegacias.error;
-    if (fontesPublicas.error) throw fontesPublicas.error;
+    if (pontos.error) console.error('Falha ao carregar pontos de apoio:', pontos.error);
+    if (delegacias.error) console.error('Falha ao carregar delegacias:', delegacias.error);
+    if (fontesPublicas.error) console.error('Falha ao carregar notícias externas:', fontesPublicas.error);
 
     // Os dados em si (bounding box, lista abaixo do mapa etc.) continuam
     // atualizando normalmente — só o redesenho dos PINOS pausa, porque ele
@@ -340,15 +347,15 @@ export async function carregarDadosDaAreaVisivel() {
     // leitura (ver comentário no listener de popupopen/popupclose acima).
     if (!popupAberto) {
       desenharRelatos(relatos.data || []);
-      desenharPontos(pontos.data || []);
-      desenharDelegacias(delegacias.data || []);
-      desenharFontesPublicas(fontesPublicas.data || []);
+      if (!pontos.error) desenharPontos(pontos.data || []);
+      if (!delegacias.error) desenharDelegacias(delegacias.data || []);
+      if (!fontesPublicas.error) desenharFontesPublicas(fontesPublicas.data || []);
     }
 
     // Guardado pra quem precisar dos mesmos dados sem fazer outra consulta
     // (ex.: o painel de risco por horário) — ver dadosAtuaisDaArea().
     ultimosRelatos = relatos.data || [];
-    ultimasFontesPublicas = fontesPublicas.data || [];
+    ultimasFontesPublicas = fontesPublicas.error ? [] : (fontesPublicas.data || []);
 
     ouvintes.forEach((fn) => fn(relatos.data || []));
   } catch (erro) {

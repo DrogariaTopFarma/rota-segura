@@ -103,19 +103,65 @@
 .post-card__curtir:disabled { opacity: .6; }
 
 /* ---------------- Notícia pública (coletada automaticamente, não é post de
-   usuária) — mesma estrutura de card, cor teal em vez do avatar/tag rosa,
-   pra nunca ser confundida com publicação de uma pessoa de verdade. ---- */
-.post-card__avatar--fonte { background: var(--teal-suave); color: var(--teal); }
-.post-card__rodape-externo {
+   usuária) — layout de manchete de jornal (categoria + título + resumo +
+   assinatura da fonte), de propósito bem diferente do cardPost social
+   acima, pra nunca parecer que alguém "postou" isso. ---- */
+.noticia-externa {
+  background: var(--branco);
+  border-radius: var(--raio-lg);
+  box-shadow: var(--sombra-md);
+  padding: var(--esp-4) var(--esp-5);
+  border-left: 3px solid var(--teal);
+}
+
+.noticia-externa__cabecalho {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  margin-bottom: var(--esp-2);
+}
+.noticia-externa__categoria {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+.noticia-externa__selo {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--texto-secundario);
+  background: var(--teal-suave);
+  padding: 2px 8px;
+  border-radius: var(--raio-full);
+}
+
+.noticia-externa__titulo {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  line-height: 1.35;
+  margin-bottom: 4px;
+}
+.noticia-externa__resumo {
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--texto-secundario);
+}
+
+.noticia-externa__rodape {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   margin-top: var(--esp-3);
+  padding-top: var(--esp-2);
+  border-top: 1px solid var(--borda);
   font-size: var(--fs-xs);
   color: var(--texto-secundario);
 }
-.post-card__rodape-externo a { color: var(--teal); font-weight: 600; }
+.noticia-externa__fonte { font-weight: 700; color: var(--texto-principal); }
+.noticia-externa__local { display: inline-flex; align-items: center; gap: 4px; }
+.noticia-externa__link { margin-left: auto; color: var(--teal); font-weight: 600; }
 
 /* ---------------- Modal de comentários ---------------- */
 .comentarios-lista {

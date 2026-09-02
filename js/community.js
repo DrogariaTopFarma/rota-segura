@@ -19,6 +19,15 @@ import { ROTULOS_INCIDENTE_EXTERNO, nivelDeConfiancaTexto } from './map.js';
 const ROTULOS_CATEGORIA = { alerta: 'Alerta', dica: 'Dica', apoio: 'Apoio', noticia: 'Notícia' };
 const COR_CATEGORIA = { alerta: 'vermelho', dica: 'amarelo', apoio: 'verde', noticia: 'roxo' };
 
+// Nome de veículo de imprensa pra exibir como assinatura da notícia — se
+// aparecer uma fonte nova em supabase/functions/coletar-fontes que ainda não
+// está aqui, cai no rótulo genérico em vez de quebrar a tela.
+const ROTULOS_FONTE = {
+  g1_rio_rss: 'G1 Rio',
+  g1_rio_transito_rss: 'G1 Rio — Trânsito',
+  fogo_cruzado: 'Instituto Fogo Cruzado'
+};
+
 let seletorPublicacao = null;
 let filtroAtual = null;
 
@@ -67,7 +76,7 @@ export async function carregarFeed(filtro = filtroAtual) {
     promessas.push(
       supabase
         .from('external_incidents')
-        .select('id,category,title,description,address,city,lat,lng,occurred_at,published_at,source_url,confidence,matched_report_id')
+        .select('id,category,title,description,address,city,lat,lng,occurred_at,published_at,source,source_url,confidence,matched_report_id')
         .in('status', ['active', 'confirmed'])
         .order('published_at', { ascending: false })
         .limit(20)
@@ -79,9 +88,20 @@ export async function carregarFeed(filtro = filtroAtual) {
     container.innerHTML = `<div class="mensagem mensagem--erro">Não foi possível carregar a comunidade. Tente novamente.</div>`;
     return;
   }
+  // Erro nessa consulta ficava mudo antes (só o de posts era checado) — uma
+  // notícia externa sumida virava silêncio total, sem pista nenhuma. Na aba
+  // dedicada isso vira mensagem de erro de verdade; misturada em "Todos", só
+  // loga (posts continuam aparecendo normalmente).
+  if (incluirExternas && respostaExternas?.error) {
+    console.error('Erro ao carregar notícias externas:', respostaExternas.error);
+    if (ehFiltroExternas) {
+      container.innerHTML = `<div class="mensagem mensagem--erro">Não foi possível carregar as notícias externas. Tente novamente.</div>`;
+      return;
+    }
+  }
 
   const posts = data || [];
-  const externas = incluirExternas ? (respostaExternas?.data || []) : [];
+  const externas = (incluirExternas && !respostaExternas?.error) ? (respostaExternas?.data || []) : [];
 
   if (!posts.length && !externas.length) {
     // Mensagem diferente quando é o filtro que está vazio (pode haver
@@ -194,26 +214,27 @@ function cardPost(p, autores, curtidos) {
 function cardNoticiaExterna(n) {
   const dataTexto = n.occurred_at || n.published_at ? formatarDataHora(n.occurred_at || n.published_at) : null;
   const confirmada = !!n.matched_report_id;
+  const fonte = ROTULOS_FONTE[n.source] || 'Fonte pública';
+  const local = n.address || n.city;
 
+  // Layout de manchete (categoria em destaque acima do título, assinatura
+  // da fonte embaixo) em vez do formato de post social do cardPost — é uma
+  // notícia coletada automaticamente, não uma publicação de alguém, e
+  // precisa parecer isso a primeira vista.
   return `
-    <article class="post-card post-card--externo">
-      <div class="post-card__topo">
-        <div class="post-card__avatar post-card__avatar--fonte">${icone('megafone', 20)}</div>
-        <div class="post-card__autor">
-          <div class="post-card__nome">Notícia pública</div>
-          ${dataTexto ? `<div class="post-card__hora">${escapar(dataTexto)}</div>` : ''}
-        </div>
-        <span class="tag tag--teal">${escapar(ROTULOS_INCIDENTE_EXTERNO[n.category] || 'Notícia')}</span>
+    <article class="noticia-externa">
+      <div class="noticia-externa__cabecalho">
+        <span class="noticia-externa__categoria">${escapar(ROTULOS_INCIDENTE_EXTERNO[n.category] || 'Notícia')}</span>
+        ${confirmada ? '<span class="noticia-externa__selo">Confirmada pela comunidade</span>' : ''}
       </div>
-      <h3 class="post-card__titulo">${escapar(n.title)}</h3>
-      ${n.description ? `<p class="post-card__conteudo">${escapar(n.description)}</p>` : ''}
-      ${n.address || n.city ? `
-        <div class="post-card__local">${icone('pino', 14)}<span>${escapar(n.address || n.city)}</span></div>
-      ` : ''}
-      <div class="post-card__rodape-externo">
-        <span>Confiança: ${nivelDeConfiancaTexto(n.confidence)}</span>
-        ${confirmada ? '<span>· Confirmada por relato da comunidade</span>' : ''}
-        ${n.source_url ? `<a href="${escapar(n.source_url)}" target="_blank" rel="noopener">Ver notícia original</a>` : ''}
+      <h3 class="noticia-externa__titulo">${escapar(n.title)}</h3>
+      ${n.description ? `<p class="noticia-externa__resumo">${escapar(n.description)}</p>` : ''}
+      <div class="noticia-externa__rodape">
+        <span class="noticia-externa__fonte">${escapar(fonte)}</span>
+        ${dataTexto ? `<span>·</span><span>${escapar(dataTexto)}</span>` : ''}
+        <span>·</span><span>Confiança ${nivelDeConfiancaTexto(n.confidence).toLowerCase()}</span>
+        ${local ? `<span class="noticia-externa__local">${icone('pino', 12)}${escapar(local)}</span>` : ''}
+        ${n.source_url ? `<a class="noticia-externa__link" href="${escapar(n.source_url)}" target="_blank" rel="noopener">Ler notícia completa ↗</a>` : ''}
       </div>
     </article>`;
 }

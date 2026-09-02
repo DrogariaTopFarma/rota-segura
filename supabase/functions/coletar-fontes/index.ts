@@ -661,7 +661,11 @@ async function processarItem(supabase, fonte, itemBruto, apiKey) {
       address: null, lat: null, lng: null,
       needs_review: false, status: 'rejected', confidence: 0
     });
-    if (error) console.error('Falha ao gravar estatística:', error);
+    // Erro de insert não pode virar "sucesso silencioso" — antes só ia pro
+    // log do servidor e o item ainda contava como processado no resumo,
+    // escondendo falha de gravação (ex.: violação de constraint) atrás de
+    // um resumo que parecia bem-sucedido.
+    if (error) throw new Error(`Falha ao gravar estatística (${itemBruto.idFonte}): ${error.message}`);
     return registroBase;
   }
 
@@ -727,7 +731,10 @@ async function processarItem(supabase, fonte, itemBruto, apiKey) {
   registro.expires_at = expiraEm(registro.category, registro.published_at ? new Date(registro.published_at) : new Date());
 
   const { error } = await supabase.from('external_incidents').insert(registro);
-  if (error) console.error('Falha ao gravar incidente:', error);
+  // Mesmo motivo do bloco "statistic" acima: erro de insert precisa
+  // interromper o item (e aparecer em resumo.erros), nunca só logar e seguir
+  // como se tivesse gravado.
+  if (error) throw new Error(`Falha ao gravar incidente (${itemBruto.idFonte}): ${error.message}`);
   return registro;
 }
 

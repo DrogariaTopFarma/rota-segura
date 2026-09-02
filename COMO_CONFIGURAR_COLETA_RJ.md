@@ -146,6 +146,7 @@ Depois, confira no **Table Editor** → `external_incidents`: devem existir linh
 | `{"erro":"GEMINI_API_KEY não configurada..."}` | Esqueceu o passo 3, ou publicou a função antes de adicionar o secret | Adicione o secret e publique a função de novo |
 | `processados` sempre 0 | Pode ser normal (poucas notícias relevantes no feed no momento), mas se acontecer em TODA execução, veja os **Logs** — se aparecer `Falha ao classificar com IA: Error: Gemini respondeu 404 ... is no longer available`, é sinal de que o Google descontinuou o modelo configurado | Abra `supabase/functions/coletar-fontes/index.ts`, ache `const modelo = '...'` (dentro de `classificarComIA`) e troque pelo nome de modelo que o próprio erro sugere (ou confira o nome atual em <https://aistudio.google.com/>). Publique a função de novo depois de editar |
 | Erro de rede/timeout | RSS do G1 ou a API do Gemini estavam fora do ar na hora | Tente de novo — a função não derruba nada, só aquela execução específica falha |
+| Disparando pelo `net.http_post` (seção 8) e `net._http_response.error_msg` mostra `"Timeout of 5000 ms reached"` | O padrão do `pg_net` (5s) é curto demais pra esta função — não é falha da função em si, é o pg_net desistindo de esperar cedo demais | Sempre inclua `timeout_milliseconds := 55000` na chamada (ver seção 8.3/8.5) |
 
 ## 7. Ver os logs
 
@@ -250,7 +251,8 @@ select cron.schedule(
       'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'coleta_fontes_apikey'),
       'x-coleta-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'coleta_fontes_secret')
     ),
-    body := '{}'::jsonb
+    body := '{}'::jsonb,
+    timeout_milliseconds := 55000
   );
   $$
 );
@@ -258,6 +260,15 @@ select cron.schedule(
 
 Esta query **não tem nenhum valor sensível dentro** (só os nomes salvos no Vault no passo
 anterior) — pode rodar, guardar ou repetir sem risco.
+
+> ⚠️ **`timeout_milliseconds := 55000`**: o padrão do `pg_net` é só **5000** (5 segundos) — curto
+> demais pra esta função, que faz RSS + Fogo Cruzado + classifica cada item novo com IA (um por
+> vez, não em paralelo). Testado ao vivo: sem esse parâmetro, `net._http_response.error_msg`
+> mostra `"Timeout of 5000 ms reached"` e a coleta nunca grava nada, mesmo funcionando por
+> completo no lado do servidor — o pg_net só desiste de esperar a resposta antes dela chegar.
+> Se mesmo com 55s ainda acontecer (visível pelo mesmo teste do `error_msg`), reduza
+> `MAX_ITENS_POR_EXECUCAO` no topo de `coletar-fontes/index.ts` (menos itens por fonte a cada
+> execução = execução mais rápida) e publique a função de novo.
 
 ### Como testar se deu certo
 
@@ -300,8 +311,18 @@ select net.http_post(
     'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'coleta_fontes_apikey'),
     'x-coleta-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'coleta_fontes_secret')
   ),
-  body := '{}'::jsonb
+  body := '{}'::jsonb,
+  timeout_milliseconds := 55000
 );
+```
+
+Espere uns 30-40 segundos (a função pode levar esse tempo pra terminar) e confira o resultado:
+
+```sql
+select status_code, content, error_msg
+from net._http_response
+order by created desc
+limit 1;
 ```
 
 ### O workflow do GitHub Actions continua existindo, só que agora é manual

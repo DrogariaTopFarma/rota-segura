@@ -136,7 +136,7 @@ async function contarRelatosProximos(local, container) {
 
   const [relatosResp, noticiasResp] = await Promise.all([
     caixa(supabase.from('reports')
-      .select('id,type,address,occurred_at,attention_level,status,lat,lng,image_url,agrees_count,disagrees_count')
+      .select('id,type,address,occurred_at,attention_level,status,lat,lng,image_url,agrees_count,disagrees_count,expires_at')
       // Mais recente primeiro, pela data/hora real do relato — não pela
       // ordem de criação no banco. O filtro de raio abaixo usa .filter(),
       // que preserva a ordem que já veio assim do banco.

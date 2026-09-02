@@ -65,6 +65,7 @@ const VALIDADE_PADRAO_HORAS = {
   perseguicao: 24,
   rua_pouco_iluminada: 24 * 30,
   local_isolado: 24 * 30,
+  tiroteio: 24 * 3,
   outro: 24 * 3
 };
 
@@ -469,7 +470,7 @@ const ESQUEMA_CLASSIFICACAO = {
       enum: [
         'assedio_verbal', 'assedio_fisico', 'assalto', 'perseguicao',
         'rua_pouco_iluminada', 'local_isolado', 'acidente', 'bloqueio',
-        'obra', 'outro'
+        'obra', 'tiroteio', 'outro'
       ]
     },
     title: { type: 'string' },
@@ -494,8 +495,8 @@ REGRAS OBRIGATÓRIAS:
   eventType="event" só quando o texto descreve um acontecimento específico.
 - Se tiver qualquer dúvida sobre a localização, a categoria ou a relevância, needsReview=true.
 - Tiroteio, disparo de arma de fogo, confronto ou operação policial com troca de tiros: use
-  category="assalto" (é a categoria disponível mais próxima pra indicar risco de violência
-  armada no local — não existe categoria própria de "tiroteio" ainda).
+  category="tiroteio". Só use category="assalto" quando o texto descrever roubo/furto mediante
+  ameaça ou violência (sem menção a tiro/disparo/arma de fogo) — nunca misture os dois.
 - NUNCA inclua nome completo, CPF, telefone, endereço residencial ou qualquer dado pessoal de
   vítima ou de terceiros em title/summary — descreva só o acontecimento em si.
 - summary deve ser baseado exclusivamente no texto fornecido, nunca em conhecimento externo.`;

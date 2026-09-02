@@ -8,7 +8,7 @@
    ============================================================================ */
 
 import { supabase } from './supabase.js';
-import { APP_CONFIG } from './config.js';
+import { APP_CONFIG, CARTO_API_KEY } from './config.js';
 import { pinoMapa } from './icons.js';
 import { toast, escapar, formatarDataHora, distanciaMetros } from './ui.js';
 import {
@@ -25,6 +25,25 @@ export const ROTULOS_RELATO = {
   local_isolado: 'Local isolado',
   outro: 'Outro'
 };
+
+// Ícone (formato do pino) varia por CATEGORIA do relato — a cor continua
+// indicando GRAVIDADE (attention_level, ver corDoRelato), como já era antes.
+// As duas coisas juntas num só pino: formato = "o que aconteceu", cor =
+// "quão grave". Compartilhado com routes.js (marcadores de contexto da
+// rota), pra nunca duas telas mostrarem o mesmo relato com ícones diferentes.
+export const ICONE_POR_TIPO_RELATO = {
+  assalto: 'escudo',
+  assedio_verbal: 'comentario',
+  assedio_fisico: 'alerta',
+  perseguicao: 'olho',
+  rua_pouco_iluminada: 'lampada',
+  local_isolado: 'vazio',
+  outro: 'pino'
+};
+
+export function corDoRelato(r) {
+  return r.attention_level === 'alto' ? '#D32F2F' : '#E83D67';
+}
 
 export const ROTULOS_PONTO = {
   ponto_apoio: 'Ponto de apoio',
@@ -51,14 +70,28 @@ export const ROTULOS_INCIDENTE_EXTERNO = {
   acidente: 'Acidente',
   bloqueio: 'Via bloqueada',
   obra: 'Obra',
+  tiroteio: 'Tiroteio',
   outro: 'Outro'
+};
+
+// Ícone (formato) por categoria de INCIDENTE EXTERNO (notícia/fonte pública)
+// — mesma ideia do ICONE_POR_TIPO_RELATO acima (reaproveita os mesmos
+// formatos nas 7 categorias em comum), mais 4 formatos só de notícia
+// (acidente/bloqueio/obra/tiroteio, que relato de usuária não tem). A cor
+// continua vindo à parte (teal = só notícia, teal escuro = confirmado por
+// relato de usuária também — ver desenharFontesPublicas), nunca daqui.
+export const ICONE_POR_CATEGORIA_INCIDENTE = {
+  ...ICONE_POR_TIPO_RELATO,
+  acidente: 'carro',
+  bloqueio: 'fechar',
+  obra: 'engrenagem',
+  tiroteio: 'sos'
 };
 
 /* --------------------------------------------------------------- Estado --- */
 let mapa = null;
 let camadas = {};
 let marcadorUsuario = null;
-let circuloPrecisao = null;
 let marcadorBusca = null;
 let pararWatch = null;
 let ultimaPosicao = null;
@@ -93,32 +126,31 @@ function divIcon(nomeIcone, cor) {
     cacheDeIcones.set(chave, L.divIcon({
       html: pinoMapa(nomeIcone, cor),
       className: '',
-      iconSize: [34, 42],
-      iconAnchor: [17, 41],
-      popupAnchor: [0, -36]
+      iconSize: [28, 34],
+      iconAnchor: [14, 33],
+      popupAnchor: [0, -30]
     }));
   }
   return cacheDeIcones.get(chave);
 }
 
 const ICONES = {
-  relato_alto: () => divIcon('escudo', '#D32F2F'),
-  relato: () => divIcon('escudo', '#E83D67'),
-  iluminacao: () => divIcon('lampada', '#F4A261'),
   ponto_apoio: () => divIcon('escudo', '#4CAF7D'),
   hospital: () => divIcon('hospital', '#4CAF7D'),
   farmacia: () => divIcon('hospital', '#4CAF7D'),
   comercio_24h: () => divIcon('predio', '#7C5CBF'),
   ponto_onibus: () => divIcon('onibus', '#7C5CBF'),
   delegacia: () => divIcon('predio', '#7C5CBF'),
-  busca: () => divIcon('pino', '#2D2430'),
-  // Fonte pública (notícia): cor nova (nenhuma outra categoria usa teal),
-  // pra nunca ser confundida com relato de usuária. Ícone diferente
-  // (escudo em vez de megafone) quando bate com um relato de usuária de
-  // verdade — é o "indicador de múltiplas fontes" do pedido.
-  fonte_publica: () => divIcon('megafone', '#0097A7'),
-  fonte_publica_confirmada: () => divIcon('escudo', '#00695C')
+  busca: () => divIcon('pino', '#2D2430')
 };
+
+// Cor das notícias/fontes públicas: teal (nenhuma outra categoria usa),
+// pra nunca ser confundida com relato de usuária — teal escuro quando bate
+// com um relato de usuária de verdade (indicador de múltiplas fontes). O
+// FORMATO do pino vem de ICONE_POR_CATEGORIA_INCIDENTE (varia por
+// categoria); só a cor muda com a confirmação.
+const COR_FONTE_PUBLICA = '#0097A7';
+const COR_FONTE_PUBLICA_CONFIRMADA = '#00695C';
 
 /* ------------------------------------------------------------ Inicializar */
 export function criarMapa(idElemento = 'mapa') {
@@ -132,7 +164,7 @@ export function criarMapa(idElemento = 'mapa') {
     renderer: L.canvas()
   }).setView(APP_CONFIG.centroPadrao, APP_CONFIG.zoomPadrao);
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`, {
     subdomains: 'abcd',
     maxZoom: 20,
     detectRetina: true,
@@ -219,29 +251,11 @@ export async function localizarUsuario({ silencioso = false } = {}) {
 }
 
 function desenharUsuario({ lat, lng, precisao }) {
-  // O raio é a precisão REAL informada pelo navegador.
-  // Antes havia um limite de 300 m aqui, que escondia de você o quanto a
-  // localização estava ruim. Círculo grande = navegador chutando pelo Wi-Fi.
-  const raio = precisao || 60;
-
-  // BUG DE PERFORMANCE QUE ISTO CORRIGE: cada leitura do GPS removia e
-  // recriava os dois desenhos do zero, mesmo só precisando mover um pouco —
-  // isso reflow/repinta o mapa a cada atualização (o watchPosition dispara
-  // várias vezes por minuto) e deixava o mapa "travando" no computador.
-  // Agora só move/redimensiona os desenhos já existentes.
-  if (circuloPrecisao) {
-    circuloPrecisao.setLatLng([lat, lng]);
-    circuloPrecisao.setRadius(raio);
-  } else {
-    circuloPrecisao = L.circle([lat, lng], {
-      radius: raio,
-      color: '#E83D67',
-      fillColor: '#E83D67',
-      fillOpacity: 0.12,
-      weight: 1
-    }).addTo(mapa);
-  }
-
+  // BUG DE PERFORMANCE QUE ISTO CORRIGE: cada leitura do GPS recriava o
+  // marcador do zero, mesmo só precisando mover um pouco — isso reflow/
+  // repinta o mapa a cada atualização (o watchPosition dispara várias vezes
+  // por minuto) e deixava o mapa "travando" no computador. Agora só move o
+  // desenho já existente.
   if (marcadorUsuario) {
     marcadorUsuario.setLatLng([lat, lng]);
     marcadorUsuario.setPopupContent(
@@ -282,7 +296,7 @@ export async function carregarDadosDaAreaVisivel() {
   try {
     const [relatos, pontos, delegacias, fontesPublicas] = await Promise.all([
       supabase.from('reports')
-        .select('id,type,description,address,lat,lng,occurred_at,attention_level,status,created_at,image_url')
+        .select('id,type,description,address,lat,lng,occurred_at,attention_level,status,created_at,image_url,expires_at')
         .gte('lat', sul).lte('lat', norte)
         .gte('lng', oeste).lte('lng', leste)
         .order('occurred_at', { ascending: false })
@@ -359,18 +373,19 @@ function desenharRelatos(lista) {
   camadas.relatos.clearLayers();
   camadas.densidade.clearLayers();
   lista.forEach((r) => {
-    let tipoIcone = 'relato';
-    if (r.type === 'rua_pouco_iluminada') tipoIcone = 'iluminacao';
-    else if (r.attention_level === 'alto') tipoIcone = 'relato_alto';
+    const nomeIcone = ICONE_POR_TIPO_RELATO[r.type] || 'escudo';
 
     const pendente = r.status === 'pending'
       ? '<div class="popup__meta">Em análise pela moderação</div>' : '';
+    const expira = r.expires_at
+      ? `<div class="popup__meta">Visível até ${escapar(formatarDataHora(r.expires_at))}</div>` : '';
 
-    L.marker([r.lat, r.lng], { icon: ICONES[tipoIcone](), alt: ROTULOS_RELATO[r.type] || 'Relato' })
+    L.marker([r.lat, r.lng], { icon: divIcon(nomeIcone, corDoRelato(r)), alt: ROTULOS_RELATO[r.type] || 'Relato' })
       .bindPopup(`
         <div class="popup__tipo">${escapar(ROTULOS_RELATO[r.type] || 'Relato')}</div>
         <div class="popup__meta">${escapar(formatarDataHora(r.occurred_at))}</div>
         <div class="popup__meta">${escapar(r.address || 'Endereço não informado')}</div>
+        ${expira}
         ${r.description ? `<div class="popup__desc">${escapar(r.description)}</div>` : ''}
         ${r.image_url ? `
           <button type="button" class="popup__foto" data-ampliar-foto="${escapar(r.image_url)}">
@@ -428,9 +443,10 @@ export function nivelDeConfiancaTexto(pontos) {
 
 /** Notícias públicas coletadas e classificadas por IA (ver
     supabase/functions/coletar-fontes) — nunca um relato de usuária, por
-    isso tem ícone/cor própria e nunca aparece sem coordenada confiável
-    (a Edge Function já filtra isso antes de gravar). Quando bate com um
-    relato de usuária de verdade (matched_report_id), muda de ícone pra
+    isso tem cor própria (teal) e nunca aparece sem coordenada confiável
+    (a Edge Function já filtra isso antes de gravar). Formato do pino varia
+    por categoria (ICONE_POR_CATEGORIA_INCIDENTE). Quando bate com um
+    relato de usuária de verdade (matched_report_id), a cor escurece pra
     sinalizar "confirmado por mais de uma fonte" (item 29 do pedido). */
 function desenharFontesPublicas(lista) {
   camadas.fontesPublicas.clearLayers();
@@ -438,10 +454,11 @@ function desenharFontesPublicas(lista) {
     if (typeof f.lat !== 'number' || typeof f.lng !== 'number') return;
 
     const confirmado = !!f.matched_report_id;
-    const criador = confirmado ? ICONES.fonte_publica_confirmada : ICONES.fonte_publica;
+    const nomeIcone = ICONE_POR_CATEGORIA_INCIDENTE[f.category] || 'megafone';
+    const cor = confirmado ? COR_FONTE_PUBLICA_CONFIRMADA : COR_FONTE_PUBLICA;
     const dataTexto = f.occurred_at || f.published_at ? formatarDataHora(f.occurred_at || f.published_at) : null;
 
-    L.marker([f.lat, f.lng], { icon: criador(), alt: f.title })
+    L.marker([f.lat, f.lng], { icon: divIcon(nomeIcone, cor), alt: f.title })
       .bindPopup(`
         <div class="popup__tipo">${escapar(ROTULOS_INCIDENTE_EXTERNO[f.category] || 'Outro')}</div>
         <div class="popup__meta">${escapar(f.title)}</div>

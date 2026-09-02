@@ -107,6 +107,7 @@
 .card-lista__conteudo { flex: 1; min-width: 0; }
 .card-lista__titulo { font-weight: 600; font-size: var(--fs-md); }
 .card-lista__meta { font-size: var(--fs-xs); color: var(--texto-secundario); }
+.card-lista__meta--prazo { color: var(--rosa-magenta-escuro); font-weight: 600; }
 .card-lista__endereco { font-size: var(--fs-sm); font-weight: 500; margin-top: 2px; }
 .card-lista__desc { font-size: var(--fs-sm); color: var(--texto-secundario); margin-top: 4px; }
 .card-lista__link { display: inline-block; margin-top: var(--esp-2); font-size: var(--fs-xs); font-weight: 600; color: var(--teal); }

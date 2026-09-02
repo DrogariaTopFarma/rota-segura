@@ -21,14 +21,14 @@ import { buscarEndereco, enderecoDeCoordenadas } from './geocoding.js';
 import { obterPosicao, mensagemDoMotivo, descreverPrecisao, precisaoRuim } from './geolocation.js';
 import { icone, pinoMapa } from './icons.js';
 import { escapar, debounce, botaoCarregando } from './ui.js';
-import { APP_CONFIG } from './config.js';
+import { APP_CONFIG, CARTO_API_KEY } from './config.js';
 
 const ICONE_PINO = () =>
   L.divIcon({
     html: pinoMapa('pino', '#E83D67'),
     className: '',
-    iconSize: [34, 42],
-    iconAnchor: [17, 41]
+    iconSize: [28, 34],
+    iconAnchor: [14, 33]
   });
 
 /**
@@ -85,7 +85,7 @@ export function criarSeletorLocal(ids) {
     // Sem attributionControl próprio (mini-mapa de conferência, 165px de
     // altura) — o crédito à OpenStreetMap/CARTO já aparece no mapa principal
     // da mesma página (mapa.html), que sempre está visível junto com este.
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`, {
       subdomains: 'abcd',
       maxZoom: 20,
       detectRetina: true

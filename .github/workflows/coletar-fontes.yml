@@ -25,19 +25,23 @@
 # Se um dia trocar de projeto Supabase, troque a URL na linha "URL_FUNCAO:"
 # abaixo.
 #
-# INTERVALO: */30 * * * * = a cada 30 minutos. Pra mudar, edite a linha do
-# "cron" abaixo (formato padrão do cron: minuto hora dia mês dia-da-semana).
-# Intervalos menores gastam mais chamadas de IA por dia — veja a seção de
-# custos/limites em COMO_CONFIGURAR_COLETA_RJ.md antes de deixar mais
-# frequente.
+# AGENDAMENTO: não é mais feito aqui. Conferindo os logs de verdade da Edge
+# Function (aba "Invocations" no Dashboard do Supabase), o gatilho "schedule"
+# do GitHub Actions chegou a ficar mais de 11h sem disparar nenhuma vez,
+# mesmo configurado para */30 * * * * — isso é um limite conhecido e
+# documentado do próprio GitHub (execuções agendadas atrasam ou são puladas
+# em repositórios com pouca atividade), não um bug deste workflow. Quem
+# aperta o botão agora é o pg_cron, dentro do próprio banco do Supabase
+# (passo a passo na seção 8 de COMO_CONFIGURAR_COLETA_RJ.md), que chama a
+# mesma URL abaixo direto de dentro do Postgres. Este workflow continua
+# existindo só pra disparo manual (botão "Run workflow" na aba Actions),
+# útil pra testar sem esperar o horário do cron.
 # ============================================================================
 name: Coletar fontes públicas (RJ)
 
 on:
-  schedule:
-    - cron: '*/30 * * * *'
   # Permite disparar manualmente pela aba "Actions" do GitHub — use isso pra
-  # testar sem esperar o horário do cron.
+  # testar sem esperar o horário do cron externo.
   workflow_dispatch: {}
 
 jobs:

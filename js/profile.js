@@ -16,7 +16,7 @@ import {
 } from './ui.js';
 import { marcarItemAtivo, atualizarBadgeNotificacoes, ligarRealtimeBadgeNotificacoes } from './nav.js';
 import { prepararNotificacoes } from './notifications.js';
-import { ROTULOS_PONTO, ROTULOS_RELATO } from './map.js';
+import { ROTULOS_PONTO, ROTULOS_RELATO, ICONE_POR_TIPO_RELATO, corDoRelato } from './map.js';
 import { registrarServiceWorker, ligarBotaoInstalarApp } from './pwa.js';
 
 const ROTULOS_CATEGORIA = { alerta: 'Alerta', dica: 'Dica', apoio: 'Apoio', noticia: 'Notícia' };
@@ -159,7 +159,7 @@ async function carregarMeusRelatos() {
 
   const { data, error } = await supabase
     .from('reports')
-    .select('id,type,address,occurred_at,attention_level,status,image_url')
+    .select('id,type,address,occurred_at,attention_level,status,image_url,expires_at')
     .eq('user_id', user.id)
     .order('occurred_at', { ascending: false })
     .limit(10);
@@ -176,14 +176,15 @@ async function carregarMeusRelatos() {
   }
 
   container.innerHTML = relatos.map((r) => {
-    const iluminacao = r.type === 'rua_pouco_iluminada';
+    const nomeIcone = ICONE_POR_TIPO_RELATO[r.type] || 'escudo';
     return `
       <article class="card-lista">
-        <div class="card-lista__icone ${iluminacao ? 'card-lista__icone--atencao' : ''}">${icone(iluminacao ? 'lampada' : 'escudo', 20)}</div>
+        <div class="card-lista__icone" style="background:${corDoRelato(r)}">${icone(nomeIcone, 20)}</div>
         <div class="card-lista__conteudo">
           <div class="card-lista__titulo">${escapar(ROTULOS_RELATO[r.type] || 'Relato')}</div>
           <div class="card-lista__meta">${escapar(formatarDataHora(r.occurred_at))}${r.status === 'pending' ? ' · Em análise' : ''}</div>
           <div class="card-lista__endereco">${escapar(r.address || 'Endereço não informado')}</div>
+          ${r.expires_at ? `<div class="card-lista__meta card-lista__meta--prazo">Visível até ${escapar(formatarDataHora(r.expires_at))}</div>` : ''}
           ${r.image_url ? `
             <button type="button" class="card-lista__foto" data-ampliar-foto="${escapar(r.image_url)}">
               <img src="${escapar(r.image_url)}" alt="Foto anexada ao relato" loading="lazy">

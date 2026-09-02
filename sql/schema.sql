@@ -157,6 +157,14 @@ alter table public.reports add constraint reports_type_check check (type in (
   'rua_pouco_iluminada', 'local_isolado', 'outro'
 ));
 
+-- "create table if not exists" acima não adiciona coluna nova a uma tabela
+-- "reports" que já existia antes deste recurso — por isso o "add column if
+-- not exists" separado aqui. NULL = sem prazo (comportamento de sempre,
+-- fica visível até alguém apagar); preenchido = some da lista pública
+-- sozinho quando passa da hora (ver policy "relatos_leitura" acima e o
+-- campo "Por quanto tempo" no formulário de relato, js/reports.js).
+alter table public.reports add column if not exists expires_at timestamptz;
+
 
 -- ============================================================================
 -- 6. TABELA: support_points (pontos de apoio: farmácia, hospital, ponto de ônibus...)
@@ -476,11 +484,17 @@ create policy "contatos_proprios_delete"
 -- ---------------------------------------------------------------------------
 -- 12.3 reports — leio os aprovados + os meus (mesmo pendentes)
 -- ---------------------------------------------------------------------------
+-- Relato com prazo vencido (expires_at) some da visão pública assim que passa
+-- da hora — mas a própria autora continua vendo o que é dela (segunda metade
+-- do "or"), do mesmo jeito que já acontecia com relato pendente/rejeitado.
 drop policy if exists "relatos_leitura" on public.reports;
 create policy "relatos_leitura"
   on public.reports for select
   to authenticated
-  using (status = 'approved' or auth.uid() = user_id);
+  using (
+    (status = 'approved' and (expires_at is null or expires_at > now()))
+    or auth.uid() = user_id
+  );
 
 drop policy if exists "relatos_insert_proprio" on public.reports;
 create policy "relatos_insert_proprio"
@@ -873,7 +887,7 @@ create table if not exists public.external_incidents (
   category          text not null check (category in (
                       'assedio_verbal', 'assedio_fisico', 'assalto', 'perseguicao',
                       'rua_pouco_iluminada', 'local_isolado', 'acidente', 'bloqueio',
-                      'obra', 'outro'
+                      'obra', 'tiroteio', 'outro'
                     )),
   title             text not null,
   description       text,
@@ -921,6 +935,19 @@ create policy "incidentes_externos_leitura"
   on public.external_incidents for select
   to authenticated
   using (status in ('active', 'confirmed'));
+
+-- MIGRAÇÃO: mesmo motivo do "reports_type_check" lá em cima — "create table
+-- if not exists" não altera uma tabela que já existe. Adiciona a categoria
+-- "tiroteio" (antes, todo tiroteio/disparo de arma vinha classificado como
+-- "assalto" por falta de categoria própria — ver PROMPT_SISTEMA em
+-- coletar-fontes/index.ts). Não apaga nem invalida nenhuma linha já
+-- gravada: itens antigos continuam "assalto" até a próxima coleta.
+alter table public.external_incidents drop constraint if exists external_incidents_category_check;
+alter table public.external_incidents add constraint external_incidents_category_check check (category in (
+  'assedio_verbal', 'assedio_fisico', 'assalto', 'perseguicao',
+  'rua_pouco_iluminada', 'local_isolado', 'acidente', 'bloqueio',
+  'obra', 'tiroteio', 'outro'
+));
 
 
 -- ============================================================================

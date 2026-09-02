@@ -179,6 +179,18 @@
   background: rgba(211, 47, 47, 0.35);
 }
 
+/* ---------------- Card com as duas preferências da Tela 1 (notícias
+   públicas no mapa / avisar de relato perto) — mesmo visual de card do
+   painel "Horário mais arriscado" logo abaixo, pra formar um bloco só de
+   "configurações desta tela" em vez de texto solto direto no fundo. */
+.tela-mapa__opcoes { margin: var(--esp-4) 0 0; }
+.tela-mapa__opcoes .campo-checkbox { margin-bottom: 0; }
+.tela-mapa__opcoes .campo-checkbox + .campo-checkbox {
+  margin-top: var(--esp-3);
+  padding-top: var(--esp-3);
+  border-top: 1px solid var(--borda);
+}
+
 /* ---------------- Painel "Horário mais arriscado" ---------------- */
 .risco-horario { margin: var(--esp-4) 0 0; }
 .risco-horario__titulo { font-size: var(--fs-lg); font-weight: 600; margin-bottom: var(--esp-4); }

@@ -13,7 +13,7 @@ Parte do zero, como o `GUIA_PASSO_A_PASSO.md` — não presume que você já mex
 2. A Edge Function `coletar-fontes` (o "robô" que coleta e classifica).
 3. A chave da IA (Google Gemini) — passo a passo detalhado em `README_AI_SETUP.md`.
 4. Uma senha própria (`COLETA_SECRET`) pra só você poder disparar a coleta.
-5. O agendamento automático, via GitHub Actions.
+5. O agendamento automático, via pg_cron (dentro do próprio Supabase).
 6. Testar cada etapa.
 
 ## 1. Rodar o SQL
@@ -153,42 +153,163 @@ Painel do Supabase → **Edge Functions** → **coletar-fontes** → aba **Logs*
 imprime o que aconteceu com cada notícia (aceita, rejeitada e por quê, erro específico) — é ali
 que você confirma o funcionamento de verdade, não só "sem erro na tela".
 
-## 8. Agendar (GitHub Actions)
+## 8. Agendar (pg_cron, dentro do próprio Supabase)
 
-O arquivo `.github/workflows/coletar-fontes.yml` já existe neste projeto — só falta configurar
-2 segredos do **repositório no GitHub** (diferente dos secrets da Edge Function, que já
-configurou antes). A URL da função já vem **fixa dentro do próprio arquivo do workflow**
-(não é secreta — é só o endereço; quem protege a chamada de verdade são os dois secrets
-abaixo), então não precisa cadastrar nada relacionado a ela.
+Conferindo os logs reais da Edge Function (Dashboard do Supabase → Edge Functions →
+coletar-fontes → aba **Invocations**), o agendamento por GitHub Actions (gatilho `schedule` no
+arquivo `.yml`) se mostrou pouco confiável — chegou a passar mais de 11 horas sem disparar
+nenhuma chamada, mesmo configurado pra cada 30 minutos. Isso é um limite conhecido do próprio
+GitHub, documentado por eles: execuções agendadas atrasam ou são puladas em repositórios com
+pouco tráfego, sem garantia de horário. Por isso, quem chama a função no horário certo agora é o
+**pg_cron**, uma extensão do próprio banco Postgres do Supabase — nada de site externo, tudo
+dentro do projeto que você já usa.
 
-1. No GitHub, abra o repositório → **Settings** → **Secrets and variables** → **Actions** →
-   **New repository secret**.
-2. Adicione:
-   - Nome: `COLETA_SECRET` — valor: a MESMA senha do passo 4 (tem que ser idêntica à da Edge
-     Function, senão a chamada é recusada)
-   - Nome: `SUPABASE_SECRET_API_KEY` — valor: a chave **secreta** do seu projeto (Project
-     Settings → **API Keys**, o valor que começa com `sb_secret_...`, diferente da
-     `sb_publishable_...` que está em `js/config.js`). O "portão de entrada" das Edge Functions
-     deste projeto exige essa chave pra deixar a chamada passar, antes mesmo dela chegar na
-     função — é uma exigência da infraestrutura do Supabase, separada da nossa própria
-     `COLETA_SECRET`, que continua sendo quem autoriza a coleta de verdade.
-     > ⚠️ Essa chave é sensível de verdade (equivale à antiga `service_role`, ignora o RLS).
-     > Só pode ficar como secret do GitHub — nunca em nenhum arquivo deste repositório.
-3. Pronto — o GitHub já vai chamar a função sozinho a cada 30 minutos (horário configurável no
-   próprio arquivo `.yml`, comentado nele).
+Junto com `pg_cron` (que agenda), usamos `pg_net` (que faz a chamada HTTP de dentro do banco) e o
+**Vault** do Supabase (armazenamento criptografado, pra não deixar a chave secreta em texto puro
+dentro do agendamento).
+
+### 8.1 Habilitar as extensões
+
+1. Painel do Supabase → **Database** → **Extensions**.
+2. Busque `pg_cron` → clique em **Enable**.
+3. Busque `pg_net` → clique em **Enable**.
+
+> Se alguma das duas não aparecer na lista, ou o botão vier desabilitado, o plano do seu projeto
+> pode não liberar essas extensões — me avise que a gente troca pra um serviço externo de cron
+> (cron-job.org, por exemplo) como alternativa.
+
+### 8.1.1 Desligar a exigência de JWT nesta função (passo obrigatório)
+
+Por padrão, o "portão de entrada" do Supabase exige um JWT válido no cabeçalho `Authorization`
+antes mesmo de deixar a chamada chegar na função — mas o `pg_net` não consegue mandar isso no
+formato que o portão espera (testado ao vivo: dá erro `UNAUTHORIZED_INVALID_JWT_FORMAT`, mesmo
+com a chave `sb_secret_...` certa). Como a função **já tem a própria autorização** (o
+`x-coleta-secret`, conferido no código), essa exigência de JWT é redundante aqui — só precisa
+desligar ela pra esta função específica:
+
+1. Painel do Supabase → **Edge Functions** → **coletar-fontes** → aba **Settings**.
+2. Ache **"Enforce JWT Verification"** (ou "Verify JWT") → desligue.
+3. Salve.
+
+Isso é seguro: sem a `x-coleta-secret` certa, a função continua recusando com 401 mesmo com essa
+opção desligada — é o próprio código dela, não o portão do Supabase, quem decide.
+
+### 8.2 Guardar as chaves no Vault
+
+Isso evita deixar a chave secreta em texto puro dentro do agendamento — só o NOME da chave fica
+visível pra quem olhar a lista de tarefas agendadas depois, nunca o valor.
+
+No **SQL Editor** → **"+ New query"**, cole e rode (trocando os dois valores de exemplo pelos
+seus reais: a chave `sb_secret_...` do passo 6, e a sua `COLETA_SECRET` do passo 4). Este bloco
+funciona não importa se você já rodou isso antes — cria o segredo se ele ainda não existe, ou
+atualiza o valor se já existir (`vault.create_secret` sozinho dá erro de "já existe" numa segunda
+tentativa; este bloco evita esse problema):
+
+```sql
+do $$
+begin
+  if exists (select 1 from vault.secrets where name = 'coleta_fontes_apikey') then
+    perform vault.update_secret(
+      (select id from vault.secrets where name = 'coleta_fontes_apikey'),
+      'SUA_CHAVE_SB_SECRET_AQUI'
+    );
+  else
+    perform vault.create_secret('SUA_CHAVE_SB_SECRET_AQUI', 'coleta_fontes_apikey');
+  end if;
+
+  if exists (select 1 from vault.secrets where name = 'coleta_fontes_secret') then
+    perform vault.update_secret(
+      (select id from vault.secrets where name = 'coleta_fontes_secret'),
+      'SUA_COLETA_SECRET_AQUI'
+    );
+  else
+    perform vault.create_secret('SUA_COLETA_SECRET_AQUI', 'coleta_fontes_secret');
+  end if;
+end $$;
+```
+
+> ⚠️ Rode este SQL direto no SQL Editor, com os valores reais no lugar dos `SUA_..._AQUI`.
+> **Não salve esse texto com os valores preenchidos em nenhum arquivo deste projeto** (nem no
+> `schema.sql`) — assim que você roda, o Supabase já guarda o valor de forma criptografada;
+> depois disso é só fechar a aba sem guardar o SQL em lugar nenhum.
+
+### 8.3 Criar o agendamento
+
+Ainda no SQL Editor, em uma query nova:
+
+```sql
+select cron.schedule(
+  'coletar-fontes-30min',
+  '*/30 * * * *',
+  $$
+  select net.http_post(
+    url := 'https://rmggyqqmhupkabgwmnzv.supabase.co/functions/v1/coletar-fontes',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'apikey', (select decrypted_secret from vault.decrypted_secrets where name = 'coleta_fontes_apikey'),
+      'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'coleta_fontes_apikey'),
+      'x-coleta-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'coleta_fontes_secret')
+    ),
+    body := '{}'::jsonb
+  );
+  $$
+);
+```
+
+Esta query **não tem nenhum valor sensível dentro** (só os nomes salvos no Vault no passo
+anterior) — pode rodar, guardar ou repetir sem risco.
 
 ### Como testar se deu certo
 
-1. No GitHub, vá na aba **Actions** do repositório.
-2. Clique no workflow **"Coletar fontes públicas (RJ)"** na lista à esquerda.
-3. Botão **"Run workflow"** → **"Run workflow"** de novo, pra disparar manualmente sem esperar o
-   horário agendado.
-4. Espere terminar (alguns segundos) e clique na execução pra ver o resultado — deve terminar
-   verde (sucesso). Se falhar, o log do próprio GitHub Actions mostra o código HTTP e a resposta
-   da função, que ajuda a identificar o motivo (mesma tabela de erros da seção 6).
+```sql
+select * from cron.job;
+```
+Deve aparecer uma linha com `jobname = coletar-fontes-30min` e `active = true`.
 
-> O GitHub Actions só roda de verdade depois que o repositório está publicado no GitHub — não dá
-> pra testar isso especificamente rodando o projeto local no seu computador.
+Depois de esperar alguns minutos (ou usando o disparo manual da seção 8.5 abaixo, pra não
+esperar):
+
+```sql
+select * from cron.job_run_details order by start_time desc limit 5;
+```
+Mostra o resultado de cada execução — `status = succeeded` é o esperado. Se vier `failed`, a
+coluna `return_message` costuma indicar o motivo. Confirme também no Dashboard: Edge Functions →
+coletar-fontes → **Invocations** — deve aparecer uma chamada nova, com status 200.
+
+### 8.4 Se precisar trocar a `COLETA_SECRET` depois
+
+```sql
+select vault.update_secret(
+  (select id from vault.secrets where name = 'coleta_fontes_secret'),
+  'SUA_NOVA_COLETA_SECRET_AQUI'
+);
+```
+
+Não precisa recriar o agendamento — ele sempre lê o valor mais recente guardado no Vault.
+Lembre de atualizar a mesma senha no secret da Edge Function (passo 4) também, já que as duas
+cópias precisam continuar idênticas.
+
+### 8.5 Disparar na hora, sem esperar 30 minutos
+
+```sql
+select net.http_post(
+  url := 'https://rmggyqqmhupkabgwmnzv.supabase.co/functions/v1/coletar-fontes',
+  headers := jsonb_build_object(
+    'Content-Type', 'application/json',
+    'apikey', (select decrypted_secret from vault.decrypted_secrets where name = 'coleta_fontes_apikey'),
+    'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'coleta_fontes_apikey'),
+    'x-coleta-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'coleta_fontes_secret')
+  ),
+  body := '{}'::jsonb
+);
+```
+
+### O workflow do GitHub Actions continua existindo, só que agora é manual
+
+O arquivo `.github/workflows/coletar-fontes.yml` não dispara mais sozinho — o gatilho
+`schedule` foi removido dele (só ficou o `workflow_dispatch`, o botão de disparo manual).
+Continua útil pra testar sem esperar o horário do cron: GitHub → aba **Actions** → workflow
+**"Coletar fontes públicas (RJ)"** → **Run workflow**.
 
 ## 9. Ver no mapa
 
@@ -208,7 +329,7 @@ públicas no mapa"**, pra ligar/desligar essa camada.
 | **Precisa de chave?** | Não | Não | Sim (conta cadastrada — ver seção abaixo) |
 | **Gratuito?** | Sim | Sim | Sim |
 | **Limite** | Nenhum limite documentado publicamente — a função processa no máximo 20 itens por execução POR fonte | mesmo limite | mesmo limite |
-| **Periodicidade** | A cada 30 min (configurável em `.github/workflows/coletar-fontes.yml`), todas as fontes juntas | idem | idem |
+| **Periodicidade** | A cada 30 min (configurável no `cron.schedule` do pg_cron — ver seção 8), todas as fontes juntas | idem | idem |
 | **Como configurar** | Nada a configurar — já está pronta pra uso no código | idem | Opcional — secrets `FOGOCRUZADO_EMAIL`/`FOGOCRUZADO_PASSWORD` (ver abaixo) |
 
 **Por que só estas fontes por enquanto:** pesquisei as fontes oficiais citadas no pedido original
@@ -265,9 +386,10 @@ fixo no código) e traz as ocorrências dos últimos 2 dias a cada execução.
   data" — usa a coordenada e a data que a própria fonte confirmou (`coordenadaConhecida`/
   `ocorridoEmConhecido` em `processarItem`), o que tende a dar confiança mais alta que uma
   notícia de RSS solta.
-- Sem categoria própria de "tiroteio" ainda no app, o prompt da IA foi instruído a classificar
-  esses casos como `assalto` (categoria mais próxima disponível pra indicar risco de violência
-  armada) — ver `PROMPT_SISTEMA` em `coletar-fontes/index.ts`.
+- Classificado com a categoria própria `tiroteio` (ver `PROMPT_SISTEMA` em
+  `coletar-fontes/index.ts`) — antes virava `assalto` por falta dessa categoria, o que misturava
+  risco de assalto com risco de violência armada no mesmo selo; agora os dois aparecem
+  separados no mapa.
 
 ## Custos e limites
 
@@ -285,7 +407,7 @@ Gemini) está marcado como "confira o seu", em vez de eu chutar um valor.
 ## O que fica pendente pra você validar
 
 - A chamada real ao Gemini — só funciona com a SUA chave, não dá pra eu testar isso sem ela.
-- O disparo real do GitHub Actions — só roda depois do repositório publicado.
+- O agendamento real do pg_cron — só existe depois que você rodar o SQL da seção 8 no seu projeto.
 - A qualidade da classificação no dia a dia — vale acompanhar os **Logs** (passo 7) nos primeiros
   dias e ajustar os pesos da fórmula de confiança (topo de `coletar-fontes/index.ts`) se achar
   que algo está ficando com confiança alta ou baixa demais.

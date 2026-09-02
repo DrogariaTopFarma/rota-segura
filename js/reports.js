@@ -16,7 +16,8 @@ import {
   htmlEstadoVazio, htmlCarregando, fecharModal, mostrarMensagem, limparMensagem
 } from './ui.js';
 import {
-  ROTULOS_RELATO, ROTULOS_INCIDENTE_EXTERNO, nivelDeConfiancaTexto, carregarDadosDaAreaVisivel
+  ROTULOS_RELATO, ROTULOS_INCIDENTE_EXTERNO, ICONE_POR_TIPO_RELATO, corDoRelato,
+  nivelDeConfiancaTexto, carregarDadosDaAreaVisivel
 } from './map.js';
 import { criarSeletorLocal } from './location-picker.js';
 
@@ -42,7 +43,7 @@ export async function carregarListaRelatos() {
   // confuso, difícil de separar "isso é da comunidade" de "isso é notícia".
   const [relatosResp, noticiasResp] = await Promise.all([
     supabase.from('reports')
-      .select('id,type,address,occurred_at,attention_level,status,image_url,agrees_count,disagrees_count')
+      .select('id,type,address,occurred_at,attention_level,status,image_url,agrees_count,disagrees_count,expires_at')
       .order('occurred_at', { ascending: false })
       .limit(100),
     // published_at (quase sempre presente) em vez de occurred_at (só quando
@@ -161,22 +162,29 @@ function textoPercentual(agrees, disagrees) {
 }
 
 function cardRelato(r, votoAtual) {
-  const iluminacao = r.type === 'rua_pouco_iluminada';
-  const classeIcone = iluminacao ? 'card-lista__icone--atencao' : '';
-  const nomeIcone = iluminacao ? 'lampada' : 'escudo';
+  // Mesmo ícone/cor do pino no mapa (map.js) — formato = categoria, cor =
+  // gravidade — pra nunca mostrar o mesmo relato de um jeito na lista e de
+  // outro no mapa.
+  const nomeIcone = ICONE_POR_TIPO_RELATO[r.type] || 'escudo';
+  const cor = corDoRelato(r);
 
   let tag = '<span class="tag tag--rosa">Relato recente</span>';
-  if (iluminacao) tag = '<span class="tag tag--amarelo">Atenção</span>';
+  if (r.type === 'rua_pouco_iluminada') tag = '<span class="tag tag--amarelo">Atenção</span>';
   if (r.attention_level === 'alto') tag = '<span class="tag tag--vermelho">Alto risco</span>';
   if (r.status === 'pending') tag = '<span class="tag tag--roxo">Em análise</span>';
 
+  const expiraTexto = r.expires_at
+    ? `<div class="card-lista__meta card-lista__meta--prazo">Visível até ${escapar(formatarDataHora(r.expires_at))}</div>`
+    : '';
+
   return `
     <article class="card-lista">
-      <div class="card-lista__icone ${classeIcone}">${icone(nomeIcone, 22)}</div>
+      <div class="card-lista__icone" style="background:${cor}">${icone(nomeIcone, 22)}</div>
       <div class="card-lista__conteudo">
         <div class="card-lista__titulo">${escapar(ROTULOS_RELATO[r.type] || 'Relato')}</div>
         <div class="card-lista__meta">${escapar(formatarDataHora(r.occurred_at))}</div>
         <div class="card-lista__endereco">${escapar(r.address || 'Endereço não informado')}</div>
+        ${expiraTexto}
         ${r.image_url ? `
           <button type="button" class="card-lista__foto" data-ampliar-foto="${escapar(r.image_url)}">
             <img src="${escapar(r.image_url)}" alt="Foto anexada ao relato" loading="lazy">
@@ -342,6 +350,16 @@ export function prepararFormularioRelato() {
 
       const ocorridoEm = new Date(`${form.data.value}T${form.hora.value || '00:00'}`);
 
+      // Prazo de validade é opcional (campo "validade" no form, em horas —
+      // vazio = sem prazo, mesmo comportamento de sempre). Contado a partir
+      // de AGORA (quando o relato é enviado), não da data/hora do ocorrido —
+      // "24h" significa "visível pelas próximas 24h", não "some 24h depois
+      // do que aconteceu" (que já podia ter passado há dias).
+      const horasValidade = Number(form.validade.value) || 0;
+      const expiresAt = horasValidade > 0
+        ? new Date(Date.now() + horasValidade * 3600 * 1000).toISOString()
+        : null;
+
       const { error } = await supabase.from('reports').insert({
         user_id: user.id,
         type: form.tipo.value,
@@ -351,7 +369,8 @@ export function prepararFormularioRelato() {
         lng: local.lng,
         occurred_at: ocorridoEm.toISOString(),
         attention_level: form.atencao.value,
-        image_url: imageUrl
+        image_url: imageUrl,
+        expires_at: expiresAt
       });
 
       if (error) throw error;

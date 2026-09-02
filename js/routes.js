@@ -15,19 +15,16 @@ import { prepararModais, abrirModal, toast, escapar, debounce, distanciaMetros }
 import { obterPosicao, mensagemDoMotivo } from './geolocation.js';
 import { buscarEndereco, enderecoDeCoordenadas } from './geocoding.js';
 import { supabase } from './supabase.js';
-import { APP_CONFIG } from './config.js';
+import { APP_CONFIG, CARTO_API_KEY } from './config.js';
 import { obterLinkDeEmergencia } from './emergency.js';
 import { iniciarNavegacao } from './navigation.js';
 import { marcarItemAtivo } from './nav.js';
-import { ROTULOS_RELATO } from './map.js';
+import { ROTULOS_RELATO, ICONE_POR_TIPO_RELATO, corDoRelato } from './map.js';
 import { registrarServiceWorker } from './pwa.js';
 
 // Mesmas cores/ícones do mapa da Tela 1 (map.js), para os marcadores ao
 // longo da rota serem reconhecíveis nas duas telas.
 const ICONE_CONTEXTO = {
-  relato_alto: () => divIconContexto('escudo', '#D32F2F'),
-  relato: () => divIconContexto('escudo', '#E83D67'),
-  iluminacao: () => divIconContexto('lampada', '#F4A261'),
   ponto_apoio: () => divIconContexto('escudo', '#4CAF7D'),
   hospital: () => divIconContexto('hospital', '#4CAF7D'),
   farmacia: () => divIconContexto('hospital', '#4CAF7D'),
@@ -44,9 +41,9 @@ function divIconContexto(nomeIcone, cor) {
     cacheDeIcones.set(chave, L.divIcon({
       html: pinoMapa(nomeIcone, cor),
       className: '',
-      iconSize: [34, 42],
-      iconAnchor: [17, 41],
-      popupAnchor: [0, -36]
+      iconSize: [28, 34],
+      iconAnchor: [14, 33],
+      popupAnchor: [0, -30]
     }));
   }
   return cacheDeIcones.get(chave);
@@ -135,7 +132,7 @@ function garantirMapa() {
     touchRotate: false,
     zoomAnimation: false
   }).setView(APP_CONFIG.centroPadrao, APP_CONFIG.zoomPadrao);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`, {
     subdomains: 'abcd',
     maxZoom: 20,
     detectRetina: true,
@@ -170,8 +167,8 @@ function desenharOrigem() {
       icon: L.divIcon({
         html: pinoMapa('mira', '#2F6BFF'),
         className: '',
-        iconSize: [34, 42],
-        iconAnchor: [17, 41]
+        iconSize: [28, 34],
+        iconAnchor: [14, 33]
       })
     }).addTo(mapa).bindPopup('<div class="popup__tipo">Partida (endereço digitado)</div>');
   } else {
@@ -189,8 +186,8 @@ function desenharDestino() {
     icon: L.divIcon({
       html: pinoMapa('bandeira', '#E83D67'),
       className: '',
-      iconSize: [34, 42],
-      iconAnchor: [17, 41]
+      iconSize: [28, 34],
+      iconAnchor: [14, 33]
     })
   }).addTo(mapa).bindPopup(`<div class="popup__tipo">${escapar(destino.nome)}</div>`);
   ajustarEnquadramento();
@@ -478,10 +475,8 @@ function desenharContextoDaRota({ relatos, pontos, delegacias }) {
   camadaContexto.clearLayers();
 
   relatos.forEach((r) => {
-    let tipo = 'relato';
-    if (r.type === 'rua_pouco_iluminada') tipo = 'iluminacao';
-    else if (r.attention_level === 'alto') tipo = 'relato_alto';
-    L.marker([r.lat, r.lng], { icon: ICONE_CONTEXTO[tipo](), alt: ROTULOS_RELATO[r.type] || 'Relato' })
+    const nomeIcone = ICONE_POR_TIPO_RELATO[r.type] || 'escudo';
+    L.marker([r.lat, r.lng], { icon: divIconContexto(nomeIcone, corDoRelato(r)), alt: ROTULOS_RELATO[r.type] || 'Relato' })
       .bindPopup(`
         <div class="popup__tipo">${escapar(ROTULOS_RELATO[r.type] || 'Relato')}</div>
         <div class="popup__meta">${escapar(r.address || 'Endereço não informado')}</div>

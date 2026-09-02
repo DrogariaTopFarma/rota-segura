@@ -83,26 +83,28 @@
           Áreas mais avermelhadas concentram mais relatos registrados.
         </p>
 
-        <label class="campo-checkbox">
-          <input type="checkbox" id="filtro-fontes-publicas" checked>
-          <span>
-            Mostrar notícias públicas no mapa
-            <small class="campo-checkbox__ajuda">Coletadas automaticamente e cruzadas com relatos da comunidade — nunca substituem um relato de verdade.</small>
-          </span>
-        </label>
+        <div class="card tela-mapa__opcoes">
+          <label class="campo-checkbox">
+            <input type="checkbox" id="filtro-fontes-publicas" checked>
+            <span>
+              Mostrar notícias públicas no mapa
+              <small class="campo-checkbox__ajuda">Coletadas automaticamente e cruzadas com relatos da comunidade — nunca substituem um relato de verdade.</small>
+            </span>
+          </label>
+
+          <label class="campo-checkbox">
+            <input type="checkbox" id="filtro-alertas-proximidade">
+            <span>
+              Avisar quando surgir um relato perto de mim
+              <small class="campo-checkbox__ajuda">Notificação no aparelho, mesmo com o site fechado — pede permissão do navegador na hora de ligar.</small>
+            </span>
+          </label>
+        </div>
 
         <div class="card risco-horario">
           <h2 class="risco-horario__titulo">Horário mais arriscado nesta área</h2>
           <div id="risco-horario"></div>
         </div>
-
-        <label class="campo-checkbox">
-          <input type="checkbox" id="filtro-alertas-proximidade">
-          <span>
-            Avisar quando surgir um relato perto de mim
-            <small class="campo-checkbox__ajuda">Notificação no aparelho, mesmo com o site fechado — pede permissão do navegador na hora de ligar.</small>
-          </span>
-        </label>
 
         <div class="resultado-busca" id="resultado-busca" role="status" hidden></div>
       </div>
@@ -251,6 +253,17 @@
             <option value="baixo">Baixo</option>
             <option value="medio" selected>Médio</option>
             <option value="alto">Alto</option>
+          </select>
+        </div>
+
+        <div class="campo">
+          <label for="relato-validade">Por quanto tempo esse relato deve ficar visível?</label>
+          <select id="relato-validade" name="validade">
+            <option value="" selected>Sem prazo (fica até alguém apagar)</option>
+            <option value="24">24 horas</option>
+            <option value="72">3 dias</option>
+            <option value="168">7 dias</option>
+            <option value="720">30 dias</option>
           </select>
         </div>
 

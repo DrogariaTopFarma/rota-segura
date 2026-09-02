@@ -23,6 +23,18 @@ export const SUPABASE_ANON_KEY = 'sb_publishable_ZBpUZp9ZqjvnKMU0lNky_Q_poX_2huA
 // `enviar-alerta-proximidade` (nunca aqui). Ver COMO_CONFIGURAR_ALERTAS.md.
 export const VAPID_PUBLIC_KEY = 'BPtuvvldLgDai3ervwpJ7lJ349s9rOggI2nVaq8Uul8fvDeMhibxE8yMy_81XLhk3najJlvYvuwV-k3aIlvyBio';
 
+// Chave da CARTO (o mapa base que aparece por trás de tudo) — a CARTO passou
+// a exigir essa chave nos tiles de basemaps.cartocdn.com; sem ela, o mapa
+// mostra ladrilhos com o aviso "API KEY REQUIRED" em vez do mapa de verdade.
+// É gratuita e instantânea: https://carto.com/basemaps/apikey -> preencha o
+// formulário na própria página (e-mail, domínio onde o site vai rodar, e uma
+// frase descrevendo o projeto) -> a chave chega na hora, sem fila de espera.
+// Assim como a anon key acima, ela É feita pra ficar visível no navegador
+// (o Leaflet carrega os tiles direto do navegador da usuária, não tem como
+// esconder) — quem limita o uso indevido é a CARTO, pelo domínio cadastrado
+// e pelo limite do plano gratuito (5 milhões de tiles/mês).
+export const CARTO_API_KEY = 'cb1_2rcb_1_702c9ede22412071aa79779c';
+
 /* Configurações gerais do app (pode deixar como está) */
 export const APP_CONFIG = {
   // Centro inicial do mapa se o GPS for negado (Rio de Janeiro)

@@ -723,9 +723,20 @@ async function processarItem(supabase, fonte, itemBruto, apiKey) {
   });
   registro.matched_report_id = matchedReportId;
   registro.duplicate_of = duplicateOf;
+  // Falta de coordenada confiável NUNCA pode esconder o item inteiro — só
+  // impede virar PINO no mapa (map.js só desenha marcador quando lat/lng
+  // existe, e a própria busca por bounding box já exclui linha com
+  // coordenada nula, por comparação com NULL). Sem essa distinção, toda
+  // notícia de rodovia (BR-393, Via Dutra — sem bairro pra geocodificar)
+  // ficava "pending" pra sempre, escondida até da aba "Notícias externas"
+  // da Comunidade, que nem exige coordenada pra mostrar o card. Só a
+  // incerteza que a própria IA sinalizou (classificacao.needsReview) deve
+  // represar em "pending" — `registro.needs_review` continua sendo
+  // gravado com os dois motivos juntos (útil pra revisão futura), só não
+  // decide mais o status sozinho.
   registro.status = temContradicao
     ? 'disputed'
-    : registro.needs_review
+    : classificacao.needsReview
       ? 'pending'
       : (matchedReportId ? 'confirmed' : 'active');
   registro.expires_at = expiraEm(registro.category, registro.published_at ? new Date(registro.published_at) : new Date());

@@ -477,7 +477,7 @@ Faça na ordem. Cada item tem "o que fazer" e "o que tem que acontecer".
   "Não foi possível acessar sua localização. Você pode pesquisar um endereço manualmente."
 
 **7.7 — Busca de endereço**
-- No campo **"Para onde você quer ir?"**, digite uma rua conhecida com a cidade,
+- No campo **"Que lugar deseja procurar?"**, digite uma rua conhecida com a cidade,
   por exemplo: `Avenida Atlântica, Rio de Janeiro`.
 - Espere meio segundo → ✅ aparece a lista de sugestões.
 - Clique em uma → ✅ o mapa centraliza, coloca um marcador escuro, e logo abaixo do mapa

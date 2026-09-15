@@ -16,7 +16,7 @@ import { obterPosicao, mensagemDoMotivo } from './geolocation.js';
 import { buscarEndereco, enderecoDeCoordenadas } from './geocoding.js';
 import { supabase } from './supabase.js';
 import { APP_CONFIG, CARTO_API_KEY } from './config.js';
-import { obterLinkDeEmergencia } from './emergency.js';
+import { obterLinkDeEmergencia, iniciarCacheDeLocalizacao } from './emergency.js';
 import { iniciarNavegacao } from './navigation.js';
 import { marcarItemAtivo } from './nav.js';
 import { ROTULOS_RELATO, ICONE_POR_TIPO_RELATO, corDoRelato } from './map.js';
@@ -68,6 +68,11 @@ async function iniciar() {
   registrarServiceWorker('../sw.js');
   const usuario = await exigirLogin();
   if (!usuario) return;
+
+  // Liga cedo, mesmo antes de qualquer botão de WhatsApp ser tocado — dá
+  // tempo do cache "esquentar" antes que ela precise dele de verdade (ver
+  // js/emergency.js, iniciarCacheDeLocalizacao).
+  iniciarCacheDeLocalizacao();
 
   prepararModais();
   marcarItemAtivo();

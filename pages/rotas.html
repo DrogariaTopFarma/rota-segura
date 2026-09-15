@@ -136,10 +136,15 @@
           <input type="url" id="carona-link" name="link" placeholder="Cole aqui o link que o app gerou" required>
         </div>
 
-        <div class="campo">
-          <label for="carona-destino">Pra onde você vai?</label>
-          <input type="text" id="carona-destino" name="destino" placeholder="Ex.: Casa da Ana" required>
+        <div class="campo campo--busca">
+          <label for="carona-destino-busca">Pra onde você vai?</label>
+          <input type="search" id="carona-destino-busca" placeholder="Digite: rua, número, cidade" autocomplete="off" required>
+          <div class="sugestoes" id="carona-destino-sugestoes" hidden></div>
         </div>
+
+        <div class="local-resumo" id="carona-destino-escolhido" role="status" hidden></div>
+        <div class="mini-mapa" id="carona-destino-mapa"
+             role="img" aria-label="Mapa de conferência do destino escolhido"></div>
 
         <div class="campo">
           <label for="carona-chegada">Horário esperado de chegada</label>
@@ -157,11 +162,6 @@
       <div id="carona-acompanhando" hidden>
         <div class="rota-carona__contador" id="carona-contador">—</div>
         <p class="rota-carona__destino" id="carona-destino-texto"></p>
-
-        <!-- Só aparece depois que o horário esperado passa (ver
-             atualizarContador em js/carona.js) — antes disso não faz
-             sentido perguntar "está tudo bem?" de nada. -->
-        <p class="rota-carona__pergunta" id="carona-pergunta" hidden>Está tudo bem?</p>
 
         <button type="button" class="btn btn-primario btn-bloco" id="carona-cheguei-bem">
           <span data-icone="votoPositivo" data-tamanho="18" aria-hidden="true"></span>
@@ -349,6 +349,30 @@
         Em caso de emergência real, ligue para o 190 (Polícia) ou 180 (Central de Atendimento
         à Mulher).
       </p>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: CHECK-IN DA CORRIDA ATRASADA =================
+       Aparece sozinho (ver atualizarContador em js/carona.js) a cada 5 min
+       de atraso sem confirmação — se ela fechar sem responder, some e volta
+       a aparecer no próximo ciclo, de propósito: é um check-in de segurança,
+       não só um aviso qualquer pra dispensar. -->
+  <div class="modal" id="modal-carona-checkin" role="dialog" aria-modal="true" aria-labelledby="titulo-carona-checkin" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-carona-checkin">Você está bem?</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <p class="rota-modal__texto">
+        Já se passaram <strong id="carona-checkin-minutos">5 min</strong> do horário que você
+        esperava chegar e ainda não confirmou. Quer avisar seu contato de emergência?
+      </p>
+      <div class="rota-modal__acoes">
+        <button type="button" class="btn btn-secundario btn-bloco" id="carona-checkin-sim">Sim, estou bem</button>
+        <button type="button" class="btn btn-primario btn-bloco" id="carona-checkin-nao">Não, avisar contato</button>
+      </div>
     </div>
   </div>
 

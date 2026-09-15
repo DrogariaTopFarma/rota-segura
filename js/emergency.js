@@ -11,6 +11,8 @@
    app deveria proteger.
    ============================================================ */
 
+import { acompanharPosicao } from './geolocation.js';
+
 /**
  * Formata um telefone para o padrão que o wa.me exige: só dígitos,
  * com código do país. Se a usuária cadastrou "(21) 99999-9999",
@@ -27,6 +29,29 @@ export function formatarTelefoneParaWhatsApp(telefone) {
   return digitos;
 }
 
+// "Última posição conhecida", mantida em segundo plano por
+// iniciarCacheDeLocalizacao() — ver o comentário lá embaixo pra entender por
+// que isso existe (não é só por velocidade).
+let posicaoCache = null;
+let pararCache = null;
+const IDADE_MAXIMA_CACHE_MS = 2 * 60 * 1000; // 2 minutos
+
+/**
+ * Liga um acompanhamento leve de localização em segundo plano (mesma
+ * `acompanharPosicao` que js/map.js já usa pra manter a posição da Tela 1
+ * atualizada) só para ter uma leitura pronta quando SOS/compartilhar forem
+ * tocados — chamar uma vez ao carregar uma página com esses botões
+ * (idempotente: chamar de novo não abre um segundo watch). Silencioso no
+ * erro de propósito: é um cache de melhor esforço, o `getCurrentPosition`
+ * direto dentro de construirLinkDeWhatsApp continua sendo a fonte confiável
+ * quando ainda não há nada em cache (ex.: primeiro toque assim que a página
+ * abre, antes do GPS responder pela primeira vez).
+ */
+export function iniciarCacheDeLocalizacao() {
+  if (pararCache) return;
+  pararCache = acompanharPosicao((posicao) => { posicaoCache = posicao; }, () => {});
+}
+
 /**
  * Pega a localização atual e monta a URL do wa.me pronta para abrir, com a
  * mensagem que a chamadora decidir. Reaproveitado tanto pelo SOS (mensagem de
@@ -38,6 +63,21 @@ function construirLinkDeWhatsApp(contato, montarMensagem) {
     const numero = formatarTelefoneParaWhatsApp(contato);
     if (!numero) {
       reject(new Error('Cadastre um contato de emergência no seu perfil antes de usar este botão.'));
+      return;
+    }
+
+    // Se já existe uma leitura recente em cache, usa ela na hora, sem esperar
+    // o GPS de novo. Isso não é só sobre velocidade percebida: no iPhone, o
+    // wa.me só entra DIRETO no app instalado (sem passar pela página
+    // intermediária do navegador) quando a navegação acontece bem perto do
+    // toque original — esperar o GPS de verdade (pode levar vários segundos)
+    // quebra essa janela e o Safari trata como se não fosse mais um clique
+    // da usuária. O Android é mais tolerante com isso, por isso o problema
+    // aparecia só no iPhone/computador, nunca lá.
+    if (posicaoCache && Date.now() - posicaoCache.quando <= IDADE_MAXIMA_CACHE_MS) {
+      const linkMapa = `https://www.google.com/maps?q=${posicaoCache.lat},${posicaoCache.lng}`;
+      const url = `https://wa.me/${numero}?text=${encodeURIComponent(montarMensagem(linkMapa))}`;
+      resolve({ url, latitude: posicaoCache.lat, longitude: posicaoCache.lng });
       return;
     }
 

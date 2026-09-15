@@ -19,8 +19,9 @@
 
 import { exigirLogin } from './auth.js';
 import { supabase, traduzirErro } from './supabase.js';
-import { toast, botaoCarregando, mostrarMensagem, limparMensagem } from './ui.js';
+import { toast, botaoCarregando, mostrarMensagem, limparMensagem, abrirModal, fecharModal } from './ui.js';
 import { obterLinkDeAcompanhamento, obterLinkDeConfirmacaoAtrasada, formatarTelefoneParaWhatsApp } from './emergency.js';
+import { criarSeletorLocal } from './location-picker.js';
 
 let usuarioAtual = null;
 let corridaAtualId = null;
@@ -29,6 +30,11 @@ let corridaAtualDestino = null;
 let corridaAtualChegada = null;
 let corridaEstaAtrasada = false;
 let intervaloContador = null;
+// A cada quantos minutos de atraso o popup "Você está bem?" reaparece —
+// começa em 5, e cada resposta (Sim ou Não) soma +5, então ele volta a
+// perguntar em 10, 15, 20... enquanto a corrida continuar atrasada e sem
+// "Cheguei bem" (ver prepararModalCheckin).
+let proximoLembreteMin = 5;
 
 async function iniciar() {
   const usuario = await exigirLogin();
@@ -40,6 +46,7 @@ async function iniciar() {
   prepararNavegacaoDoPainel();
   prepararFormulario();
   prepararBotoesDeAcompanhamento();
+  prepararModalCheckin();
 
   // Veio de um toque na notificação push (?confirmarCorrida=<id>)? Abre
   // direto na corrida certa, sem precisar navegar até lá na mão.
@@ -86,6 +93,7 @@ function fecharPainelCarona() {
   corridaAtualDestino = null;
   corridaAtualChegada = null;
   corridaEstaAtrasada = false;
+  proximoLembreteMin = 5;
   document.getElementById('painel-carona').hidden = true;
   document.getElementById('painel-planejamento').hidden = false;
   document.getElementById('rota-mapa-wrapper').hidden = false;
@@ -176,21 +184,34 @@ function calcularChegadaEsperada(horaTexto) {
   return chegada;
 }
 
+let seletorDestino;
+
 function prepararFormulario() {
   const form = document.getElementById('form-carona');
   if (!form) return;
   const msg = document.getElementById('mensagem-carona');
 
+  // Mesmo componente de busca com sugestões + mini-mapa de conferência já
+  // usado em "Cadastrar relato"/"Cadastrar publicação" (js/location-picker.js)
+  // — sem botão de GPS nem "ajuste" recolhido: destino é sempre pesquisado,
+  // nunca a localização atual.
+  seletorDestino = criarSeletorLocal({
+    mapa: 'carona-destino-mapa',
+    busca: 'carona-destino-busca',
+    sugestoes: 'carona-destino-sugestoes',
+    resumo: 'carona-destino-escolhido'
+  });
+
   document.getElementById('carona-avisar-agora')?.addEventListener('click', () => {
     const link = form.link.value.trim();
     const horaTexto = form.chegada.value;
-    const destino = form.destino.value.trim();
+    const destino = seletorDestino.valor();
     if (!link || !horaTexto || !destino) {
       mostrarMensagem(msg, 'Preencha o link, o destino e o horário esperado antes de avisar.', 'atencao');
       return;
     }
     abrirWhatsAppComContatoPrincipal(obterLinkDeAcompanhamento, {
-      destino,
+      destino: destino.nome,
       horario: calcularChegadaEsperada(horaTexto),
       linkCorrida: link
     });
@@ -201,11 +222,11 @@ function prepararFormulario() {
     limparMensagem(msg);
 
     const link = form.link.value.trim();
-    const destino = form.destino.value.trim();
+    const destino = seletorDestino.valor();
     const horaTexto = form.chegada.value;
 
     if (!link) return mostrarMensagem(msg, 'Cole o link de compartilhamento da corrida.', 'atencao');
-    if (!destino) return mostrarMensagem(msg, 'Diga pra onde você está indo.', 'atencao');
+    if (!destino) return mostrarMensagem(msg, 'Pesquise e escolha pra onde você está indo.', 'atencao');
     if (!horaTexto) return mostrarMensagem(msg, 'Defina o horário esperado de chegada.', 'atencao');
 
     const chegadaEsperada = calcularChegadaEsperada(horaTexto);
@@ -218,7 +239,7 @@ function prepararFormulario() {
         .insert({
           user_id: usuarioAtual.id,
           share_link: link,
-          destino_texto: destino,
+          destino_texto: destino.nome,
           expected_arrival_at: chegadaEsperada.toISOString()
         })
         .select('id,destino_texto,expected_arrival_at,status,share_link')
@@ -227,6 +248,7 @@ function prepararFormulario() {
 
       toast('Acompanhamento iniciado. Avisamos você se passar do horário sem confirmar.', 'sucesso');
       form.reset();
+      seletorDestino.limpar();
       mostrarEstadoAcompanhando(data);
     } catch (erro) {
       console.error(erro);
@@ -319,11 +341,39 @@ function prepararBotoesDeAcompanhamento() {
   });
 }
 
+/** Popup "Você está bem?" (ver atualizarContador) — responder não encerra o
+    acompanhamento (só "Cheguei bem", botão separado, faz isso): "Sim" só
+    dispensa e adia o próximo lembrete em +5 min; "Não" faz a mesma coisa que
+    já acontecia no botão "Compartilhar com contato" quando atrasada
+    (mensagem urgente + escalated_at), só que disparado a partir do popup. */
+function prepararModalCheckin() {
+  document.getElementById('carona-checkin-sim')?.addEventListener('click', () => {
+    fecharModal('modal-carona-checkin');
+    proximoLembreteMin += 5;
+  });
+
+  document.getElementById('carona-checkin-nao')?.addEventListener('click', async () => {
+    fecharModal('modal-carona-checkin');
+    proximoLembreteMin += 5;
+    abrirWhatsAppComContatoPrincipal(obterLinkDeConfirmacaoAtrasada, { linkCorrida: corridaAtualLink });
+    if (corridaAtualId) {
+      try {
+        await supabase.from('monitored_trips')
+          .update({ escalated_at: new Date().toISOString(), status: 'escalada' })
+          .eq('id', corridaAtualId);
+      } catch (erro) {
+        console.error(erro);
+      }
+    }
+  });
+}
+
 function mostrarEstadoAcompanhando(corrida) {
   corridaAtualId = corrida.id;
   corridaAtualLink = corrida.share_link || null;
   corridaAtualDestino = corrida.destino_texto || null;
   corridaAtualChegada = new Date(corrida.expected_arrival_at);
+  proximoLembreteMin = 5;
   document.getElementById('form-carona').hidden = true;
   document.getElementById('carona-acompanhando').hidden = false;
 
@@ -355,23 +405,30 @@ export function textoContador(expectedArrivalAtIso, agora = new Date()) {
   const diffMs = prazo.getTime() - agora.getTime();
   if (diffMs > 0) {
     const diffMin = Math.ceil(diffMs / 60000);
-    return { texto: `Chega em ${formatarDuracao(diffMin)}`, atrasada: false };
+    return { texto: `Chega em ${formatarDuracao(diffMin)}`, atrasada: false, minutosAtraso: 0 };
   }
   const atrasoMin = Math.floor(Math.abs(diffMs) / 60000);
-  return { texto: `Atrasada há ${formatarDuracao(atrasoMin)}`, atrasada: true };
+  return { texto: `Atrasada há ${formatarDuracao(atrasoMin)}`, atrasada: true, minutosAtraso: atrasoMin };
 }
 
 function atualizarContador(expectedArrivalAtIso) {
   const elemento = document.getElementById('carona-contador');
   if (!elemento) return;
-  const { texto, atrasada } = textoContador(expectedArrivalAtIso);
+  const { texto, atrasada, minutosAtraso } = textoContador(expectedArrivalAtIso);
   elemento.textContent = texto;
   elemento.classList.toggle('rota-carona__contador--atrasada', atrasada);
   corridaEstaAtrasada = atrasada;
-  // "Está tudo bem?" só faz sentido depois que o horário esperado passou —
-  // antes disso ninguém precisa responder nada, só acompanhar a contagem.
-  // Os botões (Cheguei bem / Compartilhar com contato) ficam sempre visíveis.
-  document.getElementById('carona-pergunta').hidden = !atrasada;
+
+  // Popup "Você está bem?" a cada proximoLembreteMin minutos de atraso —
+  // usa o próprio atributo "hidden" do modal como sinal de "já está aberto"
+  // (não precisa de outra variável): se ela fechar no X sem responder, o
+  // modal fica escondido de novo e este mesmo `if` reabre no próximo tick de
+  // 30s, de propósito (ver comentário no HTML do modal).
+  const modalCheckin = document.getElementById('modal-carona-checkin');
+  if (atrasada && minutosAtraso >= proximoLembreteMin && modalCheckin?.hidden) {
+    document.getElementById('carona-checkin-minutos').textContent = formatarDuracao(minutosAtraso);
+    abrirModal('modal-carona-checkin');
+  }
 }
 
 function pararContador() {

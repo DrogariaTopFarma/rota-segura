@@ -607,13 +607,39 @@
   box-shadow: 0 0 0 4px rgba(232, 61, 103, 0.12);
 }
 
+/* Caixa de sugestões de endereço — flutua colada embaixo do campo de busca
+   que a chamar (js/location-picker.js, js/search.js). Precisa de um
+   ancestral com `position: relative` por perto (ex.: .busca, na Tela 1, ou
+   .seletor-local__busca, nos seletores de local) — sem isso, ela ainda
+   funciona, só que ancorada num ponto mais distante do campo. */
+.sugestoes {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0; right: 0;
+  background: var(--branco);
+  border-radius: var(--raio-md);
+  box-shadow: var(--sombra-lg);
+  overflow: hidden;
+  z-index: var(--z-sugestoes);
+  max-height: 260px;
+  overflow-y: auto;
+}
+.sugestoes[hidden] { display: none; }
+
 /* --- Etiqueta "sem número exato" nas sugestões --- */
 .sugestoes button {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 16px;
+  font-size: var(--fs-sm);
+  border-bottom: 1px solid var(--borda);
 }
+.sugestoes button:last-child { border-bottom: none; }
+.sugestoes button:hover { background: var(--rosa-bebe); }
 .sugestao-tag {
   flex-shrink: 0;
   font-size: 10px;

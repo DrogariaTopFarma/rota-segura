@@ -74,15 +74,19 @@ export function aplicarIcones(raiz = document) {
   });
 }
 
-/** Marcador de mapa (pino colorido com ícone dentro). */
+/** Marcador de mapa (pino colorido com ícone dentro). Um círculo branco atrás
+    do ícone (linha do meio) melhora o contraste contra cores de pino mais
+    claras (ex.: amarelo), onde o traçado branco do ícone sozinho quase
+    sumia por cima da cor de fundo. */
 export function pinoMapa(nomeIcone, cor) {
   return `
   <div class="marcador">
-    <svg width="28" height="34" viewBox="0 0 34 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width="30" height="37" viewBox="0 0 34 42" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M17 1C8.7 1 2 7.7 2 16c0 10.5 15 25 15 25s15-14.5 15-25c0-8.3-6.7-15-15-15z"
             fill="${cor}" stroke="#FFFFFF" stroke-width="2"/>
+      <circle cx="17" cy="16" r="10" fill="rgba(255,255,255,0.22)"/>
       <svg x="9" y="8" width="16" height="16" viewBox="0 0 24 24" fill="none"
-           stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+           stroke="#FFFFFF" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">
         ${CAMINHOS[nomeIcone] || CAMINHOS.pino}
       </svg>
     </svg>

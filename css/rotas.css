@@ -213,6 +213,16 @@
 .rota-sos__texto { flex: 1; font-size: var(--fs-xs); color: var(--texto-principal); }
 .rota-sos__label { display: block; font-weight: 700; font-size: var(--fs-md); color: var(--rosa-magenta-escuro); margin-top: 2px; }
 .rota-sos__seta { flex-shrink: 0; transform: rotate(180deg); opacity: .5; }
+.rota-sos__policia {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  padding: 0 var(--esp-4) var(--esp-4);
+  color: var(--rosa-magenta-escuro);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.rota-sos__policia:hover { text-decoration: underline; }
 
 /* ---------------- Navegação ativa: mapa em tela cheia (estilo Google Maps/
    Waze), com botões flutuantes por cima e uma folha fixa na parte de baixo —

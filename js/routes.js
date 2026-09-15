@@ -771,7 +771,19 @@ async function acionarSos() {
   // de segurança (o wa.me não consegue acessar esta página de volta), sem
   // perder a referência.
   const janela = window.open('', '_blank');
-  if (janela) janela.opener = null;
+  if (janela) {
+    janela.opener = null;
+    // A aba fica em branco por alguns segundos enquanto espera o GPS de
+    // verdade (não dá pra acelerar isso sem perder precisão — é uma função
+    // de segurança) — sem isso, parecia travada. Só um "carregando" visual,
+    // não muda em nada o tempo real de resposta.
+    janela.document.write(
+      '<title>Abrindo WhatsApp…</title>' +
+      '<body style="display:flex;align-items:center;justify-content:center;height:100vh;margin:0;' +
+      'font-family:-apple-system,sans-serif;color:#777;text-align:center;padding:24px;">' +
+      '<p>Localizando você e abrindo o WhatsApp…</p></body>'
+    );
+  }
   try {
     const { data: sessao } = await supabase.auth.getUser();
     const user = sessao?.user;

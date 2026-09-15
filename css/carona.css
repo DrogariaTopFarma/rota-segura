@@ -1,0 +1,89 @@
+/* ============================================================
+   ROTA SEGURA — Acompanhar corrida (Uber/99), Tela 2
+   Mesma identidade visual do resto de rotas.css — cartão, botões
+   e campos reaproveitam as classes globais (.card, .btn, .campo,
+   .mensagem); só o que é específico desta função fica aqui.
+   ============================================================ */
+
+.rota-link-carona {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: var(--esp-4);
+  padding: var(--esp-3);
+  color: var(--rosa-magenta-escuro);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-align: center;
+}
+.rota-link-carona:hover { text-decoration: underline; }
+
+.rota-carona { margin-top: var(--esp-4); }
+
+.rota-carona__topo {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-4);
+}
+.rota-carona__topo h2 { font-size: var(--fs-lg); font-weight: 700; }
+
+.rota-carona__aviso {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--amarelo-suave);
+  color: #B26A22;
+  border-radius: var(--raio-md);
+  padding: var(--esp-3) var(--esp-4);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  margin-bottom: var(--esp-4);
+}
+.rota-carona__aviso span[data-icone] { flex-shrink: 0; }
+
+.rota-carona__policia { margin-bottom: var(--esp-4); }
+
+#carona-avisar-agora { margin-bottom: var(--esp-3); }
+
+/* ---------------- Estado "acompanhando" ---------------- */
+.rota-carona__contador {
+  text-align: center;
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  color: var(--rosa-magenta-escuro);
+  padding: var(--esp-4) 0;
+}
+.rota-carona__contador--atrasada { color: var(--vermelho); }
+
+.rota-carona__destino {
+  text-align: center;
+  color: var(--texto-secundario);
+  font-size: var(--fs-sm);
+  margin-bottom: var(--esp-4);
+}
+
+.rota-carona__pergunta {
+  text-align: center;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--vermelho);
+  margin-bottom: var(--esp-3);
+}
+
+#carona-cheguei-bem { margin-bottom: var(--esp-3); }
+#carona-compartilhar-contato { margin-bottom: var(--esp-3); }
+#carona-ligar-contato { margin-bottom: var(--esp-3); }
+
+.rota-carona__encerrar {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: var(--esp-2);
+  color: var(--texto-secundario);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+.rota-carona__encerrar:hover { text-decoration: underline; }

@@ -29,6 +29,7 @@
   <link rel="stylesheet" href="../css/components.css">
   <link rel="stylesheet" href="../css/map.css">
   <link rel="stylesheet" href="../css/rotas.css">
+  <link rel="stylesheet" href="../css/carona.css">
   <link rel="stylesheet" href="../css/responsive.css">
 </head>
 <body>
@@ -96,6 +97,88 @@
         Toque na mira para usar sua localização atual, ou digite outro endereço em "Meu local"
         para partir de um lugar diferente.
       </p>
+
+      <button type="button" class="rota-link-carona" id="abrir-painel-carona">
+        <span data-icone="carro" data-tamanho="16" aria-hidden="true"></span>
+        Vou de carona (Uber/99)? Acompanhar corrida
+      </button>
+    </div>
+
+    <!-- ================= ACOMPANHAR CORRIDA (Uber/99) =================
+         Não é rota própria — não tem origem/destino nem cálculo de rota
+         (não existe API pública que leia o GPS de uma corrida de terceiro,
+         ver js/carona.js). A usuária cola o link de "compartilhar corrida"
+         que o próprio app dela já gera, define o horário esperado de
+         chegada, e o Rota Segura lembra ela de confirmar que chegou bem. -->
+    <div class="card rota-carona" id="painel-carona" hidden>
+      <div class="rota-carona__topo">
+        <button type="button" class="btn-icone" id="carona-voltar" aria-label="Voltar">
+          <span data-icone="voltar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+        <h2>Acompanhar corrida</h2>
+      </div>
+
+      <p class="rota-carona__aviso">
+        <span data-icone="alerta" data-tamanho="16" aria-hidden="true"></span>
+        Isso é um lembrete, não uma ligação de emergência — em perigo real, ligue 190.
+      </p>
+
+      <a href="tel:190" class="btn btn-secundario btn-bloco rota-carona__policia">
+        <span data-icone="telefone" data-tamanho="18" aria-hidden="true"></span>
+        Ligar para a polícia (190)
+      </a>
+
+      <div id="mensagem-carona" class="mensagem" hidden></div>
+
+      <form id="form-carona" novalidate>
+        <div class="campo">
+          <label for="carona-link">Link de "compartilhar corrida" (Uber ou 99)</label>
+          <input type="url" id="carona-link" name="link" placeholder="Cole aqui o link que o app gerou" required>
+        </div>
+
+        <div class="campo">
+          <label for="carona-destino">Pra onde você vai?</label>
+          <input type="text" id="carona-destino" name="destino" placeholder="Ex.: Casa da Ana" required>
+        </div>
+
+        <div class="campo">
+          <label for="carona-chegada">Horário esperado de chegada</label>
+          <input type="time" id="carona-chegada" name="chegada" required>
+        </div>
+
+        <button type="button" class="btn btn-secundario btn-bloco" id="carona-avisar-agora">
+          <span data-icone="compartilhar" data-tamanho="18" aria-hidden="true"></span>
+          Avisar agora que comecei a corrida
+        </button>
+
+        <button type="submit" class="btn btn-primario btn-bloco">Começar a acompanhar</button>
+      </form>
+
+      <div id="carona-acompanhando" hidden>
+        <div class="rota-carona__contador" id="carona-contador">—</div>
+        <p class="rota-carona__destino" id="carona-destino-texto"></p>
+
+        <!-- Só aparece depois que o horário esperado passa (ver
+             atualizarContador em js/carona.js) — antes disso não faz
+             sentido perguntar "está tudo bem?" de nada. -->
+        <p class="rota-carona__pergunta" id="carona-pergunta" hidden>Está tudo bem?</p>
+
+        <button type="button" class="btn btn-primario btn-bloco" id="carona-cheguei-bem">
+          <span data-icone="votoPositivo" data-tamanho="18" aria-hidden="true"></span>
+          Cheguei bem
+        </button>
+        <button type="button" class="btn btn-secundario btn-bloco" id="carona-compartilhar-contato">
+          <span data-icone="compartilhar" data-tamanho="18" aria-hidden="true"></span>
+          Compartilhar com contato
+        </button>
+        <button type="button" class="btn btn-secundario btn-bloco" id="carona-ligar-contato">
+          <span data-icone="telefone" data-tamanho="18" aria-hidden="true"></span>
+          Ligar para o contato
+        </button>
+        <button type="button" class="rota-carona__encerrar" id="carona-encerrar">
+          Encerrar acompanhamento
+        </button>
+      </div>
     </div>
 
     <!-- O mapa fica FORA dos painéis de planejamento/navegação — precisa
@@ -277,5 +360,6 @@
        com Leaflet puro. -->
   <script src="../vendor/leaflet-rotate/leaflet-rotate-src.js"></script>
   <script type="module" src="../js/routes.js"></script>
+  <script type="module" src="../js/carona.js"></script>
 </body>
 </html>

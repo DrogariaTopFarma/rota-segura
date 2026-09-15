@@ -73,7 +73,7 @@ function construirLinkDeWhatsApp(contato, montarMensagem) {
 export function obterLinkDeEmergencia(contatoEmergencia) {
   return construirLinkDeWhatsApp(
     contatoEmergencia,
-    (linkMapa) => `🚨 Preciso de ajuda agora. Esta é a minha localização em tempo real: ${linkMapa}`
+    (linkMapa) => `Preciso de ajuda agora. Esta é a minha localização em tempo real: ${linkMapa}`
   );
 }
 
@@ -87,5 +87,45 @@ export function obterLinkDeCompartilhamento(contato, nomeDestino) {
   return construirLinkDeWhatsApp(
     contato,
     (linkMapa) => `Oi! Só avisando que estou a caminho de ${nomeDestino}. Minha localização agora: ${linkMapa}`
+  );
+}
+
+function formatarHora(data) {
+  return data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+/**
+ * Usado pelo "Acompanhar corrida" (js/carona.js) no botão "Avisar agora que
+ * comecei a corrida" — diferente de obterLinkDeCompartilhamento, inclui
+ * também o link de acompanhamento da própria corrida (Uber/99) e o horário
+ * esperado de chegada, pra quem recebe já poder abrir e ver o trajeto ao
+ * vivo, não só a localização pontual de agora.
+ */
+export function obterLinkDeAcompanhamento(contato, { destino, horario, linkCorrida }) {
+  return construirLinkDeWhatsApp(
+    contato,
+    (linkMapa) => {
+      const destinoTexto = destino ? ` até ${destino}` : '';
+      return `Oi! Comecei uma corrida agora${destinoTexto} e devo chegar até ${formatarHora(horario)}. `
+        + `Segue o link de acompanhamento dela: ${linkCorrida}. Minha localização atual: ${linkMapa}`;
+    }
+  );
+}
+
+/**
+ * Usado pelo "Acompanhar corrida" (js/carona.js) quando o horário esperado de
+ * chegada passou sem confirmação e a usuária responde "Não" pra "Está tudo
+ * bem?" — ainda é ELA quem dispara (nunca automático: contato de emergência
+ * não é usuária do app, não tem como receber push sozinho), só que o texto
+ * já vem pronto e no mesmo tom de urgência do botão SOS.
+ */
+export function obterLinkDeConfirmacaoAtrasada(contato, { linkCorrida } = {}) {
+  return construirLinkDeWhatsApp(
+    contato,
+    (linkMapa) => {
+      const linkTexto = linkCorrida ? ` Link da corrida: ${linkCorrida}.` : '';
+      return `Ainda não confirmei que cheguei bem numa corrida que já devia ter chegado. `
+        + `Pode me ajudar a conferir?${linkTexto} Minha última localização: ${linkMapa}`;
+    }
   );
 }

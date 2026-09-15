@@ -1127,5 +1127,66 @@ create policy "push_subscriptions_delete_proprio"
 
 
 -- ============================================================================
+-- 19. TABELA: monitored_trips ("Acompanhar corrida" — Uber/99, Tela 2)
+--     Não lê o GPS de dentro do Uber/99 (não existe API pública pra isso) —
+--     a usuária cola o link de "compartilhar corrida" que o próprio app dela
+--     já gera, e define um horário esperado de chegada. A Edge Function
+--     `verificar-corridas` (agendada por pg_cron, mesmo padrão de
+--     `coletar-fontes` — ver COMO_CONFIGURAR_ALERTAS.md) varre esta tabela
+--     periodicamente e manda um lembrete por push quando o prazo vence sem
+--     `confirmed_at` preenchido, escalando pra um aviso mais urgente se ainda
+--     assim não houver confirmação. IMPORTANTE: isso é uma camada de
+--     lembrete/tranquilidade, nunca um substituto de ligar pra 190 — o app
+--     não tem como avisar o contato de emergência sozinho (ele não é
+--     usuária do app, não tem push subscription), só lembrar A PRÓPRIA
+--     usuária de fazer isso com um toque (ver js/emergency.js,
+--     obterLinkDeConfirmacaoAtrasada).
+-- ============================================================================
+create table if not exists public.monitored_trips (
+  id                   uuid primary key default gen_random_uuid(),
+  user_id              uuid not null references auth.users(id) on delete cascade,
+  share_link           text not null,
+  destino_texto        text not null,
+  expected_arrival_at  timestamptz not null,
+  confirmed_at         timestamptz,
+  reminder_sent_at     timestamptz,
+  escalated_at         timestamptz,
+  status               text not null default 'ativa' check (status in (
+                         'ativa', 'confirmada', 'escalada', 'encerrada_manual'
+                       )),
+  created_at           timestamptz not null default now(),
+  updated_at           timestamptz not null default now()
+);
+
+create index if not exists idx_monitored_trips_status_prazo
+  on public.monitored_trips(status, expected_arrival_at);
+
+drop trigger if exists trg_monitored_trips_updated_at on public.monitored_trips;
+create trigger trg_monitored_trips_updated_at
+  before update on public.monitored_trips
+  for each row execute function public.set_updated_at();
+
+alter table public.monitored_trips enable row level security;
+
+-- 100% privado, mesmo padrão de emergency_contacts — só a própria usuária lê/
+-- escreve pelo app; a Edge Function de checagem usa a service_role key (que
+-- ignora RLS) pra varrer as corridas de todo mundo.
+drop policy if exists "corridas_proprias_select" on public.monitored_trips;
+create policy "corridas_proprias_select"
+  on public.monitored_trips for select
+  to authenticated using (auth.uid() = user_id);
+
+drop policy if exists "corridas_proprias_insert" on public.monitored_trips;
+create policy "corridas_proprias_insert"
+  on public.monitored_trips for insert
+  to authenticated with check (auth.uid() = user_id);
+
+drop policy if exists "corridas_proprias_update" on public.monitored_trips;
+create policy "corridas_proprias_update"
+  on public.monitored_trips for update
+  to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+
+-- ============================================================================
 -- FIM. Se rodou sem erro, você verá "Success. No rows returned".
 -- ============================================================================

@@ -17,7 +17,7 @@
    apaga qualquer cache de versão anterior automaticamente.
    ============================================================================ */
 
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = 'v8';
 const CACHE_NAME = `rota-segura-${CACHE_VERSION}`;
 
 const ARQUIVOS_DO_APP = [
@@ -27,7 +27,7 @@ const ARQUIVOS_DO_APP = [
   'css/map.css', 'css/rotas.css', 'css/carona.css', 'css/comunidade.css', 'css/perfil.css', 'css/responsive.css',
   'js/config.js', 'js/supabase.js', 'js/auth.js', 'js/map.js', 'js/geolocation.js',
   'js/geocoding.js', 'js/location-picker.js', 'js/search.js', 'js/reports.js',
-  'js/routes.js', 'js/navigation.js', 'js/voice.js', 'js/push.js', 'js/carona.js',
+  'js/routes.js', 'js/navigation.js', 'js/voice.js', 'js/push.js', 'js/carona.js', 'js/vanessa.js',
   'js/pwa.js', 'js/risco-horario.js', 'js/emergency.js', 'js/community.js', 'js/alertas.js', 'js/profile.js',
   'js/notifications.js', 'js/nav.js', 'js/ui.js', 'js/icons.js', 'js/app.js',
   'pages/login.html', 'pages/cadastro.html', 'pages/recuperar-senha.html', 'pages/nova-senha.html',

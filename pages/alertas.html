@@ -65,6 +65,12 @@
     <div class="comunidade-feed" id="comunidade-feed"></div>
   </div>
 
+  <!-- ================= VANESSA (assistente de IA) ================= -->
+  <button type="button" class="vanessa-fab" id="abrir-vanessa">
+    <span data-icone="vanessa" data-tamanho="20" aria-hidden="true"></span>
+    <span>Vanessa</span>
+  </button>
+
   <!-- ================= BOTTOM NAVIGATION ================= -->
   <nav class="bottom-nav" aria-label="Navegação principal">
     <a class="bottom-nav__item" href="mapa.html">
@@ -196,6 +202,41 @@
         </div>
       </div>
       <div id="notificacoes-lista"></div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: VANESSA (chat de IA) =================
+       Só responde segurança pessoal/nas ruas e como usar o Rota Segura — a
+       regra de escopo de verdade fica no prompt da Edge Function
+       (supabase/functions/perguntar-vanessa), não aqui. Conversa vive só
+       nesta aba (ver js/vanessa.js) — recarregar a página começa do zero. -->
+  <div class="modal modal--vanessa" id="modal-vanessa" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-vanessa" hidden>
+    <div class="modal__caixa vanessa-caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo vanessa-titulo" id="titulo-modal-vanessa">
+          <span data-icone="vanessa" data-tamanho="20" aria-hidden="true"></span>
+          Vanessa
+        </h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <p class="vanessa-aviso">
+        Só ajudo com segurança pessoal/nas ruas e dúvidas sobre o Rota Segura — em uma
+        emergência de verdade, use o SOS ou ligue 190.
+      </p>
+
+      <div class="vanessa-mensagens" id="vanessa-mensagens"></div>
+      <div class="vanessa-chips" id="vanessa-chips"></div>
+
+      <form id="vanessa-form" class="vanessa-form">
+        <label class="sr-only" for="vanessa-input">Sua pergunta</label>
+        <input type="text" id="vanessa-input" placeholder="Pergunte algo pra Vanessa..." autocomplete="off">
+        <button type="submit" class="btn-icone" aria-label="Enviar pergunta">
+          <span data-icone="enviar" data-tamanho="18" aria-hidden="true"></span>
+        </button>
+      </form>
     </div>
   </div>
 

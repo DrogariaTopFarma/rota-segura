@@ -14,6 +14,7 @@ import {
   carregarFeed, prepararFiltrosDeComunidade, ligarRealtimePosts,
   prepararFormularioPublicacao, prepararComentarios
 } from './community.js';
+import { prepararChatVanessa } from './vanessa.js';
 import { registrarServiceWorker, ligarBotaoInstalarApp } from './pwa.js';
 
 async function iniciar() {
@@ -41,6 +42,7 @@ async function iniciar() {
   prepararFiltrosDeComunidade();
   prepararFormularioPublicacao({ aoPublicar: () => carregarFeed() });
   prepararComentarios();
+  prepararChatVanessa();
 
   await Promise.all([carregarFeed(), atualizarBadgeNotificacoes()]);
   ligarRealtimePosts();

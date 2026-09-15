@@ -654,3 +654,124 @@
   cursor: default;
   line-height: 1.45;
 }
+
+/* ---------------- Vanessa (chat de IA, Tela 3 — Comunidade) ---------------- */
+.vanessa-fab {
+  position: fixed;
+  right: var(--esp-4);
+  bottom: calc(var(--altura-bottom-nav) + var(--esp-3));
+  z-index: var(--z-flutuante);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px 12px 14px;
+  border-radius: var(--raio-full);
+  background: linear-gradient(135deg, var(--rosa-magenta), var(--roxo));
+  color: var(--branco);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  box-shadow: var(--sombra-rosa);
+}
+.vanessa-fab:hover { filter: brightness(1.05); }
+
+.vanessa-titulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--rosa-magenta-escuro);
+}
+
+/* O chat precisa de altura de verdade (é uma conversa, não um formulário
+   curto) — em vez do modal__caixa padrão (altura pelo conteúdo, até 92vh),
+   fixa uma altura e organiza em coluna: aviso fixo no topo, mensagens
+   rolando no meio, campo de digitar fixo embaixo. */
+.vanessa-caixa {
+  height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.vanessa-aviso {
+  font-size: var(--fs-xs);
+  color: var(--texto-secundario);
+  background: var(--rosa-bebe);
+  border-radius: var(--raio-md);
+  padding: var(--esp-2) var(--esp-3);
+  margin-bottom: var(--esp-3);
+  flex-shrink: 0;
+}
+
+.vanessa-mensagens {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  padding-bottom: var(--esp-2);
+}
+.vanessa-bolha {
+  max-width: 82%;
+  padding: 10px 14px;
+  border-radius: var(--raio-md);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  white-space: pre-line;
+}
+.vanessa-bolha--usuaria {
+  align-self: flex-end;
+  background: var(--rosa-magenta);
+  color: var(--branco);
+  border-bottom-right-radius: 4px;
+}
+.vanessa-bolha--vanessa {
+  align-self: flex-start;
+  background: var(--cinza-muito-claro);
+  color: var(--texto-principal);
+  border-bottom-left-radius: 4px;
+}
+.vanessa-bolha--digitando { color: var(--texto-secundario); font-style: italic; }
+
+.vanessa-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: var(--esp-2) 0;
+}
+.vanessa-chips button {
+  padding: 8px 14px;
+  border-radius: var(--raio-full);
+  background: var(--roxo-suave);
+  color: #5b3f92;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-align: left;
+}
+.vanessa-chips button:hover { background: var(--roxo); color: var(--branco); }
+
+.vanessa-form {
+  display: flex;
+  gap: var(--esp-2);
+  align-items: center;
+  flex-shrink: 0;
+  padding-top: var(--esp-3);
+  border-top: 1px solid var(--borda);
+}
+.vanessa-form input {
+  flex: 1;
+  border: 1.5px solid var(--borda);
+  border-radius: var(--raio-full);
+  padding: 12px 16px;
+  font-family: var(--fonte);
+  font-size: var(--fs-sm);
+}
+.vanessa-form input:focus { outline: none; border-color: var(--rosa-magenta); }
+.vanessa-form button {
+  flex-shrink: 0;
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  background: var(--rosa-magenta);
+  color: var(--branco);
+  display: flex; align-items: center; justify-content: center;
+}
+.vanessa-form button:hover { background: var(--rosa-magenta-escuro); }

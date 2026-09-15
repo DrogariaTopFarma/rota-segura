@@ -49,7 +49,10 @@ const CAMINHOS = {
   semSom: '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="m17 9 5 6"/><path d="m22 9-5 6"/>',
   baixar: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
   setaManobra: '<path d="M12 20V6"/><path d="m5 13 7-7 7 7"/>',
-  rotatoria: '<circle cx="12" cy="13" r="7"/><path d="M12 6v3"/><path d="m9 3 3 3 3-3"/>'
+  rotatoria: '<circle cx="12" cy="13" r="7"/><path d="M12 6v3"/><path d="m9 3 3 3 3-3"/>',
+  // Ícone só da Vanessa (assistente de IA) — uma "sparkle", jeito visual já
+  // comum pra IA/assistente, diferente de tudo mais usado no app.
+  vanessa: '<path d="m12 3-1.9 5.8L4 11l6.1 2.2L12 19l1.9-5.8L20 11l-6.1-2.2L12 3z"/><path d="M19 3v3"/><path d="M17.5 4.5h3"/>'
 };
 
 /**

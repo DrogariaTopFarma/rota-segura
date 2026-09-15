@@ -143,7 +143,10 @@
     </a>
   </nav>
 
-  <!-- ================= MODAL: O QUE CADASTRAR ================= -->
+  <!-- ================= MODAL: O QUE CADASTRAR =================
+       Ponto de apoio e delegacia não aparecem mais aqui — os dois viram
+       "lugar parceiro", cadastrado só pela administradora direto no banco
+       (ver GUIA_PASSO_A_PASSO.md e sql/schema.sql, seções 12.4/12.5). -->
   <div class="modal" id="modal-cadastrar" role="dialog" aria-modal="true"
        aria-labelledby="titulo-modal-cadastrar" hidden>
     <div class="modal__caixa">
@@ -159,14 +162,6 @@
         <span>
           <span class="modal__opcao__titulo">Cadastrar relato</span>
           <span class="modal__opcao__desc">Registre algo que aconteceu com você em um local</span>
-        </span>
-      </button>
-
-      <button type="button" class="modal__opcao" data-abrir="modal-ponto">
-        <span class="modal__opcao__icone" data-icone="predio" data-tamanho="24" aria-hidden="true"></span>
-        <span>
-          <span class="modal__opcao__titulo">Cadastrar ponto de apoio ou delegacia</span>
-          <span class="modal__opcao__desc">Locais onde é possível pedir ajuda</span>
         </span>
       </button>
 
@@ -280,93 +275,6 @@
         </div>
 
         <button type="submit" class="btn btn-primario btn-bloco">ENVIAR RELATO</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- ================= MODAL: PONTO DE APOIO / DELEGACIA ================= -->
-  <div class="modal" id="modal-ponto" role="dialog" aria-modal="true"
-       aria-labelledby="titulo-modal-ponto" hidden>
-    <div class="modal__caixa">
-      <div class="modal__cabecalho">
-        <h2 class="modal__titulo" id="titulo-modal-ponto">Cadastrar ponto de apoio ou delegacia</h2>
-        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
-          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
-        </button>
-      </div>
-
-      <div id="mensagem-ponto" class="mensagem" hidden></div>
-
-      <form id="form-ponto" novalidate>
-        <div class="campo">
-          <label for="ponto-tipo">Tipo do local</label>
-          <select id="ponto-tipo" name="tipo" required>
-            <option value="">Selecione</option>
-            <option value="delegacia">Delegacia</option>
-            <option value="ponto_apoio">Ponto de apoio</option>
-            <option value="farmacia">Farmácia</option>
-            <option value="hospital">Hospital</option>
-            <option value="comercio_24h">Comércio 24h</option>
-            <option value="ponto_onibus">Ponto de ônibus</option>
-            <option value="outro">Outro</option>
-          </select>
-        </div>
-
-        <label class="campo-checkbox" id="ponto-deam-wrapper" hidden>
-          <input type="checkbox" id="ponto-deam" name="deam">
-          <span>É uma Delegacia de Atendimento à Mulher (DEAM)</span>
-        </label>
-
-        <div class="campo">
-          <label for="ponto-nome">Nome do local</label>
-          <input type="text" id="ponto-nome" name="nome" placeholder="Ex.: 12ª DP — Copacabana" required>
-        </div>
-
-        <fieldset class="seletor-local">
-          <legend>Onde fica</legend>
-
-          <button type="button" class="btn btn-primario btn-bloco" id="ponto-usar-localizacao">
-            <span data-icone="mira" data-tamanho="18" aria-hidden="true"></span> Usar minha localização
-          </button>
-
-          <div class="local-resumo" id="ponto-local-escolhido" role="status" hidden></div>
-
-          <div class="mini-mapa" id="ponto-mini-mapa"
-               role="img" aria-label="Mapa de conferência do local escolhido"></div>
-          <p class="seletor-local__dica">
-            Confira o endereço acima, digite outro no campo "Endereço" logo abaixo, ou arraste
-            o pino no mapa até o ponto certo.
-          </p>
-        </fieldset>
-
-        <div class="campo campo--busca">
-          <label for="ponto-endereco">Endereço</label>
-          <input type="text" id="ponto-endereco" name="endereco"
-                 placeholder="Digite a rua e o número para buscar" autocomplete="off">
-          <div class="sugestoes" id="ponto-sugestoes" hidden></div>
-        </div>
-
-        <div class="campo">
-          <label for="ponto-telefone">Telefone <span class="texto-secundario">(opcional)</span></label>
-          <input type="tel" id="ponto-telefone" name="telefone" placeholder="(21) 0000-0000">
-        </div>
-
-        <div class="campo">
-          <label for="ponto-horario">Horário de funcionamento <span class="texto-secundario">(opcional)</span></label>
-          <input type="text" id="ponto-horario" name="horario" placeholder="Ex.: 24 horas / Seg a sex, 8h às 18h">
-        </div>
-
-        <div class="campo">
-          <label for="ponto-descricao">Descrição</label>
-          <textarea id="ponto-descricao" name="descricao" placeholder="O que este local oferece?"></textarea>
-        </div>
-
-        <div class="campo">
-          <label for="ponto-extra">Informações adicionais <span class="texto-secundario">(opcional)</span></label>
-          <input type="text" id="ponto-extra" name="extra" placeholder="Ex.: entrada pela lateral, acessível">
-        </div>
-
-        <button type="submit" class="btn btn-primario btn-bloco">SALVAR LOCAL</button>
       </form>
     </div>
   </div>

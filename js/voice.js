@@ -45,10 +45,20 @@ export function alternarVoz() {
 }
 
 /** Fala um texto em português — silenciosamente ignorado se a voz estiver
-    desligada, não suportada, ou o texto vier vazio. Nunca lança erro. */
+    desligada, não suportada, ou o texto vier vazio. Nunca lança erro.
+
+    `speechSynthesis.speak()` enfileira (FIFO) em vez de interromper — sem o
+    `cancel()` abaixo, uma instrução nova esperava a anterior terminar de
+    falar pra começar. Em manobras seguidas (ou um alerta de proximidade
+    chegando no meio de uma instrução de manobra), isso se acumulava e o
+    áudio saía cada vez mais atrasado da posição real. Cancelar antes de
+    falar é o mesmo padrão de app de navegação de verdade (Waze/Google
+    Maps): a instrução mais atual sempre substitui a anterior, nunca faz
+    fila. */
 export function falar(texto) {
   if (!SUPORTADO || !vozAtiva || !texto) return;
   try {
+    window.speechSynthesis.cancel();
     const fala = new SpeechSynthesisUtterance(texto);
     fala.lang = 'pt-BR';
     if (vozEscolhida) fala.voice = vozEscolhida;

@@ -521,20 +521,17 @@ create policy "pontos_leitura"
   to authenticated
   using (status = 'approved' or auth.uid() = user_id);
 
+-- Ponto de apoio virou "lugar parceiro" cadastrado só pela administradora do
+-- projeto (não existe mais formulário público pra isso — ver js/support-points.js
+-- e pages/mapa.html). De propósito NÃO existe mais policy de insert/update/delete
+-- pra `authenticated` aqui: com só uma administradora, criar uma coluna/role de
+-- admin seria complexidade nova sem necessidade — ela mesma cadastra direto pelo
+-- Table Editor ou SQL Editor do Supabase (que ignoram RLS), documentado em
+-- GUIA_PASSO_A_PASSO.md. Estas 3 linhas só APAGAM as policies antigas (de quando
+-- qualquer usuária logada podia inserir) — sem recriar nada no lugar.
 drop policy if exists "pontos_insert_proprio" on public.support_points;
-create policy "pontos_insert_proprio"
-  on public.support_points for insert
-  to authenticated with check (auth.uid() = user_id);
-
 drop policy if exists "pontos_update_proprio" on public.support_points;
-create policy "pontos_update_proprio"
-  on public.support_points for update
-  to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
-
 drop policy if exists "pontos_delete_proprio" on public.support_points;
-create policy "pontos_delete_proprio"
-  on public.support_points for delete
-  to authenticated using (auth.uid() = user_id);
 
 
 -- ---------------------------------------------------------------------------
@@ -546,20 +543,14 @@ create policy "delegacias_leitura"
   to authenticated
   using (status = 'approved' or auth.uid() = user_id);
 
+-- Mesmo motivo/mesma decisão de support_points (seção 12.4 acima): delegacia
+-- virou "lugar parceiro" cadastrado só pela administradora, direto pelo
+-- Table Editor/SQL Editor do Supabase — não existe mais formulário público
+-- pra isso (js/support-points.js foi removido, pages/mapa.html não tem mais
+-- o modal de cadastro). Só apaga as policies antigas, sem recriar.
 drop policy if exists "delegacias_insert_proprio" on public.police_stations;
-create policy "delegacias_insert_proprio"
-  on public.police_stations for insert
-  to authenticated with check (auth.uid() = user_id);
-
 drop policy if exists "delegacias_update_proprio" on public.police_stations;
-create policy "delegacias_update_proprio"
-  on public.police_stations for update
-  to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
-
 drop policy if exists "delegacias_delete_proprio" on public.police_stations;
-create policy "delegacias_delete_proprio"
-  on public.police_stations for delete
-  to authenticated using (auth.uid() = user_id);
 
 
 -- ---------------------------------------------------------------------------

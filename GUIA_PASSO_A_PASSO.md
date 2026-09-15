@@ -495,13 +495,12 @@ Faça na ordem. Cada item tem "o que fazer" e "o que tem que acontecer".
 - ✅ Confirme no Supabase: **Table Editor → reports**. Deve haver uma linha nova com
   seu `user_id`, `lat`, `lng` e `status = approved`.
 
-**7.9 — Cadastrar ponto de apoio / delegacia**
-- Botão **+** → **Cadastrar ponto de apoio ou delegacia**.
-- Escolha **Delegacia** → aparece a caixinha "É uma Delegacia de Atendimento à Mulher (DEAM)".
-- Preencha nome, localização e salve.
-- ✅ Aparece um marcador roxo no mapa.
-- ✅ Confirme em **Table Editor → police_stations**.
-- Repita escolhendo **Farmácia** → ✅ vai para **support_points** e o marcador é verde.
+**7.9 — Ponto de apoio e delegacia não têm mais formulário no app**
+- Os dois viraram "lugar parceiro" — cadastrados só pela administradora, direto pelo Table
+  Editor do Supabase (nada de botão **+** pra isso). Ver seção "Como adicionar um ponto de
+  apoio ou delegacia parceira" logo abaixo da Etapa 7.
+- ✅ Pra testar: adicione uma linha em `police_stations` ou `support_points` pelo Table Editor
+  com `status = approved` e confirme que o marcador aparece no mapa.
 
 **7.10 — Segurança (RLS) na prática**
 - Crie uma **segunda conta** (use outro e-mail, ou uma aba anônima).
@@ -527,6 +526,56 @@ Faça na ordem. Cada item tem "o que fazer" e "o que tem que acontecer".
 | A busca de endereço não devolve nada | Faltou contexto, ou o número da casa não está mapeado no OpenStreetMap | Escreva "rua + cidade", ex.: `Rua da Paz, Niterói`. Se só a rua aparecer (marcada como "sem número exato"), é porque aquele número específico ainda não existe na base gratuita — ajuste o pino arrastando |
 | Erro `403` ao enviar imagem do relato | Policy do Storage | Confira em **Storage → rota-segura → Policies** se existe a policy de insert por pasta do usuário |
 | `Sua sessão expirou` | Token vencido | Faça login de novo |
+
+---
+
+## Como adicionar um ponto de apoio ou delegacia parceira (só administradora)
+
+Ponto de apoio (farmácia, hospital, comércio 24h, ponto de ônibus etc.) e delegacia não são mais
+cadastrados pelo formulário do app — os dois viraram "lugar parceiro", e só você (a
+administradora) adiciona, direto no painel do Supabase. Isso é intencional: com uma
+administradora só, criar um sistema de permissão dentro do app seria complexidade sem
+necessidade — o próprio painel do Supabase já é seu acesso exclusivo.
+
+### Ponto de apoio (`support_points`)
+
+1. Painel do Supabase → **Table Editor** → tabela **`support_points`**.
+2. Clique em **"Insert"** → **"Insert row"**.
+3. Preencha as colunas:
+   - `type`: um destes valores exatos — `ponto_apoio`, `farmacia`, `hospital`, `comercio_24h`,
+     `ponto_onibus`, `outro`.
+   - `name`: nome do local (ex.: "Farmácia Popular — Copacabana").
+   - `address`: endereço em texto (ex.: "Rua Barata Ribeiro, 500, Copacabana").
+   - `lat` / `lng`: coordenada do local (pegue no Google Maps: clique com o botão direito no
+     ponto exato → o primeiro número copiado é o `lat`, o segundo é o `lng`).
+   - `status`: **`approved`** — sem isso, o ponto fica salvo mas invisível no mapa. A coluna já
+     tem esse valor como padrão (`default 'approved'`), então o Table Editor costuma preencher
+     sozinho, mas confira antes de salvar.
+   - `phone`, `description`, `opening_hours`, `extra_info`: opcionais.
+   - `user_id`: pode deixar em branco (null) — a coluna aceita, já que agora ninguém "é dona" de
+     um ponto parceiro.
+4. Clique em **"Save"**.
+
+### Delegacia (`police_stations`)
+
+Mesmos passos, na tabela **`police_stations`**:
+   - `name`, `address`, `lat`, `lng`: iguais ao ponto de apoio.
+   - `is_women_only`: `true` se for uma DEAM (Delegacia de Atendimento à Mulher), `false` senão.
+   - `status`: **`approved`** (mesma regra acima).
+   - `phone`, `description`, `opening_hours`: opcionais. Não existe `type` nem `extra_info`
+     nessa tabela — só em `support_points`.
+   - `user_id`: pode deixar em branco.
+
+### Como testar se deu certo
+
+Abra o Mapa (Tela 1) na área onde você cadastrou — o marcador deve aparecer com a cor/ícone
+certo, igual a qualquer outro ponto de apoio/delegacia já existente.
+
+### Erro mais comum
+
+| Erro | Causa | Solução |
+|---|---|---|
+| Local salvo mas não aparece no mapa | O campo `status` ficou diferente de `approved` (minúsculo, exatamente assim) | Edite a linha no Table Editor e corrija o campo `status` |
 
 ---
 
@@ -691,7 +740,9 @@ corrigido: agora o círculo mostra o tamanho real do erro.
 
 ### 10.2 — Como o local do relato é definido
 
-Duas regras que valem para os dois formulários (relato e ponto de apoio):
+Duas regras que valem pro formulário de relato (o único que sobrou aberto pra qualquer usuária
+— ponto de apoio e delegacia viraram cadastro só da administradora, direto no banco, sem
+formulário no app):
 
 **Regra 1 — o app usa a sua localização sozinho.** Assim que você abre o formulário, ele já
 pede o GPS e preenche o endereço. Você não precisa clicar em nada nem marcar nada no mapa.
@@ -710,12 +761,6 @@ A tela do formulário de **relato** fica nesta ordem:
 
 Se o GPS falhar ou for negado, o cartão explica o motivo e o bloco de correção abre sozinho,
 com o campo de pesquisa já em foco.
-
-No formulário de **ponto de apoio**, a busca fica sempre visível: é o próprio campo
-**"Endereço"**, logo abaixo do mapinha de conferência. Digitar ali mostra sugestões e escolher
-uma move o pino — não é mais preciso abrir nada escondido. (Antes esse campo era só texto
-solto e não movia o pino; foi por isso que relatos e pontos ficavam salvos na localização atual
-mesmo depois de digitar outra rua.)
 
 **Como testar:**
 1. Clique no **+** → **Cadastrar relato**.
@@ -791,7 +836,7 @@ precisão melhora de verdade. Antes ele piscava a cada leitura do GPS.
 
 ### 10.5 — Novo visual do mapa (CARTO Voyager)
 
-O mapa das Telas 1 e 2 (e os mini-mapas dos formulários de relato/ponto de apoio) mudaram de
+O mapa das Telas 1 e 2 (e o mini-mapa do formulário de relato) mudaram de
 aparência: em vez do estilo colorido padrão do OpenStreetMap, agora usam o estilo **Voyager**,
 da **CARTO** — fundo claro, quarteirões em bege bem diferenciado das ruas brancas, avenidas
 principais destacadas. Os dados por trás continuam sendo do OpenStreetMap (mesmas ruas, mesma

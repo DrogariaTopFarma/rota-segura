@@ -476,31 +476,37 @@ function desenharContextoDaRota({ relatos, pontos, delegacias }) {
 
   relatos.forEach((r) => {
     const nomeIcone = ICONE_POR_TIPO_RELATO[r.type] || 'escudo';
-    L.marker([r.lat, r.lng], { icon: divIconContexto(nomeIcone, corDoRelato(r)), alt: ROTULOS_RELATO[r.type] || 'Relato' })
+    const marcador = L.marker([r.lat, r.lng], { icon: divIconContexto(nomeIcone, corDoRelato(r)), alt: ROTULOS_RELATO[r.type] || 'Relato' })
       .bindPopup(`
         <div class="popup__tipo">${escapar(ROTULOS_RELATO[r.type] || 'Relato')}</div>
         <div class="popup__meta">${escapar(r.address || 'Endereço não informado')}</div>
       `)
       .addTo(camadaContexto);
+    // Marca o tipo em cada marcador — é o que permite ao botão "Pontos de
+    // apoio" (ver navegacao-pontos-apoio) separar isso de relato, em vez de
+    // varrer a camada inteira sem distinguir.
+    marcador._categoriaContexto = 'relato';
   });
 
   pontos.forEach((p) => {
     const criador = ICONE_CONTEXTO[p.type] || ICONE_CONTEXTO.ponto_apoio;
-    L.marker([p.lat, p.lng], { icon: criador(), alt: p.name })
+    const marcador = L.marker([p.lat, p.lng], { icon: criador(), alt: p.name })
       .bindPopup(`
         <div class="popup__tipo">${escapar(p.name)}</div>
         <div class="popup__meta">${escapar(p.address || '')}</div>
       `)
       .addTo(camadaContexto);
+    marcador._categoriaContexto = 'ponto';
   });
 
   delegacias.forEach((d) => {
-    L.marker([d.lat, d.lng], { icon: ICONE_CONTEXTO.delegacia(), alt: d.name })
+    const marcador = L.marker([d.lat, d.lng], { icon: ICONE_CONTEXTO.delegacia(), alt: d.name })
       .bindPopup(`
         <div class="popup__tipo">${escapar(d.name)}</div>
         <div class="popup__meta">${d.is_women_only ? 'Delegacia da Mulher' : 'Delegacia'}</div>
       `)
       .addTo(camadaContexto);
+    marcador._categoriaContexto = 'ponto';
   });
 }
 
@@ -557,14 +563,23 @@ function pontuarCandidata(geometria, bruto) {
     geometria.some(([rLat, rLng]) => distanciaMetros(lat, lng, rLat, rLng) <= raioM);
 
   const relatos = bruto.relatos.filter((r) => pertoDaRota(r.lat, r.lng, RAIO_PONTUACAO_M));
-  const pontos = bruto.pontos.filter((p) => pertoDaRota(p.lat, p.lng, RAIO_PONTUACAO_M));
-  const delegacias = bruto.delegacias.filter((d) => pertoDaRota(d.lat, d.lng, RAIO_PONTUACAO_M));
+  const pontosPerto = bruto.pontos.filter((p) => pertoDaRota(p.lat, p.lng, RAIO_PONTUACAO_M));
+  const delegaciasPerto = bruto.delegacias.filter((d) => pertoDaRota(d.lat, d.lng, RAIO_PONTUACAO_M));
 
   let pontuacao = 0;
   relatos.forEach((r) => { pontuacao += PESO_RISCO_POR_GRAVIDADE[r.attention_level] ?? PESO_RISCO_POR_GRAVIDADE.medio; });
-  pontuacao += (pontos.length + delegacias.length) * PONTOS_POR_APOIO_PERTO;
+  pontuacao += (pontosPerto.length + delegaciasPerto.length) * PONTOS_POR_APOIO_PERTO;
 
-  return { relatos, pontos, delegacias, pontuacao };
+  // Pra DESENHAR no mapa (botão "Pontos de apoio" na navegação ativa), usa
+  // uma faixa bem mais larga que os 70m da pontuação de risco — os 70m são
+  // de propósito apertados pra pontuar só o que está NO caminho, mas usar o
+  // mesmo raio pro desenho deixava o botão "Pontos de apoio" quase sempre
+  // vazio (o ponto existia perto, só não dentro dessa faixa estreita).
+  // `bruto.pontos`/`bruto.delegacias` já vêm filtrados por uma caixa (bounding
+  // box) ampla o bastante ao redor de toda a rota (ver
+  // buscarRelatosPontosEDelegaciasNaArea, ~300m de margem) — reaproveita
+  // direto, sem gastar outra consulta ao banco.
+  return { relatos, pontos: bruto.pontos, delegacias: bruto.delegacias, pontuacao };
 }
 
 /** Recebe as alternativas de rota que a Edge Function calculou (1 a 3) e
@@ -676,13 +691,27 @@ function iniciarNavegacaoClique() {
   mapa.invalidateSize();
 
   document.getElementById('navegacao-pontos-apoio').onclick = () => {
-    const pontos = [];
-    camadaContexto.eachLayer((l) => { if (l.getLatLng) pontos.push(l.getLatLng()); });
-    if (!pontos.length) {
+    // Só ponto de apoio/delegacia, nunca relato — camadaContexto mistura os
+    // três tipos no mesmo layer group, e antes o eachLayer varria tudo junto
+    // sem distinguir (ver _categoriaContexto em desenharContextoDaRota).
+    const marcadores = [];
+    camadaContexto.eachLayer((l) => {
+      if (l._categoriaContexto === 'ponto' && l.getLatLng) marcadores.push(l);
+    });
+    if (!marcadores.length) {
       toast('Nenhum ponto de apoio ou delegacia perto dessa rota.', 'info');
       return;
     }
-    mapa.fitBounds(L.latLngBounds(pontos), { padding: [60, 60] });
+    mapa.fitBounds(L.latLngBounds(marcadores.map((m) => m.getLatLng())), { padding: [60, 60] });
+    // Abre o popup do mais próximo do centro atual do mapa (durante a
+    // navegação o mapa fica centrado perto da posição de quem está andando)
+    // — antes o botão só reenquadrava a câmera, sem nunca dizer o que era
+    // o lugar.
+    const centro = mapa.getCenter();
+    const maisProximo = marcadores.reduce((perto, atual) =>
+      centro.distanceTo(atual.getLatLng()) < centro.distanceTo(perto.getLatLng()) ? atual : perto
+    );
+    maisProximo.openPopup();
   };
 
   iniciarNavegacao({

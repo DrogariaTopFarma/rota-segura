@@ -14,7 +14,6 @@ import {
 import { ligarFiltroDeAlertasProximidade, acompanharLocalizacaoDoAlerta } from './push.js';
 import { ligarRiscoPorHorario } from './risco-horario.js';
 import { carregarListaRelatos, prepararFormularioRelato, seletorDeLocalDoRelato } from './reports.js';
-import { prepararFormularioPonto, seletorDeLocalDoPonto } from './support-points.js';
 import { prepararFormularioPublicacao } from './community.js';
 import { prepararNotificacoes } from './notifications.js';
 import { prepararBusca } from './search.js';
@@ -72,7 +71,6 @@ async function iniciar() {
   // 7. Formulários e busca
   prepararBusca();
   prepararFormularioRelato();
-  prepararFormularioPonto();
   prepararFormularioPublicacao();
 
   // 8. Atualização em tempo real quando alguém cria um relato
@@ -82,8 +80,7 @@ async function iniciar() {
   //    Cada formulário começa com o local VAZIO. Nada do que você pesquisou
   //    no mapa principal é herdado aqui — são coisas separadas.
   const seletoresPorModal = {
-    'modal-relato': seletorDeLocalDoRelato,
-    'modal-ponto': seletorDeLocalDoPonto
+    'modal-relato': seletorDeLocalDoRelato
   };
 
   document.querySelectorAll('[data-abrir]').forEach((botao) => {

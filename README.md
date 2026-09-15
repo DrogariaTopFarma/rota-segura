@@ -116,7 +116,6 @@ rota-segura/
 │   ├── location-picker.js     mini-mapa com pino arrastável dos formulários
 │   ├── search.js              barra de pesquisa da Tela 1
 │   ├── reports.js             lista e formulário de relatos
-│   ├── support-points.js      formulário de pontos de apoio e delegacias
 │   ├── routes.js              TELA 2 — origem/destino, cálculo de rota, card de segurança
 │   ├── navigation.js          navegação ativa: GPS real, saiu da rota, chegada
 │   ├── voice.js                voz da navegação (Web Speech API)
@@ -177,8 +176,10 @@ públicas + IA é opcional e tem guia próprio: [COMO_CONFIGURAR_COLETA_RJ.md](C
 | `emergency_contacts` | Contatos de emergência (privado, só a dona vê) — CRUD completo na
   tela de Perfil, usado de verdade pelo botão SOS |
 | `reports` | Relatos de segurança com coordenadas, tipo, nível de atenção e status |
-| `support_points` | Farmácias, hospitais, comércios 24h, pontos de ônibus |
-| `police_stations` | Delegacias, com marcação de DEAM |
+| `support_points` | Farmácias, hospitais, comércios 24h, pontos de ônibus — "lugar parceiro",
+  cadastrado só pela administradora direto no banco (sem RLS de insert pra `authenticated`) |
+| `police_stations` | Delegacias, com marcação de DEAM — mesma regra: só a administradora
+  cadastra, direto no banco |
 | `posts` | Publicações da comunidade — feed da Tela 3, com curtidas contadas em `likes_count` |
 | `post_likes` | Curtidas, com restrição de uma por pessoa por publicação |
 | `notifications` | Notificações do sino — hoje geradas quando alguém curte sua publicação |
@@ -190,10 +191,11 @@ públicas + IA é opcional e tem guia próprio: [COMO_CONFIGURAR_COLETA_RJ.md](C
 | `push_subscriptions` | Assinaturas de notificação push dos alertas de segurança (opcional) —
   só a Edge Function `enviar-alerta-proximidade` lê entre todas as pessoas |
 
-**Moderação:** `reports`, `support_points`, `police_stations` e `posts` têm o campo `status`
-com os valores `pending`, `approved` e `rejected`. No `schema.sql` o padrão é `approved` para
-o app funcionar imediatamente. Para ativar a moderação prévia, troque o `default 'approved'`
-por `default 'pending'` nessas tabelas.
+**Moderação:** `reports` e `posts` têm o campo `status` com os valores `pending`, `approved` e
+`rejected`. No `schema.sql` o padrão é `approved` para o app funcionar imediatamente. Para
+ativar a moderação prévia, troque o `default 'approved'` por `default 'pending'` nessas tabelas.
+`support_points`/`police_stations` também têm `status`, mas não tem mais "moderação" de
+verdade nelas — só a administradora insere, direto no banco (ver seção de RLS acima).
 
 ---
 

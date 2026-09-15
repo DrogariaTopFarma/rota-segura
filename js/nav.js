@@ -17,7 +17,7 @@ export function marcarItemAtivo() {
   });
 }
 
-/** Botão "+" central: abre o modal com as 3 opções de cadastro. */
+/** Botão "+" central: abre o modal com as opções de cadastro. */
 export function prepararBotaoCentral() {
   const fab = document.getElementById('botao-central');
   fab?.addEventListener('click', () => abrirModal('modal-cadastrar'));

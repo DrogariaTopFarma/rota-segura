@@ -245,7 +245,6 @@ export async function localizarUsuario({ silencioso = false } = {}) {
     return pos;
   } catch (erro) {
     const texto = mensagemDoMotivo(erro.motivo);
-    if (aviso) { aviso.textContent = texto; aviso.hidden = false; }
     if (!silencioso) toast(texto, 'erro', 6000);
     return null;
   }

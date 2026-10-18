@@ -545,6 +545,11 @@ async function buscarRelatosPontosEDelegaciasNaArea(geometrias) {
       .select('type,attention_level,address,lat,lng')
       .gte('lat', sul).lte('lat', norte).gte('lng', oeste).lte('lng', leste)
       .eq('status', 'approved')
+      // Sem isto, um relato SEU já expirado ainda pesava na pontuação de
+      // risco de quem o criou (a policy de RLS libera ver as próprias
+      // linhas sem checar prazo) — a rota "mais segura" calculada pra você
+      // podia estar reagindo a um relato que nem devia mais contar.
+      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
       .limit(200),
     supabase.from('support_points')
       .select('type,name,address,lat,lng')

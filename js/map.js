@@ -299,6 +299,15 @@ export async function carregarDadosDaAreaVisivel() {
         .select('id,type,description,address,lat,lng,occurred_at,attention_level,status,created_at,image_url,expires_at')
         .gte('lat', sul).lte('lat', norte)
         .gte('lng', oeste).lte('lng', leste)
+        // BUG QUE ISTO CORRIGE: a policy de RLS deixa a própria autora ver
+        // suas linhas sem checar prazo/status (pensado pra "Meus relatos",
+        // em profile.js) — sem este filtro aqui, um relato SEU que já
+        // expirou (ou nunca foi aprovado) continuava pinado no mapa só pra
+        // VOCÊ, mesmo já escondido de todo mundo. Repete a mesma regra da
+        // policy pública explicitamente, pra este ser de verdade o "olhar
+        // público" do mapa, não o "o que eu tenho permissão de ver".
+        .eq('status', 'approved')
+        .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
         .order('occurred_at', { ascending: false })
         .limit(200),
 

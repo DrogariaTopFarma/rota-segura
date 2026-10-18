@@ -44,6 +44,12 @@ export async function carregarListaRelatos() {
   const [relatosResp, noticiasResp] = await Promise.all([
     supabase.from('reports')
       .select('id,type,address,occurred_at,attention_level,status,image_url,agrees_count,disagrees_count,expires_at')
+      // Mesmo motivo do filtro em map.js: sem isso, um relato seu expirado
+      // (ou ainda não aprovado) continuava aparecendo nesta lista só pra
+      // você, mesmo já escondido de todo mundo — a policy de RLS libera ver
+      // as próprias linhas sem checar prazo (pensado pra "Meus relatos").
+      .eq('status', 'approved')
+      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
       .order('occurred_at', { ascending: false })
       .limit(100),
     // published_at (quase sempre presente) em vez de occurred_at (só quando

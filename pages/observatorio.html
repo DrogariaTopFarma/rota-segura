@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#E83D67">
+  <title>Observatório — Rota Segura</title>
+  <link rel="manifest" href="../manifest.json">
+  <link rel="apple-touch-icon" href="../assets/icone-192.png">
+  <link rel="icon" type="image/png" href="../assets/icone-192.png">
+
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://drogariatopfarma.github.io/rota-segura/pages/observatorio.html">
+  <meta property="og:title" content="Observatório — Rota Segura">
+  <meta property="og:description" content="Gráficos reais de segurança por região, a partir de relatos e notícias públicas.">
+  <meta property="og:image" content="https://drogariatopfarma.github.io/rota-segura/assets/icone-512.png">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/global.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="../css/map.css">
+  <link rel="stylesheet" href="../css/comunidade.css">
+  <link rel="stylesheet" href="../css/responsive.css">
+</head>
+<body>
+  <div class="app-shell">
+
+    <!-- ================= CABEÇALHO ================= -->
+    <header class="topo">
+      <div>
+        <span class="topo__titulo">Observatório</span><br>
+        <span class="topo__slogan">Segurança por região, com dado real.</span>
+      </div>
+
+      <div class="topo__acoes">
+        <button type="button" class="topo__botao" id="botao-notificacoes" aria-label="Notificações">
+          <span data-icone="sino" data-tamanho="24" aria-hidden="true"></span>
+          <span class="badge" id="badge-notificacoes" hidden>0</span>
+        </button>
+        <button type="button" class="topo__botao" id="botao-menu" aria-label="Abrir menu">
+          <span data-icone="menu" data-tamanho="24" aria-hidden="true"></span>
+        </button>
+      </div>
+    </header>
+
+    <div class="observatorio" id="observatorio"></div>
+  </div>
+
+  <!-- ================= BOTTOM NAVIGATION ================= -->
+  <nav class="bottom-nav" aria-label="Navegação principal">
+    <a class="bottom-nav__item" href="inicio.html">
+      <span data-icone="inicio" data-tamanho="22" aria-hidden="true"></span>
+      <span class="bottom-nav__rotulo">Início</span>
+    </a>
+    <a class="bottom-nav__item" href="mapa.html">
+      <span data-icone="mapa" data-tamanho="22" aria-hidden="true"></span>
+      <span class="bottom-nav__rotulo">Mapa</span>
+    </a>
+    <button type="button" class="bottom-nav__fab" id="botao-central" aria-label="Cadastrar">
+      <span data-icone="mais" data-tamanho="28" aria-hidden="true"></span>
+    </button>
+    <a class="bottom-nav__item" href="rotas.html">
+      <span data-icone="rotas" data-tamanho="22" aria-hidden="true"></span>
+      <span class="bottom-nav__rotulo">Rotas</span>
+    </a>
+    <a class="bottom-nav__item" href="alertas.html">
+      <span data-icone="sino" data-tamanho="22" aria-hidden="true"></span>
+      <span class="bottom-nav__rotulo">Comunidade</span>
+    </a>
+  </nav>
+
+  <!-- ================= MODAL: NOTIFICAÇÕES ================= -->
+  <div class="modal" id="modal-notificacoes" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-notificacoes" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-notificacoes">Notificações</h2>
+        <div class="modal__cabecalho-acoes">
+          <button type="button" class="btn-texto" id="btn-limpar-notificacoes">Limpar</button>
+          <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+            <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+      <div id="notificacoes-lista"></div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: MENU ================= -->
+  <div class="modal" id="modal-menu" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-menu" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-menu">Menu</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <p class="menu-saudacao">Conectada como <strong id="nome-usuaria">...</strong></p>
+
+      <a class="modal__opcao" href="perfil.html">
+        <span class="modal__opcao__icone" data-icone="perfil" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Meu perfil</span></span>
+      </a>
+      <a class="modal__opcao" href="perfil.html#relatos">
+        <span class="modal__opcao__icone" data-icone="escudo" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Meus relatos</span></span>
+      </a>
+      <a class="modal__opcao" href="perfil.html#contatos">
+        <span class="modal__opcao__icone" data-icone="telefone" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Contatos de emergência</span></span>
+      </a>
+      <button type="button" class="modal__opcao" data-trocar-modal="modal-notificacoes">
+        <span class="modal__opcao__icone" data-icone="sino" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Notificações</span></span>
+      </button>
+      <a class="modal__opcao" href="perfil.html#configuracoes">
+        <span class="modal__opcao__icone" data-icone="engrenagem" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Configurações</span></span>
+      </a>
+      <button type="button" class="modal__opcao" id="menu-baixar-app">
+        <span class="modal__opcao__icone" data-icone="baixar" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Baixar app</span></span>
+      </button>
+      <a class="modal__opcao" href="termos.html">
+        <span class="modal__opcao__icone" data-icone="documento" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Termos de uso</span></span>
+      </a>
+      <button type="button" class="modal__opcao" data-trocar-modal="modal-privacidade">
+        <span class="modal__opcao__icone" data-icone="cadeado" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Privacidade</span></span>
+      </button>
+
+      <button type="button" class="btn btn-secundario btn-bloco menu-sair" data-acao="sair">Sair da conta</button>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: PRIVACIDADE ================= -->
+  <div class="modal" id="modal-privacidade" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-privacidade" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-privacidade">Privacidade</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <p class="modal__texto">
+        Seus dados de conta (nome, e-mail, telefone, avatar) ficam armazenados no Supabase,
+        protegidos por regras de acesso (Row Level Security) — por exemplo, seus contatos de
+        emergência só podem ser vistos por você.
+      </p>
+      <p class="modal__texto">
+        A localização usada pelo botão SOS é lida na hora e nunca é salva em nosso banco de
+        dados. Relatos, pontos de apoio e publicações que você cadastra ficam visíveis para
+        outras usuárias logadas, porque esse é o propósito da plataforma.
+      </p>
+      <p class="modal__texto">
+        Você pode editar seus dados e excluir seus contatos de emergência a qualquer momento
+        pela tela de Perfil.
+      </p>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: BAIXAR APP ================= -->
+  <div class="modal" id="modal-baixar-app" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-baixar-app" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-baixar-app">Baixar o app</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <p class="modal__texto">
+        O Rota Segura pode ficar como um ícone na tela do seu celular, abrindo direto sem
+        precisar do navegador. O passo muda um pouco conforme o aparelho:
+      </p>
+      <p class="modal__texto">
+        <strong>iPhone (Safari):</strong> toque no ícone de compartilhar (o quadrado com a
+        seta pra cima) → "Adicionar à Tela de Início" → Adicionar.
+      </p>
+      <p class="modal__texto">
+        <strong>Android (Chrome):</strong> toque nos três pontinhos do navegador → "Instalar
+        aplicativo" ou "Adicionar à tela inicial".
+      </p>
+      <p class="modal__texto">
+        <strong>Computador (Chrome/Edge):</strong> procure o ícone de instalação na barra de
+        endereço, ou no menu do navegador → "Instalar Rota Segura".
+      </p>
+    </div>
+  </div>
+
+  <!-- ================= SCRIPTS ================= -->
+  <script src="../vendor/chart.js/chart.umd.min.js"></script>
+  <script type="module" src="../js/observatorio.js"></script>
+  <script type="module">
+    import { abrirModal, toast } from '../js/ui.js';
+    document.getElementById('botao-menu')
+      ?.addEventListener('click', () => abrirModal('modal-menu'));
+    // Observatório não tem formulário de cadastro próprio (mesmo princípio
+    // de js/inicio.js/js/routes.js) — manda pra tela que tem.
+    document.getElementById('botao-central')
+      ?.addEventListener('click', () => {
+        toast('Para cadastrar, vá até a tela do Mapa.', 'info');
+        window.location.href = 'mapa.html';
+      });
+  </script>
+</body>
+</html>

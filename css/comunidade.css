@@ -35,12 +35,86 @@
   flex-direction: column;
   gap: var(--esp-4);
 }
+/* .comunidade-feed já define display:flex — sem isto, o atributo [hidden]
+   sozinho não esconde (mesmo motivo documentado em css/rotas.css, .bottom-nav). */
+.comunidade-feed[hidden] { display: none; }
 
 .post-card {
   background: var(--branco);
   border-radius: var(--raio-lg);
   box-shadow: var(--sombra-md);
   padding: var(--esp-4) var(--esp-5);
+}
+
+/* ---------------- Observatório ---------------- */
+.observatorio {
+  padding: 0 var(--esp-4) var(--esp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-4);
+}
+.observatorio[hidden] { display: none; }
+
+.observatorio__cartao {
+  background: var(--branco);
+  border-radius: var(--raio-lg);
+  box-shadow: var(--sombra-md);
+  padding: var(--esp-4) var(--esp-5);
+}
+
+.observatorio__cartao h3 {
+  font-size: var(--fs-md);
+  margin: 0 0 var(--esp-3);
+  color: var(--texto-principal);
+}
+
+.observatorio__vazio,
+.observatorio__carregando {
+  font-size: var(--fs-sm);
+  color: var(--texto-secundario);
+  text-align: center;
+  padding: var(--esp-4) 0;
+}
+
+.observatorio__tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+.observatorio__tabela th {
+  text-align: left;
+  font-size: var(--fs-xs);
+  color: var(--texto-secundario);
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--borda);
+}
+.observatorio__tabela td {
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--borda);
+}
+.observatorio__tabela th:not(:first-child),
+.observatorio__tabela td:not(:first-child) {
+  text-align: center;
+}
+
+/* "Baixar em PDF" (js/observatorio.js) usa window.print() — aqui só o
+   conteúdo do Observatório aparece, sem navegação/filtros/modal por cima. */
+@media print {
+  body > *:not(.app-shell),
+  .filtros-comunidade,
+  .comunidade-feed,
+  .vanessa-fab,
+  .bottom-nav,
+  #observatorio-baixar-pdf,
+  .topo__acoes {
+    display: none !important;
+  }
+  .observatorio { display: flex !important; }
+  .observatorio__cartao { box-shadow: none; border: 1px solid var(--borda); break-inside: avoid; }
+}
+
+.observatorio__cartao canvas {
+  max-width: 100%;
 }
 
 .post-card__topo {

@@ -400,3 +400,31 @@ export async function enderecoDeCoordenadas(lat, lng) {
     return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   }
 }
+
+/** Só o nome do bairro/região de uma coordenada (pro Observatório agrupar
+    relato por região — ver js/observatorio.js). Chave de cache mais larga
+    que enderecoDeCoordenadas (3 casas decimais, ~110m) de propósito: pontos
+    perto um do outro quase sempre caem no mesmo bairro, então isso evita
+    repetir a mesma chamada ao Photon pra cada relato individual de uma
+    mesma área. Devolve null quando não identifica (nunca inventa nome de
+    bairro). */
+export async function bairroDeCoordenadas(lat, lng) {
+  const chave = `b-bairro:${lat.toFixed(3)}:${lng.toFixed(3)}`;
+  if (cache.has(chave)) return cache.get(chave);
+
+  const url = `${BASE}/reverse?lat=${lat}&lon=${lng}`;
+  let bairro = null;
+  try {
+    const resposta = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (resposta.ok) {
+      const dados = await resposta.json();
+      const p = dados.features?.[0]?.properties || {};
+      bairro = p.district || p.locality || p.city || p.town || null;
+    }
+  } catch {
+    bairro = null;
+  }
+
+  cache.set(chave, bairro);
+  return bairro;
+}

@@ -11,7 +11,7 @@ import { supabase, traduzirErro } from './supabase.js';
 import { icone } from './icons.js';
 import {
   toast, escapar, formatarDataHora, botaoCarregando,
-  htmlEstadoVazio, htmlCarregando, abrirModal, fecharModal, mostrarMensagem, limparMensagem
+  htmlEstadoVazio, htmlCarregando, abrirModal, fecharModal, mostrarMensagem, limparMensagem, validarImagem
 } from './ui.js';
 import { criarSeletorLocal } from './location-picker.js';
 import { ROTULOS_INCIDENTE_EXTERNO, nivelDeConfiancaTexto } from './map.js';
@@ -56,7 +56,7 @@ export async function carregarFeed(filtro = filtroAtual) {
   if (!ehFiltroExternas) {
     consultaPosts = supabase
       .from('posts_publico')
-      .select('id,user_id,category,title,content,address,lat,lng,image_url,likes_count,comments_count,created_at,is_anonymous')
+      .select('id,user_id,category,title,content,address,lat,lng,image_url,likes_count,comments_count,created_at,is_anonymous,status_resposta')
       .order('created_at', { ascending: false })
       .limit(50);
     if (filtro) consultaPosts = consultaPosts.eq('category', filtro);
@@ -189,6 +189,7 @@ function cardPost(p, autores, curtidos) {
           <div class="post-card__hora">${escapar(formatarDataHora(p.created_at))}</div>
         </div>
         <span class="tag tag--${cor}">${escapar(ROTULOS_CATEGORIA[p.category] || 'Publicação')}</span>
+        ${p.status_resposta === 'resolvido' ? '<span class="tag tag--verde">Resolvido</span>' : ''}
       </div>
       ${p.title ? `<h3 class="post-card__titulo">${escapar(p.title)}</h3>` : ''}
       <p class="post-card__conteudo">${escapar(p.content)}</p>
@@ -486,10 +487,7 @@ export function prepararFormularioPublicacao({ aoPublicar } = {}) {
       let imageUrl = null;
       const arquivo = form.imagem.files?.[0];
       if (arquivo) {
-        if (arquivo.size > 5 * 1024 * 1024) {
-          throw new Error('A imagem precisa ter no máximo 5 MB.');
-        }
-        const extensao = arquivo.name.split('.').pop().toLowerCase();
+        const extensao = validarImagem(arquivo);
         const caminho = `${user.id}/publicacoes/${crypto.randomUUID()}.${extensao}`;
         const { error: erroUpload } = await supabase.storage
           .from('rota-segura')
@@ -522,7 +520,7 @@ export function prepararFormularioPublicacao({ aoPublicar } = {}) {
       aoPublicar?.();
     } catch (erro) {
       console.error(erro);
-      const texto = erro.message?.includes('5 MB') ? erro.message : traduzirErro(erro);
+      const texto = erro.validacaoImagem ? erro.message : traduzirErro(erro);
       mostrarMensagem(msg, texto, 'erro');
     } finally {
       botaoCarregando(botao, false);

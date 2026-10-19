@@ -5,7 +5,7 @@
    Tela 1, que também tem o modal de publicação) — aqui só orquestra.
    ============================================================================ */
 
-import { exigirLogin, iniciarAuth } from './auth.js';
+import { exigirLogin, iniciarAuth, perfilDeCabecalho } from './auth.js';
 import { aplicarIcones } from './icons.js';
 import { prepararModais, prepararTrocaDeModal, abrirModal } from './ui.js';
 import { marcarItemAtivo, atualizarBadgeNotificacoes, ligarRealtimeBadgeNotificacoes } from './nav.js';
@@ -30,7 +30,9 @@ async function iniciar() {
   marcarItemAtivo();
   prepararNotificacoes();
 
-  document.getElementById('nome-usuaria').textContent = usuario.user_metadata?.full_name || usuario.email;
+  perfilDeCabecalho(usuario).then(({ nome }) => {
+    document.getElementById('nome-usuaria').textContent = nome;
+  });
 
   // Nesta tela só existe uma coisa pra cadastrar (publicação), então o "+"
   // abre o formulário direto — sem o painel "o que você deseja cadastrar?"
@@ -43,6 +45,12 @@ async function iniciar() {
   prepararFormularioPublicacao({ aoPublicar: () => carregarFeed() });
   prepararComentarios();
   prepararChatVanessa();
+
+  // Veio do atalho "Falar com Vanessa" da tela Início (?abrirVanessa=1, ver
+  // js/inicio.js) — abre o chat direto, sem precisar achar o botão flutuante.
+  if (new URLSearchParams(window.location.search).get('abrirVanessa') === '1') {
+    document.getElementById('abrir-vanessa')?.click();
+  }
 
   await Promise.all([carregarFeed(), atualizarBadgeNotificacoes()]);
   ligarRealtimePosts();

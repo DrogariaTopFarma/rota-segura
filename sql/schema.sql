@@ -45,9 +45,24 @@ create table if not exists public.profiles (
   avatar_url        text,
   accepted_terms    boolean not null default false,
   accepted_privacy  boolean not null default false,
+  -- Rota Segura 2.0: prioridade da rota (controle #rota-preferencia em
+  -- pages/rotas.html) — o quanto o risco de segurança pesa contra a duração
+  -- na escolha da rota (ver PESO_SEGURANCA_POR_PREFERENCIA em js/routes.js).
+  preferencia_rota  text not null default 'segura'
+                      check (preferencia_rota in ('segura', 'equilibrada', 'rapida')),
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now()
 );
+
+-- Quem já tinha a tabela `profiles` criada antes do Rota Segura 2.0 (create
+-- table if not exists acima não adiciona coluna em tabela que já existe).
+alter table public.profiles
+  add column if not exists preferencia_rota text not null default 'segura';
+alter table public.profiles
+  drop constraint if exists profiles_preferencia_rota_check;
+alter table public.profiles
+  add constraint profiles_preferencia_rota_check
+    check (preferencia_rota in ('segura', 'equilibrada', 'rapida'));
 
 drop trigger if exists trg_profiles_updated_at on public.profiles;
 create trigger trg_profiles_updated_at
@@ -245,9 +260,22 @@ create table if not exists public.posts (
   image_url    text,
   likes_count  integer not null default 0,
   status       text not null default 'approved' check (status in ('pending','approved','rejected')),
+  -- Rota Segura 2.0: status de ATENDIMENTO, visível à usuária — diferente de
+  -- `status` acima, que é moderação administrativa (pending/approved/
+  -- rejected). A própria autora marca se o pedido/alerta dela já foi
+  -- respondido/resolvido pela comunidade (ver posts_update_proprio, que já
+  -- cobre qualquer coluna da própria linha).
+  status_resposta text not null default 'aberto' check (status_resposta in ('aberto','resolvido')),
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
 );
+
+alter table public.posts
+  add column if not exists status_resposta text not null default 'aberto';
+alter table public.posts
+  drop constraint if exists posts_status_resposta_check;
+alter table public.posts
+  add constraint posts_status_resposta_check check (status_resposta in ('aberto','resolvido'));
 
 create index if not exists idx_posts_status     on public.posts(status);
 create index if not exists idx_posts_created_at on public.posts(created_at desc);
@@ -369,13 +397,20 @@ create trigger trg_post_comments_sync
 -- valendo normalmente para quem consulta esta view (não é uma forma de
 -- burlar a segurança, só de mascarar uma coluna).
 -- ---------------------------------------------------------------------------
+-- IMPORTANTE: "create or replace view" do Postgres não deixa INSERIR uma
+-- coluna no meio da lista de uma view que já existe (só deixar ela igual ou
+-- ACRESCENTAR no fim) — ele lê isso como "renomear" a coluna que empurrou
+-- pro lado e recusa (erro 42P16, já visto rodando este script de novo).
+-- Por isso status_resposta entra no FINAL da lista, depois de is_anonymous,
+-- nunca no meio — preserva a ordem exata de quem já rodou este script antes
+-- do Rota Segura 2.0.
 create or replace view public.posts_publico
 with (security_invoker = true) as
 select
   id, category, title, content, address, lat, lng, image_url,
   likes_count, comments_count, status, created_at,
   case when is_anonymous then null else user_id end as user_id,
-  is_anonymous
+  is_anonymous, status_resposta
 from public.posts;
 
 grant select on public.posts_publico to authenticated;
@@ -1186,6 +1221,63 @@ create policy "corridas_proprias_update"
   on public.monitored_trips for update
   to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
+
+-- ============================================================================
+-- 20. TABELA + FUNÇÃO: rate_limits (limite de chamadas por usuária)
+--     `perguntar-vanessa` e `calcular-rota` são chamadas direto pelo navegador
+--     de uma usuária logada (sem secret próprio, só o JWT padrão do Supabase)
+--     e repassam cota de nível gratuito de terceiros (Gemini/OpenRouteService).
+--     Esta tabela guarda, por usuária e por função, quantas chamadas
+--     aconteceram na janela de tempo atual — não é dado da usuária, é só
+--     controle interno, por isso não tem policy pra `authenticated` (só a
+--     própria Edge Function, com a service_role key, mexe aqui).
+-- ============================================================================
+create table if not exists public.rate_limits (
+  user_id       uuid not null references auth.users(id) on delete cascade,
+  funcao        text not null,
+  janela_inicio timestamptz not null default now(),
+  contagem      int not null default 1,
+  primary key (user_id, funcao)
+);
+
+alter table public.rate_limits enable row level security;
+
+-- Checa-e-incrementa atômico: um UPSERT só, sem select-depois-update (que
+-- teria uma brecha de corrida entre duas chamadas simultâneas da mesma
+-- usuária). Se a janela anterior já venceu, reinicia a contagem em 1 em vez
+-- de simplesmente somar. Devolve true (permitido) ou false (estourou o
+-- limite) — quem chama decide o que fazer com isso.
+create or replace function public.verificar_limite_de_chamadas(
+  p_user_id uuid,
+  p_funcao text,
+  p_limite int,
+  p_janela_segundos int
+) returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_contagem int;
+begin
+  insert into public.rate_limits (user_id, funcao, janela_inicio, contagem)
+  values (p_user_id, p_funcao, now(), 1)
+  on conflict (user_id, funcao) do update set
+    contagem = case
+      when public.rate_limits.janela_inicio < now() - make_interval(secs => p_janela_segundos)
+        then 1
+      else public.rate_limits.contagem + 1
+    end,
+    janela_inicio = case
+      when public.rate_limits.janela_inicio < now() - make_interval(secs => p_janela_segundos)
+        then now()
+      else public.rate_limits.janela_inicio
+    end
+  returning contagem into v_contagem;
+
+  return v_contagem <= p_limite;
+end;
+$$;
 
 -- ============================================================================
 -- FIM. Se rodou sem erro, você verá "Success. No rows returned".

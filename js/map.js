@@ -9,11 +9,12 @@
 
 import { supabase } from './supabase.js';
 import { APP_CONFIG, CARTO_API_KEY } from './config.js';
-import { pinoMapa } from './icons.js';
+import { pinoMapa, icone } from './icons.js';
 import { toast, escapar, formatarDataHora, distanciaMetros } from './ui.js';
 import {
   obterPosicao, acompanharPosicao, mensagemDoMotivo, descreverPrecisao
 } from './geolocation.js';
+import { buscarFotosProximas } from './wikimedia.js';
 
 /* ------------------------------------------------------------- Rótulos --- */
 export const ROTULOS_RELATO = {
@@ -140,7 +141,7 @@ const ICONES = {
   hospital: () => divIcon('hospital', '#4CAF7D'),
   farmacia: () => divIcon('hospital', '#4CAF7D'),
   comercio_24h: () => divIcon('predio', '#7C5CBF'),
-  ponto_onibus: () => divIcon('onibus', '#7C5CBF'),
+  ponto_onibus: () => divIcon('onibus', '#F4A261'),
   delegacia: () => divIcon('predio', '#7C5CBF'),
   busca: () => divIcon('pino', '#2D2430')
 };
@@ -312,7 +313,7 @@ export async function carregarDadosDaAreaVisivel() {
         .limit(200),
 
       supabase.from('support_points')
-        .select('id,type,name,address,lat,lng,phone,description,opening_hours,status')
+        .select('id,type,name,address,lat,lng,phone,description,opening_hours,extra_info,status')
         .gte('lat', sul).lte('lat', norte)
         .gte('lng', oeste).lte('lng', leste)
         .limit(200),
@@ -419,11 +420,32 @@ function desenharRelatos(lista) {
   });
 }
 
+// Comodidade real do OpenStreetMap (ver sql/seed_pontos_onibus.sql,
+// extra_info) — só mostra o ícone quando a tag realmente existia na fonte;
+// ausência de flag NÃO quer dizer "não tem", só "ninguém mapeou ainda", por
+// isso nunca vira um "X" ou ícone de "não tem" — só some.
+const COMODIDADES_PONTO_ONIBUS = {
+  'shelter=yes': { icone: 'cobertura', texto: 'Cobertura' },
+  'bench=yes': { icone: 'banco', texto: 'Banco' },
+  'lit=yes': { icone: 'lampada', texto: 'Iluminado' },
+  'tactile_paving=yes': { icone: 'acessibilidade', texto: 'Piso tátil' }
+};
+
+function comodidadesDoPonto(extraInfo) {
+  if (!extraInfo) return [];
+  return extraInfo.split(';').map((flag) => COMODIDADES_PONTO_ONIBUS[flag.trim()]).filter(Boolean);
+}
+
 function desenharPontos(lista) {
   camadas.pontos.clearLayers();
   lista.forEach((p) => {
     const criador = ICONES[p.type] || ICONES.ponto_apoio;
-    L.marker([p.lat, p.lng], { icon: criador(), alt: p.name })
+    // Ponto de ônibus ganha um bloco extra que carrega foto real da
+    // vizinhança (Wikimedia Commons) só quando o popup abre — nunca busca
+    // pra marcador nenhum que a usuária não chegou a tocar.
+    const idFotos = p.type === 'ponto_onibus' ? `fotos-onibus-${Math.random().toString(36).slice(2)}` : null;
+    const comodidades = p.type === 'ponto_onibus' ? comodidadesDoPonto(p.extra_info) : [];
+    const marcador = L.marker([p.lat, p.lng], { icon: criador(), alt: p.name })
       .bindPopup(`
         <div class="popup__tipo">${escapar(p.name)}</div>
         <div class="popup__meta">${escapar(ROTULOS_PONTO[p.type] || 'Ponto de apoio')}</div>
@@ -431,9 +453,47 @@ function desenharPontos(lista) {
         ${p.phone ? `<div class="popup__desc">Telefone: ${escapar(p.phone)}</div>` : ''}
         ${p.opening_hours ? `<div class="popup__meta">${escapar(p.opening_hours)}</div>` : ''}
         ${p.description ? `<div class="popup__desc">${escapar(p.description)}</div>` : ''}
+        ${comodidades.length ? `
+          <div class="popup__comodidades">
+            ${comodidades.map((c) => `<span>${icone(c.icone, 14)}${c.texto}</span>`).join('')}
+          </div>` : ''}
+        ${idFotos ? `<div class="popup__fotos" id="${idFotos}"></div>` : ''}
       `)
       .addTo(camadas.pontos);
+
+    if (idFotos) {
+      marcador.on('popupopen', () => carregarFotosDoPonto(idFotos, p.lat, p.lng), { once: true });
+    }
   });
+}
+
+/** Preenche o bloco de fotos de um popup de ponto de ônibus depois de abrir
+    — ver desenharPontos. Nunca afirma que a foto é DESTE ponto exato (a
+    busca é por proximidade, não por identificação do local) — ver aviso em
+    js/wikimedia.js. */
+async function carregarFotosDoPonto(idFotos, lat, lng) {
+  const container = document.getElementById(idFotos);
+  if (!container) return; // popup já fechou antes da resposta chegar
+  container.innerHTML = '<div class="popup__fotos-carregando">Buscando fotos da região...</div>';
+
+  const fotos = await buscarFotosProximas(lat, lng);
+  const containerDeNovo = document.getElementById(idFotos);
+  if (!containerDeNovo) return; // popup fechou enquanto buscava
+
+  if (!fotos.length) {
+    containerDeNovo.innerHTML = '<div class="popup__fotos-vazio">Sem foto encontrada nas proximidades.</div>';
+    return;
+  }
+
+  containerDeNovo.innerHTML = `
+    <div class="popup__fotos-aviso">Fotos reais tiradas perto daqui (Wikimedia Commons) — não necessariamente deste ponto exato.</div>
+    ${fotos.map((f) => `
+      <a href="${escapar(f.paginaUrl)}" target="_blank" rel="noopener" class="popup__foto-externa">
+        <img src="${escapar(f.url)}" alt="" loading="lazy">
+        <span>${escapar(f.autor)} · ${escapar(f.licenca)}</span>
+      </a>
+    `).join('')}
+  `;
 }
 
 function desenharDelegacias(lista) {
@@ -446,6 +506,7 @@ function desenharDelegacias(lista) {
         <div class="popup__meta">${escapar(d.address || '')}</div>
         ${d.phone ? `<div class="popup__desc">Telefone: ${escapar(d.phone)}</div>` : ''}
         ${d.opening_hours ? `<div class="popup__meta">${escapar(d.opening_hours)}</div>` : ''}
+        <div class="popup__fonte">Endereço do OpenStreetMap (comunidade) — confira antes de divulgar oficialmente.</div>
       `)
       .addTo(camadas.delegacias);
   });

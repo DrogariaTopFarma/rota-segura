@@ -12,7 +12,7 @@ import { aplicarIcones, icone } from './icons.js';
 import { supabase, traduzirErro } from './supabase.js';
 import {
   prepararModais, prepararTrocaDeModal, prepararLightboxDeFotos, abrirModal, fecharModal, toast, escapar, formatarDataHora,
-  botaoCarregando, htmlEstadoVazio, htmlCarregando, mostrarMensagem, limparMensagem
+  botaoCarregando, htmlEstadoVazio, htmlCarregando, mostrarMensagem, limparMensagem, validarImagem
 } from './ui.js';
 import { marcarItemAtivo, atualizarBadgeNotificacoes, ligarRealtimeBadgeNotificacoes } from './nav.js';
 import { prepararNotificacoes } from './notifications.js';
@@ -104,10 +104,7 @@ function prepararEdicaoPerfil() {
       let avatarUrl;
       const arquivo = form.avatar.files?.[0];
       if (arquivo) {
-        if (arquivo.size > 5 * 1024 * 1024) {
-          throw new Error('A imagem precisa ter no máximo 5 MB.');
-        }
-        const extensao = arquivo.name.split('.').pop().toLowerCase();
+        const extensao = validarImagem(arquivo);
         const caminho = `${user.id}/avatar/${crypto.randomUUID()}.${extensao}`;
         const { error: erroUpload } = await supabase.storage
           .from('rota-segura')
@@ -135,7 +132,7 @@ function prepararEdicaoPerfil() {
       await carregarPerfil();
     } catch (erro) {
       console.error(erro);
-      const texto = erro.message?.includes('5 MB') ? erro.message : traduzirErro(erro);
+      const texto = erro.validacaoImagem ? erro.message : traduzirErro(erro);
       mostrarMensagem(msg, texto, 'erro');
     } finally {
       botaoCarregando(botao, false);
@@ -288,7 +285,7 @@ async function carregarMinhasPublicacoes() {
 
   const { data, error } = await supabase
     .from('posts')
-    .select('id,category,title,likes_count,created_at,is_anonymous')
+    .select('id,category,title,likes_count,created_at,is_anonymous,status_resposta')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(10);
@@ -304,7 +301,9 @@ async function carregarMinhasPublicacoes() {
     return;
   }
 
-  container.innerHTML = posts.map((p) => `
+  container.innerHTML = posts.map((p) => {
+    const resolvido = p.status_resposta === 'resolvido';
+    return `
     <article class="card-lista">
       <div class="card-lista__icone card-lista__icone--roxo">${icone('megafone', 22)}</div>
       <div class="card-lista__conteudo">
@@ -316,14 +315,31 @@ async function carregarMinhasPublicacoes() {
       </div>
       <span class="tag tag--rosa">${escapar(ROTULOS_CATEGORIA[p.category] || '')}</span>
       <div class="contato-acoes">
+        <button type="button" class="btn-texto" data-alternar-resposta="${p.id}" data-resolvido="${resolvido}">
+          ${resolvido ? 'Resolvido' : 'Marcar como resolvido'}
+        </button>
         <button type="button" class="btn-icone" data-excluir-publicacao="${p.id}" aria-label="Excluir publicação ${escapar(p.title || 'sem título')}">${icone('lixeira', 16)}</button>
       </div>
-    </article>`).join('');
+    </article>`;
+  }).join('');
 
   container.querySelectorAll('[data-excluir-publicacao]').forEach((b) => {
     b.addEventListener('click', () => {
       publicacaoParaExcluir = b.dataset.excluirPublicacao;
       abrirModal('modal-excluir-publicacao');
+    });
+  });
+
+  container.querySelectorAll('[data-alternar-resposta]').forEach((b) => {
+    b.addEventListener('click', async () => {
+      const novoStatus = b.dataset.resolvido === 'true' ? 'aberto' : 'resolvido';
+      b.disabled = true;
+      const { error } = await supabase
+        .from('posts')
+        .update({ status_resposta: novoStatus })
+        .eq('id', b.dataset.alternarResposta);
+      if (error) { toast('Não foi possível atualizar o status.', 'erro'); b.disabled = false; return; }
+      await carregarMinhasPublicacoes();
     });
   });
 }

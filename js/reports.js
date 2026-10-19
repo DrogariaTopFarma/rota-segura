@@ -13,7 +13,7 @@ import { supabase, traduzirErro } from './supabase.js';
 import { icone } from './icons.js';
 import {
   toast, escapar, formatarDataHora, botaoCarregando,
-  htmlEstadoVazio, htmlCarregando, fecharModal, mostrarMensagem, limparMensagem
+  htmlEstadoVazio, htmlCarregando, fecharModal, mostrarMensagem, limparMensagem, validarImagem
 } from './ui.js';
 import {
   ROTULOS_RELATO, ROTULOS_INCIDENTE_EXTERNO, ICONE_POR_TIPO_RELATO, corDoRelato,
@@ -342,10 +342,7 @@ export function prepararFormularioRelato() {
       let imageUrl = null;
       const arquivo = form.imagem.files?.[0];
       if (arquivo) {
-        if (arquivo.size > 5 * 1024 * 1024) {
-          throw new Error('A imagem precisa ter no máximo 5 MB.');
-        }
-        const extensao = arquivo.name.split('.').pop().toLowerCase();
+        const extensao = validarImagem(arquivo);
         const caminho = `${user.id}/relatos/${crypto.randomUUID()}.${extensao}`;
         const { error: erroUpload } = await supabase.storage
           .from('rota-segura')
@@ -390,7 +387,7 @@ export function prepararFormularioRelato() {
       await carregarDadosDaAreaVisivel();
     } catch (erro) {
       console.error(erro);
-      const texto = erro.message?.includes('5 MB') ? erro.message : traduzirErro(erro);
+      const texto = erro.validacaoImagem ? erro.message : traduzirErro(erro);
       mostrarMensagem(msg, texto, 'erro');
     } finally {
       botaoCarregando(botao, false);

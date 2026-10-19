@@ -28,11 +28,112 @@
 // Devolve: { resposta: string }
 // ============================================================================
 
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+
 const CABECALHOS_CORS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
+
+// Limite de chamadas por usuária, pra não estourar a cota gratuita do Gemini
+// com uso abusivo ou um bug de loop no chat — ver seção 20 de sql/schema.sql
+// (função verificar_limite_de_chamadas).
+const LIMITE_CHAMADAS = 15;
+const JANELA_LIMITE_SEGUNDOS = 60;
+
+/** O gateway do Supabase já validou a assinatura do JWT antes da requisição
+    chegar aqui (Enforce JWT Verification) — só precisamos ler o "sub" (id da
+    usuária) de dentro dele pra saber de quem é a chamada, sem round-trip
+    extra a auth.getUser(). */
+function extrairUserIdDoJwt(req: Request): string | null {
+  const cabecalho = req.headers.get("authorization");
+  if (!cabecalho?.startsWith("Bearer ")) return null;
+  try {
+    const payload = cabecalho.slice(7).split(".")[1];
+    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+    const dados = JSON.parse(json);
+    return typeof dados.sub === "string" ? dados.sub : null;
+  } catch {
+    return null;
+  }
+}
+
+/** true = pode seguir, false = estourou o limite. Se não der pra checar (sem
+    JWT, sem credenciais, erro de rede), deixa passar — o rate limit é uma
+    proteção extra, nunca um motivo pra derrubar a função inteira. */
+/** Cliente Supabase autenticado COMO a própria usuária que chamou a função
+    (não service_role) — a RLS de monitored_trips (só a própria dona vê a
+    própria linha) faz o isolamento entre usuárias sozinha, em vez de
+    confiarmos numa checagem manual de user_id aqui. SUPABASE_ANON_KEY, assim
+    como SUPABASE_URL, já vem pronta automaticamente pra toda Edge Function —
+    não precisa configurar secret nenhum novo. */
+function clienteComoUsuaria(req: Request) {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const cabecalhoAuth = req.headers.get("authorization");
+  if (!supabaseUrl || !anonKey || !cabecalhoAuth) return null;
+  return createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: cabecalhoAuth } }
+  });
+}
+
+/** Pra "Vanessa Acompanha" responder "estou sendo acompanhada agora?" com
+    informação de verdade, nunca inventada — lê só a corrida mais recente
+    ainda ativa/escalada (nunca uma já encerrada) de "Acompanhar corrida"
+    (js/carona.js). Se não der pra consultar, devolve null — a Vanessa segue
+    sem esse pedaço de contexto, nunca quebra a conversa por causa disso. */
+async function buscarContextoDeAcompanhamento(req: Request): Promise<string | null> {
+  const supabase = clienteComoUsuaria(req);
+  if (!supabase) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from("monitored_trips")
+      .select("status,expected_arrival_at,confirmed_at,escalated_at")
+      .in("status", ["ativa", "escalada"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) return "Ela não está com nenhuma corrida sendo acompanhada agora em \"Acompanhar corrida\".";
+
+    const chegadaEsperada = new Date(data.expected_arrival_at).toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+
+    if (data.status === "escalada") {
+      return `Ela está numa corrida em "Acompanhar corrida" (chegada esperada ${chegadaEsperada}) que já passou do prazo sem confirmação — o aviso urgente pro contato de emergência já foi oferecido a ela.`;
+    }
+    return `Ela está sendo acompanhada agora em "Acompanhar corrida", com chegada esperada às ${chegadaEsperada}.`;
+  } catch {
+    return null;
+  }
+}
+
+async function dentroDoLimite(req: Request, nomeDaFuncao: string): Promise<boolean> {
+  const userId = extrairUserIdDoJwt(req);
+  if (!userId) return true;
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceRoleKey) return true;
+
+  try {
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const { data, error } = await supabase.rpc("verificar_limite_de_chamadas", {
+      p_user_id: userId,
+      p_funcao: nomeDaFuncao,
+      p_limite: LIMITE_CHAMADAS,
+      p_janela_segundos: JANELA_LIMITE_SEGUNDOS
+    });
+    if (error) return true;
+    return data !== false;
+  } catch {
+    return true;
+  }
+}
 
 // Mesmo modelo já usado em coletar-fontes (nível gratuito, sem cartão) — ver
 // README_AI_SETUP.md se o Google descontinuar este nome de modelo de novo.
@@ -86,7 +187,11 @@ VOCÊ SÓ RESPONDE ESTES ASSUNTOS:
      esperado de chegada. Se passar do horário sem confirmar "Cheguei bem", a cada 5 minutos um
      popup pergunta "Você está bem?"; responder que precisa de ajuda já abre o WhatsApp para o
      contato, com o link da corrida. Também dá para ligar direto para o contato ou para a
-     polícia a qualquer momento.
+     polícia a qualquer momento. Isso NÃO lê o GPS de dentro do Uber/99 (não existe API pública
+     pra isso) — é um lembrete/tranquilidade, nunca um substituto de ligar pra 190. Se vier um
+     "CONTEXTO AO VIVO" nesta conversa sobre uma corrida sendo acompanhada agora, use essa
+     informação real pra responder (ex.: "estou sendo acompanhada agora?"); se não vier nenhum
+     contexto, é porque ela não está com nenhuma corrida ativa nisso agora.
    - COMUNIDADE: feed de publicações (Alertas, Dicas, Apoio) e notícias externas coletadas
      automaticamente, filtráveis por categoria. Publicações podem ser anônimas.
    - PERFIL: editar nome/foto/telefone, ver relatos/publicações/histórico de rotas (tudo pode
@@ -120,6 +225,13 @@ Deno.serve(async (req: Request) => {
 
   if (req.method !== "POST") {
     return respostaJson({ erro: "Método não permitido." }, 405);
+  }
+
+  if (!(await dentroDoLimite(req, "perguntar-vanessa"))) {
+    return respostaJson(
+      { erro: "Muitas perguntas em pouco tempo. Espere um minuto e tente de novo." },
+      429
+    );
   }
 
   const apiKey = Deno.env.get("GEMINI_API_KEY");
@@ -163,6 +275,11 @@ Deno.serve(async (req: Request) => {
     { role: "user", parts: [{ text: pergunta }] }
   ];
 
+  const contextoAcompanhamento = await buscarContextoDeAcompanhamento(req);
+  const promptComContexto = contextoAcompanhamento
+    ? `${PROMPT_VANESSA}\n\nCONTEXTO AO VIVO desta usuária agora (dado real, não invente nada além disto; use só se ela perguntar sobre acompanhamento/corrida — nunca traga isso por conta própria): ${contextoAcompanhamento}`
+    : PROMPT_VANESSA;
+
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODELO}:generateContent?key=${apiKey}`;
 
   try {
@@ -170,7 +287,7 @@ Deno.serve(async (req: Request) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: PROMPT_VANESSA }] },
+        systemInstruction: { parts: [{ text: promptComContexto }] },
         contents,
         generationConfig: { temperature: 0.5 }
       })

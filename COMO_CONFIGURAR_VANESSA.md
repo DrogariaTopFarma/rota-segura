@@ -34,6 +34,15 @@ Diferente das outras funções deste projeto, **não precisa criar nenhum secret
 nem configurar Database Webhook ou agendamento — a Vanessa é chamada direto pelo site quando
 alguém toca no botão do chat, com a própria usuária já logada (o Supabase confere isso sozinho).
 
+### 2.1. Rodar a atualização do banco (limite de chamadas)
+
+A função agora confere um limite de chamadas por usuária (15 por minuto), pra não estourar a cota
+gratuita do Gemini com uso abusivo ou um bug de loop. Isso precisa de uma tabela/função nova no
+banco — rode de novo o `sql/schema.sql` inteiro no **SQL Editor** do Supabase (é seguro rodar de
+novo: todo o arquivo usa `if not exists`/`create or replace`, não apaga nada que já existe). Não
+precisa de nenhum secret novo — usa as credenciais internas que todo Edge Function já recebe
+automaticamente.
+
 ### 3. Testar
 
 1. Publique a função e configure o secret acima.

@@ -1,5 +1,16 @@
 -- ============================================================
--- ROTA SEGURA — MIGRAÇÃO v1 → v2
+-- *** OBSOLETO — NÃO EXECUTAR ***
+-- Este arquivo migra um schema antigo (tabelas public.locais,
+-- public.comunidade_posts, public.instituicoes, public.locais_votos)
+-- que não existe mais no projeto. O schema atual, de verdade, está
+-- inteiro em sql/schema.sql (public.reports, public.posts,
+-- public.support_points, public.police_stations, etc.). Mantido aqui
+-- só por histórico — rodar isto contra o banco atual criaria tabelas
+-- soltas, sem relação com o app.
+-- ============================================================
+
+-- ============================================================
+-- ROTA SEGURA — MIGRAÇÃO v1 → v2 (histórico, ver aviso acima)
 -- Rode este arquivo se você JÁ tinha as tabelas perfis, locais e
 -- comunidade_posts criadas (v1) e só quer adicionar as novidades:
 -- período/anônimo, instituições (delegacias/pontos de apoio) e

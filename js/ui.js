@@ -5,6 +5,36 @@
 
 import { icone } from './icons.js';
 
+/* -------------------------------------------------------- Upload de foto --- */
+const TIPOS_IMAGEM_PERMITIDOS = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+};
+
+/** Confere tamanho e tipo REAL do arquivo (arquivo.type, dado pelo navegador —
+    não o nome escolhido por quem envia) antes de qualquer upload de foto
+    (relato, publicação, avatar). Devolve a extensão certa pra montar o
+    caminho no Storage. Lança um erro com .validacaoImagem=true, pra quem
+    chama saber que a mensagem já é pronta pra mostrar direto (sem passar por
+    traduzirErro). */
+export function validarImagem(arquivo, tamanhoMaximoMb = 5) {
+  const falha = (mensagem) => {
+    const erro = new Error(mensagem);
+    erro.validacaoImagem = true;
+    throw erro;
+  };
+  if (arquivo.size > tamanhoMaximoMb * 1024 * 1024) {
+    falha(`A imagem precisa ter no máximo ${tamanhoMaximoMb} MB.`);
+  }
+  const extensao = TIPOS_IMAGEM_PERMITIDOS[arquivo.type];
+  if (!extensao) {
+    falha('Envie uma imagem em JPG, PNG, WEBP ou GIF.');
+  }
+  return extensao;
+}
+
 /* ---------------------------------------------------------------- Toast --- */
 function containerToast() {
   let c = document.getElementById('toast-container');

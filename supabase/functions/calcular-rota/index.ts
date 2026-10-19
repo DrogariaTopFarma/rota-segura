@@ -27,11 +27,56 @@
 // verdade, e não só um nome pra rota única de sempre.
 // ============================================================================
 
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+
 const CABECALHOS_CORS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
+
+// Limite de chamadas por usuária, pra não estourar a cota gratuita do
+// OpenRouteService com uso abusivo ou um bug de loop no front — ver seção 20
+// de sql/schema.sql (função verificar_limite_de_chamadas). Mesmo mecanismo
+// de perguntar-vanessa/index.ts.
+const LIMITE_CHAMADAS = 15;
+const JANELA_LIMITE_SEGUNDOS = 60;
+
+function extrairUserIdDoJwt(req: Request): string | null {
+  const cabecalho = req.headers.get("authorization");
+  if (!cabecalho?.startsWith("Bearer ")) return null;
+  try {
+    const payload = cabecalho.slice(7).split(".")[1];
+    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+    const dados = JSON.parse(json);
+    return typeof dados.sub === "string" ? dados.sub : null;
+  } catch {
+    return null;
+  }
+}
+
+async function dentroDoLimite(req: Request, nomeDaFuncao: string): Promise<boolean> {
+  const userId = extrairUserIdDoJwt(req);
+  if (!userId) return true;
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceRoleKey) return true;
+
+  try {
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const { data, error } = await supabase.rpc("verificar_limite_de_chamadas", {
+      p_user_id: userId,
+      p_funcao: nomeDaFuncao,
+      p_limite: LIMITE_CHAMADAS,
+      p_janela_segundos: JANELA_LIMITE_SEGUNDOS
+    });
+    if (error) return true;
+    return data !== false;
+  } catch {
+    return true;
+  }
+}
 
 // Só estes dois perfis do OpenRouteService são aceitos — nunca repassamos o
 // valor que chegou do navegador direto para a URL sem checar contra esta lista.
@@ -63,6 +108,13 @@ Deno.serve(async (req: Request) => {
     return respostaJson({ erro: "Método não permitido." }, 405);
   }
 
+  if (!(await dentroDoLimite(req, "calcular-rota"))) {
+    return respostaJson(
+      { erro: "Muitas rotas calculadas em pouco tempo. Espere um minuto e tente de novo." },
+      429
+    );
+  }
+
   const chaveOrs = Deno.env.get("ORS_API_KEY");
   if (!chaveOrs) {
     console.error("ORS_API_KEY não configurada nos secrets da função.");
@@ -88,6 +140,13 @@ Deno.serve(async (req: Request) => {
     : "foot-walking";
 
   try {
+    // Timeout curto e explícito: sem isto, se o OpenRouteService (ou a rede
+    // até ele) travar, a função fica pendurada até o limite de tempo da
+    // própria Supabase Edge Function (perto de 2 minutos) — testado ao vivo
+    // nesta sessão e confirmado como a causa real da tela "calculando rota"
+    // ficar travada por mais de 2 minutos antes de dar erro. 15s é tempo de
+    // sobra pro ORS responder normalmente (medido em menos de 2s em uso
+    // normal) sem fazer a usuária esperar o dobro do tempo do app inteiro.
     const respostaOrs = await fetch(
       `https://api.openrouteservice.org/v2/directions/${perfil}/geojson`,
       {
@@ -96,6 +155,7 @@ Deno.serve(async (req: Request) => {
           Authorization: chaveOrs,
           "Content-Type": "application/json"
         },
+        signal: AbortSignal.timeout(15000),
         body: JSON.stringify({
           // O OpenRouteService usa [longitude, latitude], ao contrário do Leaflet.
           coordinates: [
@@ -193,6 +253,13 @@ Deno.serve(async (req: Request) => {
 
     return respostaJson({ rotas });
   } catch (erro) {
+    if (erro instanceof Error && erro.name === "TimeoutError") {
+      console.error("OpenRouteService não respondeu em 15s — timeout.");
+      return respostaJson(
+        { erro: "O serviço de rotas demorou demais para responder. Tente novamente." },
+        504
+      );
+    }
     console.error("Falha ao chamar o OpenRouteService:", erro);
     return respostaJson(
       { erro: "Não foi possível falar com o serviço de rotas agora. Tente novamente." },

@@ -975,6 +975,12 @@ Você vai criar essa função **direto pelo site do Supabase**, sem instalar nad
    do editor.
 3. Espere a mensagem de sucesso (10 a 30 segundos).
 
+> **Atualizando uma função que já estava publicada?** (ex.: depois do Rota Segura 2.0 ter
+> adicionado o limite de chamadas por usuária) Repita só o 12.3 (copiar o arquivo atualizado e
+> colar por cima) e o 12.5 (Deploy de novo) — o secret `ORS_API_KEY` continua valendo, não precisa
+> reconfigurar. Só rode também o `sql/schema.sql` inteiro no SQL Editor uma vez (é seguro rodar de
+> novo, não apaga nada) pra criar a tabela/função do limite de chamadas.
+
 **12.6 — Testar direto no Supabase, antes de mexer no site**
 
 1. Na página da função, procure o botão/aba **Test** (ou **Invoke**).

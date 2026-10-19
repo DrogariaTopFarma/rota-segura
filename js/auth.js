@@ -14,6 +14,24 @@ export async function usuarioAtual() {
   return data?.user || null;
 }
 
+/** Nome/avatar pra mostrar no cabeçalho (saudação, menu "Conectada como...").
+    NUNCA usar usuario.user_metadata.full_name pra isso: esse valor só reflete
+    o nome digitado no CADASTRO — editar o perfil depois (js/profile.js) só
+    atualiza a tabela profiles, nunca o user_metadata, então a saudação
+    ficava presa no nome antigo (ou no e-mail, se o cadastro for antigo
+    demais pra ter nome). profiles é sempre a fonte verdadeira e atual. */
+export async function perfilDeCabecalho(usuario) {
+  const { data } = await supabase
+    .from('profiles')
+    .select('full_name,avatar_url')
+    .eq('id', usuario.id)
+    .maybeSingle();
+  return {
+    nome: data?.full_name || usuario.user_metadata?.full_name || usuario.email,
+    avatarUrl: data?.avatar_url || null
+  };
+}
+
 /** Usada nas páginas internas: sem login, volta para a tela de entrar. */
 export async function exigirLogin() {
   if (!supabaseConfigurado) {
@@ -29,7 +47,7 @@ export async function exigirLogin() {
 }
 
 /** Usada nas páginas públicas: se já estiver logada, vai direto ao mapa. */
-export async function redirecionarSeLogado(destino = 'pages/mapa.html') {
+export async function redirecionarSeLogado(destino = 'pages/inicio.html') {
   if (!supabaseConfigurado) return;
   const { data } = await supabase.auth.getSession();
   if (data.session) window.location.replace(destino);
@@ -106,7 +124,7 @@ function ligarFormLogin() {
       mostrarMensagem(msg, traduzirErro(error), 'erro');
       return;
     }
-    window.location.replace('mapa.html');
+    window.location.replace('inicio.html');
   });
 }
 
@@ -173,7 +191,7 @@ function ligarFormCadastro() {
 
     // Se a confirmação de e-mail estiver LIGADA, não vem sessão.
     if (data.session) {
-      window.location.replace('mapa.html');
+      window.location.replace('inicio.html');
     } else {
       form.reset();
       mostrarMensagem(

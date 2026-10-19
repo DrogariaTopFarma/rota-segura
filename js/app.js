@@ -3,7 +3,7 @@
    Liga todas as peças na ordem certa.
    ============================================================================ */
 
-import { exigirLogin, iniciarAuth } from './auth.js';
+import { exigirLogin, iniciarAuth, perfilDeCabecalho } from './auth.js';
 import { aplicarIcones } from './icons.js';
 import { prepararModais, prepararTrocaDeModal, abrirModal, fecharModal, prepararLightboxDeFotos } from './ui.js';
 import {
@@ -119,10 +119,11 @@ async function iniciar() {
   // 7. Atualização em tempo real quando alguém cria um relato
   ligarRealtimeRelatos();
 
-  // 8. Nome da usuária no menu
+  // 8. Nome da usuária no menu (profiles, não user_metadata — ver
+  // perfilDeCabecalho em auth.js)
   const saudacao = document.getElementById('nome-usuaria');
   if (saudacao) {
-    saudacao.textContent = usuario.user_metadata?.full_name || usuario.email;
+    perfilDeCabecalho(usuario).then(({ nome }) => { saudacao.textContent = nome; });
   }
 }
 

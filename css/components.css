@@ -701,6 +701,21 @@
   flex-shrink: 0;
 }
 
+.vanessa-atalho {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--rosa-magenta-escuro);
+  background: var(--roxo-suave);
+  border-radius: var(--raio-md);
+  padding: var(--esp-2) var(--esp-3);
+  margin-bottom: var(--esp-3);
+  flex-shrink: 0;
+}
+
 .vanessa-mensagens {
   flex: 1;
   overflow-y: auto;

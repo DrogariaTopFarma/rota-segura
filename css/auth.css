@@ -102,3 +102,40 @@
   margin-bottom: var(--esp-6);
 }
 .boas-vindas .btn + .btn { margin-top: var(--esp-3); }
+
+.vitrine {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-3);
+  text-align: left;
+  margin: 0 0 var(--esp-6);
+  padding: 0;
+  list-style: none;
+}
+.vitrine__item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--esp-3);
+  padding: var(--esp-3);
+  background: var(--rosa-bebe);
+  border-radius: var(--raio-md);
+}
+.vitrine__icone {
+  flex-shrink: 0;
+  width: 36px; height: 36px;
+  border-radius: var(--raio-md);
+  background: var(--branco);
+  color: var(--rosa-magenta);
+  display: flex; align-items: center; justify-content: center;
+}
+.vitrine__item strong {
+  display: block;
+  font-size: var(--fs-sm);
+  color: var(--texto-principal);
+}
+.vitrine__item span {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--texto-secundario);
+  line-height: 1.4;
+}

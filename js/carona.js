@@ -57,6 +57,14 @@ async function iniciar() {
     return;
   }
 
+  // Veio de um atalho pra "Acompanhar corrida" (?abrirCarona=1) — da Vanessa
+  // (pages/alertas.html) ou do cartão de status da Tela Início quando há
+  // uma corrida ativa (js/inicio.js) — abre o painel direto, sem precisar
+  // achar o link "Vou de carona" na mão.
+  if (new URLSearchParams(window.location.search).get('abrirCarona') === '1') {
+    abrirPainelCarona();
+  }
+
   // Sem parâmetro na URL: se já existe uma corrida ativa não confirmada,
   // mostra ela direto — sair da tela e voltar não pode "perder" o
   // acompanhamento que já tinha começado.

@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#E83D67">
+  <title>Início — Rota Segura</title>
+  <link rel="manifest" href="../manifest.json">
+  <link rel="apple-touch-icon" href="../assets/icone-192.png">
+  <link rel="icon" type="image/png" href="../assets/icone-192.png">
+
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://drogariatopfarma.github.io/rota-segura/pages/inicio.html">
+  <meta property="og:title" content="Início — Rota Segura">
+  <meta property="og:description" content="Plataforma colaborativa de segurança para mulheres em deslocamentos urbanos.">
+  <meta property="og:image" content="https://drogariatopfarma.github.io/rota-segura/assets/icone-512.png">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/global.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="../css/map.css">
+  <link rel="stylesheet" href="../css/inicio.css">
+  <link rel="stylesheet" href="../css/responsive.css">
+</head>
+<body>
+  <div class="app-shell">
+
+    <!-- ================= CABEÇALHO ================= -->
+    <header class="topo">
+      <div>
+        <span class="topo__titulo" id="inicio-saudacao">Olá!</span><br>
+        <span class="topo__slogan">Juntas por uma cidade mais segura.</span>
+      </div>
+
+      <div class="topo__acoes">
+        <button type="button" class="topo__botao" id="botao-notificacoes" aria-label="Notificações">
+          <span data-icone="sino" data-tamanho="24" aria-hidden="true"></span>
+          <span class="badge" id="badge-notificacoes" hidden>0</span>
+        </button>
+        <a class="inicio-avatar" id="inicio-avatar" href="perfil.html" aria-label="Meu perfil">
+          <span data-icone="perfil" data-tamanho="20" aria-hidden="true"></span>
+        </a>
+        <button type="button" class="topo__botao" id="botao-menu" aria-label="Abrir menu">
+          <span data-icone="menu" data-tamanho="24" aria-hidden="true"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ================= SOS =================
+         Ação de verdade, não um atalho pra outra tela — manda WhatsApp pro
+         contato de emergência com localização em tempo real (mesma função
+         de Rotas, ver js/emergency.js, acionarSos). -->
+    <button type="button" class="inicio-sos" id="inicio-sos-botao">
+      <span data-icone="sos" data-tamanho="22" aria-hidden="true"></span>
+      <span>
+        <strong>SOS — Preciso de ajuda</strong>
+        <span>Avisa seu contato de emergência agora, com sua localização</span>
+      </span>
+    </button>
+
+    <!-- ================= STATUS PESSOAL =================
+         Só aparecem quando fazem sentido pra ESTA usuária agora — ver
+         js/inicio.js (carregarAlertaContato/carregarCorridaAtiva). Começam
+         hidden pra nunca piscar "vazio" antes dos dados chegarem. -->
+    <a class="inicio-status inicio-status--aviso" id="inicio-alerta-contato" href="perfil.html#contatos" hidden>
+      <span data-icone="alerta" data-tamanho="20" aria-hidden="true"></span>
+      <span>
+        <strong>Nenhum contato de emergência cadastrado</strong>
+        <span>O SOS precisa de um contato pra funcionar — cadastre agora</span>
+      </span>
+    </a>
+    <a class="inicio-status inicio-status--ativo" id="inicio-corrida-ativa" href="rotas.html?abrirCarona=1" hidden>
+      <span data-icone="carro" data-tamanho="20" aria-hidden="true"></span>
+      <span>
+        <strong>Você está sendo acompanhada agora</strong>
+        <span>Chegada esperada às <span id="inicio-corrida-hora">—</span> · toque pra ver</span>
+      </span>
+    </a>
+
+    <!-- ================= ATALHOS PARA AS TELAS ================= -->
+    <div class="inicio-grid">
+      <a class="inicio-card" href="mapa.html">
+        <span class="inicio-card__icone" data-icone="mapa" data-tamanho="22" aria-hidden="true"></span>
+        <strong>Mapa</strong>
+        <span>Relatos, apoio e delegacias perto de você</span>
+      </a>
+      <a class="inicio-card" href="rotas.html">
+        <span class="inicio-card__icone" data-icone="rotas" data-tamanho="22" aria-hidden="true"></span>
+        <strong>Rotas</strong>
+        <span>O caminho com menos risco, não só o mais curto</span>
+      </a>
+      <a class="inicio-card" href="alertas.html">
+        <span class="inicio-card__icone" data-icone="sino" data-tamanho="22" aria-hidden="true"></span>
+        <strong>Comunidade</strong>
+        <span>Alertas, dicas e apoio entre vizinhas</span>
+      </a>
+      <a class="inicio-card" href="observatorio.html">
+        <span class="inicio-card__icone" data-icone="grafico" data-tamanho="22" aria-hidden="true"></span>
+        <strong>Observatório</strong>
+        <span>Gráficos reais de segurança por bairro</span>
+      </a>
+    </div>
+
+    <!-- ================= ATALHO VANESSA ================= -->
+    <a class="inicio-vanessa" href="alertas.html?abrirVanessa=1">
+      <span class="inicio-vanessa__icone" data-icone="vanessa" data-tamanho="22" aria-hidden="true"></span>
+      <div class="inicio-vanessa__texto">
+        <strong>Vanessa te acompanha</strong>
+        <span>Dúvida sobre segurança ou sobre o app? Fale com ela agora.</span>
+      </div>
+      <span data-icone="voltar" data-tamanho="16" class="inicio-vanessa__seta" aria-hidden="true" style="transform: scaleX(-1)"></span>
+    </a>
+
+    <!-- ================= NOTÍCIAS =================
+         Título muda pra "perto de você" quando a geolocalização responde a
+         tempo (ver js/inicio.js) — sem permissão/sinal, mostra as mais
+         recentes globalmente, sem travar nem dar erro. -->
+    <section class="inicio-secao">
+      <h2 id="inicio-noticias-titulo">Últimas notícias</h2>
+      <div id="inicio-noticias"></div>
+    </section>
+
+    <!-- ================= RELATOS ================= -->
+    <section class="inicio-secao">
+      <h2 id="inicio-relatos-titulo">Relatos da comunidade</h2>
+      <div id="inicio-relatos"></div>
+    </section>
+  </div>
+
+  <!-- ================= BOTTOM NAVIGATION ================= -->
+  <nav class="bottom-nav" aria-label="Navegação principal">
+    <a class="bottom-nav__item" href="inicio.html">
+      <span data-icone="inicio" data-tamanho="22" aria-hidden="true"></span>
+      <span class="bottom-nav__rotulo">Início</span>
+    </a>
+    <a class="bottom-nav__item" href="mapa.html">
+      <span data-icone="mapa" data-tamanho="22" aria-hidden="true"></span>
+      <span class="bottom-nav__rotulo">Mapa</span>
+    </a>
+    <button type="button" class="bottom-nav__fab" id="botao-central" aria-label="Cadastrar">
+      <span data-icone="mais" data-tamanho="28" aria-hidden="true"></span>
+    </button>
+    <a class="bottom-nav__item" href="rotas.html">
+      <span data-icone="rotas" data-tamanho="22" aria-hidden="true"></span>
+      <span class="bottom-nav__rotulo">Rotas</span>
+    </a>
+    <a class="bottom-nav__item" href="alertas.html">
+      <span data-icone="sino" data-tamanho="22" aria-hidden="true"></span>
+      <span class="bottom-nav__rotulo">Comunidade</span>
+    </a>
+  </nav>
+
+  <!-- ================= MODAL: NOTIFICAÇÕES ================= -->
+  <div class="modal" id="modal-notificacoes" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-notificacoes" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-notificacoes">Notificações</h2>
+        <div class="modal__cabecalho-acoes">
+          <button type="button" class="btn-texto" id="btn-limpar-notificacoes">Limpar</button>
+          <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+            <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+      <div id="notificacoes-lista"></div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: MENU ================= -->
+  <div class="modal" id="modal-menu" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-menu" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-menu">Menu</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <p class="menu-saudacao">Conectada como <strong id="nome-usuaria">...</strong></p>
+
+      <a class="modal__opcao" href="perfil.html">
+        <span class="modal__opcao__icone" data-icone="perfil" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Meu perfil</span></span>
+      </a>
+      <a class="modal__opcao" href="perfil.html#relatos">
+        <span class="modal__opcao__icone" data-icone="escudo" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Meus relatos</span></span>
+      </a>
+      <a class="modal__opcao" href="perfil.html#contatos">
+        <span class="modal__opcao__icone" data-icone="telefone" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Contatos de emergência</span></span>
+      </a>
+      <button type="button" class="modal__opcao" data-trocar-modal="modal-notificacoes">
+        <span class="modal__opcao__icone" data-icone="sino" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Notificações</span></span>
+      </button>
+      <a class="modal__opcao" href="perfil.html#configuracoes">
+        <span class="modal__opcao__icone" data-icone="engrenagem" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Configurações</span></span>
+      </a>
+      <button type="button" class="modal__opcao" id="menu-baixar-app">
+        <span class="modal__opcao__icone" data-icone="baixar" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Baixar app</span></span>
+      </button>
+      <a class="modal__opcao" href="termos.html">
+        <span class="modal__opcao__icone" data-icone="documento" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Termos de uso</span></span>
+      </a>
+      <button type="button" class="modal__opcao" data-trocar-modal="modal-privacidade">
+        <span class="modal__opcao__icone" data-icone="cadeado" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Privacidade</span></span>
+      </button>
+
+      <button type="button" class="btn btn-secundario btn-bloco menu-sair" data-acao="sair">Sair da conta</button>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: PRIVACIDADE ================= -->
+  <div class="modal" id="modal-privacidade" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-privacidade" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-privacidade">Privacidade</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <p class="modal__texto">
+        Seus dados de conta (nome, e-mail, telefone, avatar) ficam armazenados no Supabase,
+        protegidos por regras de acesso (Row Level Security) — por exemplo, seus contatos de
+        emergência só podem ser vistos por você.
+      </p>
+      <p class="modal__texto">
+        A localização usada pelo botão SOS é lida na hora e nunca é salva em nosso banco de
+        dados. Relatos, pontos de apoio e publicações que você cadastra ficam visíveis para
+        outras usuárias logadas, porque esse é o propósito da plataforma.
+      </p>
+      <p class="modal__texto">
+        Você pode editar seus dados e excluir seus contatos de emergência a qualquer momento
+        pela tela de Perfil.
+      </p>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: BAIXAR APP ================= -->
+  <div class="modal" id="modal-baixar-app" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-baixar-app" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-baixar-app">Baixar o app</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <p class="modal__texto">
+        O Rota Segura pode ficar como um ícone na tela do seu celular, abrindo direto sem
+        precisar do navegador. O passo muda um pouco conforme o aparelho:
+      </p>
+      <p class="modal__texto">
+        <strong>iPhone (Safari):</strong> toque no ícone de compartilhar (o quadrado com a
+        seta pra cima) → "Adicionar à Tela de Início" → Adicionar.
+      </p>
+      <p class="modal__texto">
+        <strong>Android (Chrome):</strong> toque nos três pontinhos do navegador → "Instalar
+        aplicativo" ou "Adicionar à tela inicial".
+      </p>
+      <p class="modal__texto">
+        <strong>Computador (Chrome/Edge):</strong> procure o ícone de instalação na barra de
+        endereço, ou no menu do navegador → "Instalar Rota Segura".
+      </p>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: SOS SEM CONTATO ================= -->
+  <div class="modal" id="modal-sos-sem-contato" role="dialog" aria-modal="true" aria-labelledby="titulo-sos-sem-contato" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-sos-sem-contato">Nenhum contato de emergência</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <p class="modal__texto">
+        O SOS avisa um contato de confiança pelo WhatsApp, com sua localização — mas você ainda
+        não cadastrou nenhum contato de emergência.
+      </p>
+      <a href="perfil.html#contatos" class="btn btn-primario btn-bloco">CADASTRAR CONTATO AGORA</a>
+      <p class="modal__texto">
+        Em caso de emergência real, ligue para o 190 (Polícia) ou 180 (Central de Atendimento
+        à Mulher).
+      </p>
+    </div>
+  </div>
+
+  <!-- ================= SCRIPTS ================= -->
+  <script type="module" src="../js/inicio.js"></script>
+  <script type="module">
+    import { abrirModal } from '../js/ui.js';
+    document.getElementById('botao-menu')
+      ?.addEventListener('click', () => abrirModal('modal-menu'));
+  </script>
+</body>
+</html>

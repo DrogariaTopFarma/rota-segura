@@ -17,27 +17,31 @@
    apaga qualquer cache de versão anterior automaticamente.
    ============================================================================ */
 
-const CACHE_VERSION = 'v8';
+const CACHE_VERSION = 'v10';
 const CACHE_NAME = `rota-segura-${CACHE_VERSION}`;
 
 const ARQUIVOS_DO_APP = [
   'index.html',
   'manifest.json',
   'css/variables.css', 'css/global.css', 'css/components.css', 'css/auth.css',
-  'css/map.css', 'css/rotas.css', 'css/carona.css', 'css/comunidade.css', 'css/perfil.css', 'css/responsive.css',
+  'css/map.css', 'css/rotas.css', 'css/carona.css', 'css/comunidade.css', 'css/perfil.css',
+  'css/inicio.css', 'css/responsive.css',
   'js/config.js', 'js/supabase.js', 'js/auth.js', 'js/map.js', 'js/geolocation.js',
   'js/geocoding.js', 'js/location-picker.js', 'js/search.js', 'js/reports.js',
   'js/routes.js', 'js/navigation.js', 'js/voice.js', 'js/push.js', 'js/carona.js', 'js/vanessa.js',
   'js/pwa.js', 'js/risco-horario.js', 'js/emergency.js', 'js/community.js', 'js/alertas.js', 'js/profile.js',
   'js/notifications.js', 'js/nav.js', 'js/ui.js', 'js/icons.js', 'js/app.js',
+  'js/inicio.js', 'js/observatorio.js', 'js/observatorio-graficos.js', 'js/wikimedia.js',
   'pages/login.html', 'pages/cadastro.html', 'pages/recuperar-senha.html', 'pages/nova-senha.html',
-  'pages/mapa.html', 'pages/rotas.html', 'pages/alertas.html', 'pages/perfil.html', 'pages/termos.html',
+  'pages/inicio.html', 'pages/mapa.html', 'pages/rotas.html', 'pages/alertas.html', 'pages/perfil.html',
+  'pages/observatorio.html', 'pages/termos.html',
   'assets/icone-192.png', 'assets/icone-512.png',
   'vendor/leaflet/leaflet.css', 'vendor/leaflet/leaflet.js',
   'vendor/leaflet/images/layers.png', 'vendor/leaflet/images/layers-2x.png',
   'vendor/leaflet/images/marker-icon.png', 'vendor/leaflet/images/marker-icon-2x.png',
   'vendor/leaflet/images/marker-shadow.png',
-  'vendor/leaflet-rotate/leaflet-rotate-src.js'
+  'vendor/leaflet-rotate/leaflet-rotate-src.js',
+  'vendor/chart.js/chart.umd.min.js'
 ];
 
 self.addEventListener('install', (evento) => {

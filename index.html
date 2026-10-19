@@ -38,6 +38,44 @@
     <h1>Caminhe sabendo o que tem pela frente</h1>
     <p>Relatos, pontos de apoio e delegacias no mapa, registrados por quem faz o mesmo caminho que você.</p>
 
+    <ul class="vitrine" aria-label="O que você encontra no Rota Segura">
+      <li class="vitrine__item">
+        <span class="vitrine__icone" data-icone="mapa" data-tamanho="20" aria-hidden="true"></span>
+        <div>
+          <strong>Mapa</strong>
+          <span>Relatos de segurança, pontos de apoio e delegacias perto de você.</span>
+        </div>
+      </li>
+      <li class="vitrine__item">
+        <span class="vitrine__icone" data-icone="rotas" data-tamanho="20" aria-hidden="true"></span>
+        <div>
+          <strong>Rotas mais seguras</strong>
+          <span>Calculamos o caminho com menos risco, não só o mais curto.</span>
+        </div>
+      </li>
+      <li class="vitrine__item">
+        <span class="vitrine__icone" data-icone="vanessa" data-tamanho="20" aria-hidden="true"></span>
+        <div>
+          <strong>Vanessa</strong>
+          <span>Assistente de IA pra tirar dúvida sobre segurança e sobre o app.</span>
+        </div>
+      </li>
+      <li class="vitrine__item">
+        <span class="vitrine__icone" data-icone="sino" data-tamanho="20" aria-hidden="true"></span>
+        <div>
+          <strong>Comunidade</strong>
+          <span>Alertas, dicas e apoio entre quem faz os mesmos caminhos.</span>
+        </div>
+      </li>
+      <li class="vitrine__item">
+        <span class="vitrine__icone" data-icone="grafico" data-tamanho="20" aria-hidden="true"></span>
+        <div>
+          <strong>Observatório</strong>
+          <span>Gráficos reais sobre relatos e notícias de segurança da região.</span>
+        </div>
+      </li>
+    </ul>
+
     <a class="btn btn-primario btn-bloco" href="pages/login.html">Entrar</a>
     <a class="btn btn-secundario btn-bloco" href="pages/cadastro.html">Criar conta</a>
   </main>
@@ -48,7 +86,7 @@
     import { registrarServiceWorker } from './js/pwa.js';
     aplicarIcones();
     registrarServiceWorker('sw.js');
-    redirecionarSeLogado('pages/mapa.html');
+    redirecionarSeLogado('pages/inicio.html');
   </script>
 </body>
 </html>

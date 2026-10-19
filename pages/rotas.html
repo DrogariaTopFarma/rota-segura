@@ -98,6 +98,18 @@
         para partir de um lugar diferente.
       </p>
 
+      <div class="rota-preferencia__cabecalho">
+        <span>Prioridade da rota</span>
+        <button type="button" class="btn-icone" id="abrir-como-calculamos" aria-label="Como calculamos a rota mais segura">
+          <span data-icone="info" data-tamanho="16" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div class="rota-modo" role="group" aria-label="Prioridade da rota" id="rota-preferencia">
+        <button type="button" class="rota-modo__opcao" data-preferencia="segura" aria-pressed="true">Mais segura</button>
+        <button type="button" class="rota-modo__opcao" data-preferencia="equilibrada" aria-pressed="false">Equilibrada</button>
+        <button type="button" class="rota-modo__opcao" data-preferencia="rapida" aria-pressed="false">Mais rápida</button>
+      </div>
+
       <button type="button" class="rota-link-carona" id="abrir-painel-carona">
         <span data-icone="carro" data-tamanho="16" aria-hidden="true"></span>
         Vou de carona (Uber/99)? Acompanhar corrida
@@ -257,24 +269,24 @@
 
   <!-- ================= BOTTOM NAVIGATION ================= -->
   <nav class="bottom-nav" id="rota-bottom-nav" aria-label="Navegação principal">
+    <a class="bottom-nav__item" href="inicio.html">
+      <span data-icone="inicio" data-tamanho="22" aria-hidden="true"></span>
+      <span class="bottom-nav__rotulo">Início</span>
+    </a>
     <a class="bottom-nav__item" href="mapa.html">
       <span data-icone="mapa" data-tamanho="22" aria-hidden="true"></span>
       <span class="bottom-nav__rotulo">Mapa</span>
     </a>
+    <button type="button" class="bottom-nav__fab" id="botao-central" aria-label="Cadastrar">
+      <span data-icone="mais" data-tamanho="28" aria-hidden="true"></span>
+    </button>
     <a class="bottom-nav__item" href="rotas.html">
       <span data-icone="rotas" data-tamanho="22" aria-hidden="true"></span>
       <span class="bottom-nav__rotulo">Rotas</span>
     </a>
-    <button type="button" class="bottom-nav__fab" id="botao-central" aria-label="Cadastrar">
-      <span data-icone="mais" data-tamanho="28" aria-hidden="true"></span>
-    </button>
     <a class="bottom-nav__item" href="alertas.html">
       <span data-icone="sino" data-tamanho="22" aria-hidden="true"></span>
-      <span class="bottom-nav__rotulo">Alertas</span>
-    </a>
-    <a class="bottom-nav__item" href="perfil.html">
-      <span data-icone="perfil" data-tamanho="22" aria-hidden="true"></span>
-      <span class="bottom-nav__rotulo">Perfil</span>
+      <span class="bottom-nav__rotulo">Comunidade</span>
     </a>
   </nav>
 
@@ -377,6 +389,24 @@
         <button type="button" class="btn btn-secundario btn-bloco" id="carona-checkin-sim">Sim, estou bem</button>
         <button type="button" class="btn btn-primario btn-bloco" id="carona-checkin-nao">Não, avisar contato</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: COMO CALCULAMOS A ROTA MAIS SEGURA =================
+       O texto com os pesos reais é preenchido por js/routes.js
+       (preencherTextoComoCalculamos) a partir da MESMA configuração usada pra
+       pontuar as rotas de verdade — nunca um número digitado solto aqui, que
+       poderia ficar desatualizado se o peso mudar no código. -->
+  <div class="modal" id="modal-como-calculamos" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-como-calculamos" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-como-calculamos">Como calculamos a rota mais segura</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div id="texto-como-calculamos"></div>
     </div>
   </div>
 

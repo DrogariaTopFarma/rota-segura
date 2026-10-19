@@ -16,7 +16,7 @@ import { obterPosicao, mensagemDoMotivo } from './geolocation.js';
 import { buscarEndereco, enderecoDeCoordenadas } from './geocoding.js';
 import { supabase } from './supabase.js';
 import { APP_CONFIG, CARTO_API_KEY } from './config.js';
-import { obterLinkDeEmergencia, iniciarCacheDeLocalizacao } from './emergency.js';
+import { iniciarCacheDeLocalizacao, acionarSos } from './emergency.js';
 import { iniciarNavegacao } from './navigation.js';
 import { marcarItemAtivo } from './nav.js';
 import { ROTULOS_RELATO, ICONE_POR_TIPO_RELATO, corDoRelato } from './map.js';
@@ -29,7 +29,7 @@ const ICONE_CONTEXTO = {
   hospital: () => divIconContexto('hospital', '#4CAF7D'),
   farmacia: () => divIconContexto('hospital', '#4CAF7D'),
   comercio_24h: () => divIconContexto('predio', '#7C5CBF'),
-  ponto_onibus: () => divIconContexto('onibus', '#7C5CBF'),
+  ponto_onibus: () => divIconContexto('onibus', '#F4A261'),
   delegacia: () => divIconContexto('predio', '#7C5CBF')
 };
 // Um L.divIcon é imutável e pode ser reaproveitado em vários marcadores —
@@ -61,6 +61,7 @@ let rotaAtual = null; // { distanciaM, duracaoS, geometria, passos }
 let tokenRota = 0;    // evita que uma resposta atrasada sobrescreva uma mais nova
 let tokenOrigem = 0;  // evita que uma leitura de GPS atrasada sobrescreva uma origem escolhida à mão
 let perfil = 'foot-walking'; // 'foot-walking' | 'driving-car'
+let preferenciaRota = 'segura'; // 'segura' | 'equilibrada' | 'rapida' — ver PESO_SEGURANCA_POR_PREFERENCIA
 
 /* ------------------------------------------------------------ Inicializar */
 async function iniciar() {
@@ -89,6 +90,8 @@ async function iniciar() {
   document.getElementById('rota-inverter')?.addEventListener('click', inverterOrigemDestino);
   document.getElementById('rota-sos-botao')?.addEventListener('click', acionarSos);
   prepararSeletorDeModo();
+  prepararSeletorDePreferencia(usuario.id);
+  carregarPreferenciaDeRota(usuario.id);
   document.getElementById('botao-central')?.addEventListener('click', () => {
     toast('Para cadastrar, volte à tela do Mapa.', 'info');
     window.location.href = 'mapa.html';
@@ -111,6 +114,68 @@ function prepararSeletorDeModo() {
       tentarCalcularRota();
     });
   });
+}
+
+/* ------------------------------------------------- Prioridade da rota --- */
+/** Lê a preferência salva (ou 'segura' se a usuária nunca mexeu nisso — não
+    existe linha em profiles antes da primeira edição de perfil, e esse valor
+    default também já é a coluna default no banco, ver sql/schema.sql) e
+    reflete no controle #rota-preferencia. */
+async function carregarPreferenciaDeRota(userId) {
+  const { data } = await supabase.from('profiles').select('preferencia_rota').eq('id', userId).maybeSingle();
+  preferenciaRota = data?.preferencia_rota || 'segura';
+  document.querySelectorAll('#rota-preferencia .rota-modo__opcao').forEach((botao) => {
+    botao.setAttribute('aria-pressed', String(botao.dataset.preferencia === preferenciaRota));
+  });
+}
+
+function prepararSeletorDePreferencia(userId) {
+  const botoes = [...document.querySelectorAll('#rota-preferencia .rota-modo__opcao')];
+  botoes.forEach((botao) => {
+    botao.addEventListener('click', async () => {
+      if (botao.dataset.preferencia === preferenciaRota) return;
+      preferenciaRota = botao.dataset.preferencia;
+      botoes.forEach((b) => b.setAttribute('aria-pressed', String(b === botao)));
+      tentarCalcularRota();
+      // upsert (não update): mesma razão de js/profile.js — a linha de
+      // profiles pode ainda não existir pra essa usuária.
+      await supabase.from('profiles').upsert({ id: userId, preferencia_rota: preferenciaRota });
+    });
+  });
+
+  document.getElementById('abrir-como-calculamos')?.addEventListener('click', () => {
+    preencherTextoComoCalculamos();
+    abrirModal('modal-como-calculamos');
+  });
+}
+
+/** Texto gerado a partir de CONFIGURACAO_PONTUACAO de verdade — nunca um
+    número repetido à mão, que poderia desalinhar do que pontuarCandidata
+    realmente usa se o peso mudar um dia. */
+function preencherTextoComoCalculamos() {
+  const el = document.getElementById('texto-como-calculamos');
+  if (!el) return;
+  const { PESO_RISCO_POR_GRAVIDADE: peso, PONTOS_POR_APOIO_PERTO: apoio, RAIO_PONTUACAO_M: raio } = CONFIGURACAO_PONTUACAO;
+  el.innerHTML = `
+    <p class="rota-modal__texto">
+      Entre as alternativas de caminho, escolhemos a de MENOR pontuação de risco — nunca
+      necessariamente a mais curta.
+    </p>
+    <p class="rota-modal__texto">
+      Cada relato de segurança a até ${raio} m do caminho soma pontos conforme a gravidade que a
+      própria autora marcou: <strong>+${peso.baixo}</strong> (baixo), <strong>+${peso.medio}</strong>
+      (médio), <strong>+${peso.alto}</strong> (alto).
+    </p>
+    <p class="rota-modal__texto">
+      Cada ponto de apoio ou delegacia a até ${raio} m do caminho ajuda, tirando
+      <strong>${Math.abs(apoio)}</strong> pontos.
+    </p>
+    <p class="rota-modal__texto">
+      O controle "Prioridade da rota" ajusta o quanto o risco pesa contra a duração do caminho:
+      em "Mais segura" (padrão) só o risco decide; em "Mais rápida", a duração passa a valer
+      mais; "Equilibrada" fica no meio.
+    </p>
+  `;
 }
 
 /* -------------------------------------------------------------- Mapa --- */
@@ -412,7 +477,7 @@ async function calcularRota() {
     });
   }
 
-  desenharCardRota(rotaAtual, [...avisosDeLocal, ...observacoes]);
+  desenharCardRota(rotaAtual, [...avisosDeLocal, ...observacoes], escolha);
   salvarHistoricoRota(rotaAtual).catch((erro) => console.error('Não foi possível salvar o histórico da rota:', erro));
 }
 
@@ -451,8 +516,26 @@ function formatarDistancia(metros) {
   return metros < 1000 ? `${Math.round(metros)} m` : `${(metros / 1000).toFixed(1)} km`;
 }
 
-function desenharCardRota(rota, observacoes) {
+/** `escolha` só existe quando a rota passou por escolherRotaMaisSegura (nunca
+    no card de erro/carregando) — placarSeguranca/pontosPerto/delegaciasPerto
+    vêm de lá, ver comentário em escolherRotaMaisSegura sobre o placar só
+    aparecer quando há mais de uma alternativa pra comparar. */
+function desenharCardRota(rota, observacoes, escolha = {}) {
   const card = document.getElementById('rota-card');
+  const { placarSeguranca, pontosPerto = 0, delegaciasPerto = 0, relatos = [] } = escolha;
+
+  const oferece = [
+    { icone: 'escudo', texto: `${pontosPerto} ponto${pontosPerto === 1 ? '' : 's'} de apoio no trajeto` },
+    { icone: 'predio', texto: `${delegaciasPerto} delegacia${delegaciasPerto === 1 ? '' : 's'} no trajeto` },
+    { icone: 'alerta', texto: `${relatos.length} relato${relatos.length === 1 ? '' : 's'} de risco no trajeto` }
+  ];
+
+  const placarHtml = typeof placarSeguranca === 'number' ? `
+    <div class="rota-card__placar">
+      <strong>${placarSeguranca}/10</strong>
+      <span>comparado às alternativas encontradas</span>
+    </div>` : '';
+
   card.innerHTML = `
     <div class="rota-card__cabecalho">
       <span class="rota-card__icone">${icone('escudo', 24)}</span>
@@ -460,6 +543,10 @@ function desenharCardRota(rota, observacoes) {
       <span class="tag tag--verde">Recomendada</span>
     </div>
     <div class="rota-card__numeros">${formatarDuracao(rota.duracaoS)} (${formatarDistancia(rota.distanciaM)})</div>
+    ${placarHtml}
+    <div class="rota-card__oferece">
+      ${oferece.map((o) => `<span class="rota-card__badge">${icone(o.icone, 14)}${escapar(o.texto)}</span>`).join('')}
+    </div>
     <div class="rota-card__observacoes">
       ${observacoes.map((o) => `
         <div class="rota-card__observacao">${icone(o.icone, 14)}<span>${escapar(o.texto)}</span></div>
@@ -509,6 +596,7 @@ function desenharContextoDaRota({ relatos, pontos, delegacias }) {
       .bindPopup(`
         <div class="popup__tipo">${escapar(d.name)}</div>
         <div class="popup__meta">${d.is_women_only ? 'Delegacia da Mulher' : 'Delegacia'}</div>
+        <div class="popup__fonte">Endereço do OpenStreetMap (comunidade) — confira antes de divulgar oficialmente.</div>
       `)
       .addTo(camadaContexto);
     marcador._categoriaContexto = 'ponto';
@@ -527,6 +615,19 @@ function desenharContextoDaRota({ relatos, pontos, delegacias }) {
 const PESO_RISCO_POR_GRAVIDADE = { baixo: 1, medio: 2, alto: 4 };
 const PONTOS_POR_APOIO_PERTO = -2;
 const RAIO_PONTUACAO_M = 70; // mesmo raio já usado pra "isso está no caminho"
+
+// Exportado só pra alimentar o texto do modal "Como calculamos a rota mais
+// segura" (preencherTextoComoCalculamos, mais abaixo) — nunca duplicar estes
+// números à mão em outro lugar (HTML, doc), pra nunca desalinhar do que a
+// pontuação de verdade usa.
+export const CONFIGURACAO_PONTUACAO = { PESO_RISCO_POR_GRAVIDADE, PONTOS_POR_APOIO_PERTO, RAIO_PONTUACAO_M };
+
+// "Prioridade da rota" (controle em #rota-preferencia): o quanto o risco de
+// segurança pesa contra a duração da rota na escolha final — 1 = só risco
+// importa (comportamento de sempre, sem mudar nada pra quem nunca mexeu no
+// controle), 0 = só duração importa (rota mais rápida, ignorando risco).
+// "equilibrada" fica no meio, pesando os dois por igual.
+const PESO_SEGURANCA_POR_PREFERENCIA = { segura: 1, equilibrada: 0.6, rapida: 0.2 };
 
 /** Busca relatos, pontos de apoio e delegacias numa área — a MESMA busca serve
     pra pontuar várias alternativas de rota de uma vez (evita repetir a
@@ -589,12 +690,49 @@ function pontuarCandidata(geometria, bruto) {
   // box) ampla o bastante ao redor de toda a rota (ver
   // buscarRelatosPontosEDelegaciasNaArea, ~300m de margem) — reaproveita
   // direto, sem gastar outra consulta ao banco.
-  return { relatos, pontos: bruto.pontos, delegacias: bruto.delegacias, pontuacao };
+  return {
+    relatos, pontos: bruto.pontos, delegacias: bruto.delegacias, pontuacao,
+    pontosPerto: pontosPerto.length, delegaciasPerto: delegaciasPerto.length
+  };
+}
+
+// Compartilhado entre ordenarPorPrioridade e o placar 0-10 do card de rota —
+// um valor sozinho não diz nada ("risco 3" é bom ou ruim?), só comparado ao
+// restante das alternativas desta mesma busca faz sentido.
+const normalizar = (valor, min, max) => (max === min ? 0 : (valor - min) / (max - min));
+
+/** Ordena as alternativas já pontuadas pela prioridade escolhida. Com
+    "segura" (padrão, peso 1) o critério é EXATAMENTE o de sempre — pontuação
+    de risco, empate decidido pela mais curta — sem nenhuma mudança de
+    comportamento pra quem nunca mexeu no controle de prioridade. Só
+    "equilibrada"/"rápida" (peso < 1) passam a misturar risco com duração,
+    normalizando os dois dentro do próprio conjunto de alternativas (não dá
+    pra comparar "pontos de risco" com "segundos" sem isso).
+*/
+function ordenarPorPrioridade(pontuadas, pesoSeguranca) {
+  if (pesoSeguranca >= 1) {
+    return [...pontuadas].sort((a, b) => a.pontuacao - b.pontuacao || a.distanciaM - b.distanciaM);
+  }
+
+  const pontuacaoMin = Math.min(...pontuadas.map((p) => p.pontuacao));
+  const pontuacaoMax = Math.max(...pontuadas.map((p) => p.pontuacao));
+  const duracaoMin = Math.min(...pontuadas.map((p) => p.duracaoS));
+  const duracaoMax = Math.max(...pontuadas.map((p) => p.duracaoS));
+
+  return [...pontuadas]
+    .map((p) => ({
+      ...p,
+      scorePrioridade:
+        pesoSeguranca * normalizar(p.pontuacao, pontuacaoMin, pontuacaoMax) +
+        (1 - pesoSeguranca) * normalizar(p.duracaoS, duracaoMin, duracaoMax)
+    }))
+    .sort((a, b) => a.scorePrioridade - b.scorePrioridade);
 }
 
 /** Recebe as alternativas de rota que a Edge Function calculou (1 a 3) e
-    escolhe a de menor pontuação de risco — em caso de empate, a mais curta.
-    Se a busca no banco falhar, não trava o app: cai de volta pra primeira
+    escolhe a melhor conforme a prioridade escolhida em #rota-preferencia
+    (padrão "segura": menor pontuação de risco, empate pela mais curta). Se a
+    busca no banco falhar, não trava o app: cai de volta pra primeira
     alternativa (a que o ORS considera principal), sem pontuação nenhuma. */
 async function escolherRotaMaisSegura(rotas) {
   if (rotas.length === 1) {
@@ -606,10 +744,20 @@ async function escolherRotaMaisSegura(rotas) {
     const bruto = await buscarRelatosPontosEDelegaciasNaArea(rotas.map((r) => r.geometria));
     const pontuadas = rotas.map((r) => ({ ...r, ...pontuarCandidata(r.geometria, bruto) }));
 
+    const pesoSeguranca = PESO_SEGURANCA_POR_PREFERENCIA[preferenciaRota] ?? 1;
     const maisRapida = pontuadas.reduce((m, r) => (r.distanciaM < m.distanciaM ? r : m), pontuadas[0]);
-    const escolhida = [...pontuadas].sort((a, b) => a.pontuacao - b.pontuacao || a.distanciaM - b.distanciaM)[0];
+    const escolhida = ordenarPorPrioridade(pontuadas, pesoSeguranca)[0];
 
-    return { ...escolhida, eraAMaisRapida: escolhida === maisRapida };
+    // Placar 0-10 só de RISCO (não da prioridade escolhida) — comparado às
+    // outras alternativas desta busca, nunca um número absoluto. Com 2+
+    // alternativas de pontuação igual (empate — ex.: nenhum relato perto de
+    // nenhuma), todas ficam com 10/10: de verdade não há diferença de risco
+    // pra mostrar entre elas.
+    const pontuacaoMin = Math.min(...pontuadas.map((p) => p.pontuacao));
+    const pontuacaoMax = Math.max(...pontuadas.map((p) => p.pontuacao));
+    const placarSeguranca = Math.round((1 - normalizar(escolhida.pontuacao, pontuacaoMin, pontuacaoMax)) * 10);
+
+    return { ...escolhida, eraAMaisRapida: escolhida === maisRapida, placarSeguranca };
   } catch (erro) {
     console.error('Falha ao pontuar as alternativas de rota:', erro);
     return { ...rotas[0], relatos: [], pontos: [], delegacias: [], pontuacao: 0, eraAMaisRapida: true };
@@ -768,57 +916,6 @@ function voltarAoPlanejamento() {
   mapa.invalidateSize();
 }
 
-/* ------------------------------------------------------------------ SOS --- */
-async function acionarSos() {
-  // BUG DE CONFIABILIDADE QUE ISTO CORRIGE: abrir a aba só depois de esperar
-  // o Supabase e o GPS (tudo assíncrono) faz vários navegadores tratarem
-  // window.open como pop-up não solicitado e BLOQUEAR silenciosamente — bem
-  // no botão que mais precisa funcionar. Abrir a aba em branco JÁ no clique
-  // (ainda síncrono) e só trocar a URL dela depois evita isso.
-  // IMPORTANTE: sem a flag "noopener" aqui — com ela, window.open() devolve
-  // null (testado ao vivo) e a gente perde a referência pra poder navegar a
-  // aba depois. Em vez disso, zeramos w.opener manualmente: mesma proteção
-  // de segurança (o wa.me não consegue acessar esta página de volta), sem
-  // perder a referência.
-  const janela = window.open('', '_blank');
-  if (janela) {
-    janela.opener = null;
-    // A aba fica em branco por alguns segundos enquanto espera o GPS de
-    // verdade (não dá pra acelerar isso sem perder precisão — é uma função
-    // de segurança) — sem isso, parecia travada. Só um "carregando" visual,
-    // não muda em nada o tempo real de resposta.
-    janela.document.write(
-      '<title>Abrindo WhatsApp…</title>' +
-      '<body style="display:flex;align-items:center;justify-content:center;height:100vh;margin:0;' +
-      'font-family:-apple-system,sans-serif;color:#777;text-align:center;padding:24px;">' +
-      '<p>Localizando você e abrindo o WhatsApp…</p></body>'
-    );
-  }
-  try {
-    const { data: sessao } = await supabase.auth.getUser();
-    const user = sessao?.user;
-    if (!user) { janela?.close(); return; }
-
-    const { data: contatos, error } = await supabase
-      .from('emergency_contacts')
-      .select('name,phone,is_primary')
-      .eq('user_id', user.id)
-      .order('is_primary', { ascending: false })
-      .limit(1);
-
-    if (error) throw error;
-
-    if (!contatos || !contatos.length) {
-      janela?.close();
-      abrirModal('modal-sos-sem-contato');
-      return;
-    }
-
-    const { url } = await obterLinkDeEmergencia(contatos[0].phone);
-    if (janela) janela.location.href = url;
-    else window.open(url, '_blank', 'noopener');
-  } catch (erro) {
-    janela?.close();
-    toast(erro.message || 'Não foi possível acionar o SOS agora.', 'erro', 6000);
-  }
-}
+/* ------------------------------------------------------------------ SOS ---
+   acionarSos agora mora em js/emergency.js (compartilhado com a Tela
+   Início) — ver import no topo deste arquivo. */

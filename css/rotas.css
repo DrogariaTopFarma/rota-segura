@@ -120,6 +120,22 @@
   line-height: 1.45;
 }
 
+.rota-preferencia__cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--texto-principal);
+  margin-bottom: var(--esp-2);
+}
+.rota-preferencia__cabecalho .btn-icone {
+  width: 24px;
+  height: 24px;
+  color: var(--texto-secundario);
+}
+
 /* Botão de trocar origem/destino: flutua na borda direita do card */
 .rota-inverter {
   position: absolute;
@@ -174,6 +190,33 @@
   margin-top: var(--esp-2);
 }
 .rota-card__numeros { font-size: var(--fs-lg); font-weight: 700; }
+
+.rota-card__placar {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 6px;
+}
+.rota-card__placar strong { font-size: var(--fs-xl); color: var(--rosa-magenta-escuro); }
+.rota-card__placar span { font-size: var(--fs-xs); color: var(--texto-secundario); }
+
+.rota-card__oferece {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: var(--esp-2);
+}
+.rota-card__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--texto-secundario);
+  background: var(--cinza-muito-claro);
+  border-radius: var(--raio-full);
+  padding: 4px 10px;
+}
+
 .rota-card__observacoes { margin-top: var(--esp-2); }
 .rota-card__observacao {
   font-size: var(--fs-xs);

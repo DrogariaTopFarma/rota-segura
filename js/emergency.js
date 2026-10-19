@@ -12,6 +12,8 @@
    ============================================================ */
 
 import { acompanharPosicao } from './geolocation.js';
+import { supabase } from './supabase.js';
+import { abrirModal, toast } from './ui.js';
 
 /**
  * Formata um telefone para o padrão que o wa.me exige: só dígitos,
@@ -115,6 +117,62 @@ export function obterLinkDeEmergencia(contatoEmergencia) {
     contatoEmergencia,
     (linkMapa) => `Preciso de ajuda agora. Esta é a minha localização em tempo real: ${linkMapa}`
   );
+}
+
+/**
+ * Botão SOS completo (usado em Rotas e Início) — pega o contato de
+ * emergência principal e manda WhatsApp com localização em tempo real. Sem
+ * contato cadastrado, abre o modal pedindo pra cadastrar (cada página
+ * precisa ter `#modal-sos-sem-contato`).
+ */
+export async function acionarSos() {
+  // BUG DE CONFIABILIDADE QUE ISTO CORRIGE: abrir a aba só depois de esperar
+  // o Supabase e o GPS (tudo assíncrono) faz vários navegadores tratarem
+  // window.open como pop-up não solicitado e BLOQUEAR silenciosamente — bem
+  // no botão que mais precisa funcionar. Abrir a aba em branco JÁ no clique
+  // (ainda síncrono) e só trocar a URL dela depois evita isso.
+  // IMPORTANTE: sem a flag "noopener" aqui — com ela, window.open() devolve
+  // null (testado ao vivo) e a gente perde a referência pra poder navegar a
+  // aba depois. Em vez disso, zeramos w.opener manualmente: mesma proteção
+  // de segurança (o wa.me não consegue acessar esta página de volta), sem
+  // perder a referência.
+  const janela = window.open('', '_blank');
+  if (janela) {
+    janela.opener = null;
+    janela.document.write(
+      '<title>Abrindo WhatsApp…</title>' +
+      '<body style="display:flex;align-items:center;justify-content:center;height:100vh;margin:0;' +
+      'font-family:-apple-system,sans-serif;color:#777;text-align:center;padding:24px;">' +
+      '<p>Localizando você e abrindo o WhatsApp…</p></body>'
+    );
+  }
+  try {
+    const { data: sessao } = await supabase.auth.getUser();
+    const user = sessao?.user;
+    if (!user) { janela?.close(); return; }
+
+    const { data: contatos, error } = await supabase
+      .from('emergency_contacts')
+      .select('name,phone,is_primary')
+      .eq('user_id', user.id)
+      .order('is_primary', { ascending: false })
+      .limit(1);
+
+    if (error) throw error;
+
+    if (!contatos || !contatos.length) {
+      janela?.close();
+      abrirModal('modal-sos-sem-contato');
+      return;
+    }
+
+    const { url } = await obterLinkDeEmergencia(contatos[0].phone);
+    if (janela) janela.location.href = url;
+    else window.open(url, '_blank', 'noopener');
+  } catch (erro) {
+    janela?.close();
+    toast(erro.message || 'Não foi possível acionar o SOS agora.', 'erro', 6000);
+  }
 }
 
 /**

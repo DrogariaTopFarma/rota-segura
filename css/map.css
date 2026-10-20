@@ -214,6 +214,23 @@
   filter: drop-shadow(0 4px 8px rgba(45,36,48,.3));
 }
 
+/* Balão de agrupamento (cluster) da camada de pontos — ver
+   criarIconeDeCluster em js/map.js. Círculo (não gota, como os pinos de
+   local) de propósito: sinaliza "grupo", nunca "lugar específico". Tamanho
+   em si já vem inline por marcador (varia com a quantidade agrupada). */
+.cluster-pino {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--amarelo);
+  border: 2px solid var(--branco);
+  color: var(--branco);
+  font-family: var(--fonte);
+  font-weight: 700;
+  box-shadow: 0 4px 8px rgba(45,36,48,.3);
+}
+
 .leaflet-popup-content-wrapper {
   border-radius: var(--raio-md);
   box-shadow: var(--sombra-lg);

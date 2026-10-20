@@ -17,7 +17,7 @@
    apaga qualquer cache de versão anterior automaticamente.
    ============================================================================ */
 
-const CACHE_VERSION = 'v15';
+const CACHE_VERSION = 'v17';
 const CACHE_NAME = `rota-segura-${CACHE_VERSION}`;
 
 const ARQUIVOS_DO_APP = [
@@ -42,6 +42,8 @@ const ARQUIVOS_DO_APP = [
   'vendor/leaflet/images/marker-icon.png', 'vendor/leaflet/images/marker-icon-2x.png',
   'vendor/leaflet/images/marker-shadow.png',
   'vendor/leaflet-rotate/leaflet-rotate-src.js',
+  'vendor/leaflet-markercluster/leaflet.markercluster.js',
+  'vendor/leaflet-markercluster/MarkerCluster.css',
   'vendor/chart.js/chart.umd.min.js'
 ];
 

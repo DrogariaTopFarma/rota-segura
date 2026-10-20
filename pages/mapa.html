@@ -24,6 +24,10 @@
        "Tracking Prevention" do navegador pra domínio de terceiro e deixa o
        app funcionando offline via cache do service worker. -->
   <link rel="stylesheet" href="../vendor/leaflet/leaflet.css">
+  <!-- Leaflet.markercluster — agrupa pinos densos (ponto de ônibus, de
+       longe a categoria mais numerosa) num balão com contagem, em vez de
+       encavalar centenas de pinos (ver js/map.js, camadas.pontos). -->
+  <link rel="stylesheet" href="../vendor/leaflet-markercluster/MarkerCluster.css">
 
   <link rel="stylesheet" href="../css/variables.css">
   <link rel="stylesheet" href="../css/global.css">
@@ -488,6 +492,7 @@
 
   <!-- ================= SCRIPTS ================= -->
   <script src="../vendor/leaflet/leaflet.js"></script>
+  <script src="../vendor/leaflet-markercluster/leaflet.markercluster.js"></script>
   <script type="module" src="../js/app.js"></script>
   <script type="module">
     // O sino agora abre a central de notificações (modal-notificacoes),

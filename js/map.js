@@ -148,6 +148,26 @@ const ICONES = {
   busca: () => divIcon('pino', '#2D2430')
 };
 
+/** Ícone dos balões de agrupamento (clusters) da camada de pontos — ponto de
+    ônibus é de longe a categoria mais numerosa (2500+ no Rio inteiro, ver
+    sql/seed_pontos_onibus.sql) e um terminal pode ter várias plataformas a
+    poucos metros uma da outra (ex.: "Terminal Arquiteto Julius Sass", no
+    seed); sem agrupar, isso encavalava pino em cima de pino em qualquer
+    zoom. Círculo (não gota, como os pinos de local) de propósito — sinaliza
+    "isto é um grupo", nunca "isto é um lugar específico". Ponto de ônibus
+    continua sendo buscado em QUALQUER zoom (ver carregarDadosDaAreaVisivel)
+    — é o agrupamento abaixo que evita a poluição visual, não esconder o
+    pino: escondido, ele simplesmente some da tela sem nenhum aviso. */
+function criarIconeDeCluster(cluster) {
+  const quantidade = cluster.getChildCount();
+  const tamanho = quantidade >= 50 ? 50 : quantidade >= 10 ? 42 : 34;
+  return L.divIcon({
+    html: `<div class="cluster-pino" style="width:${tamanho}px;height:${tamanho}px;font-size:${tamanho >= 42 ? '15px' : '13px'}">${quantidade}</div>`,
+    className: '',
+    iconSize: [tamanho, tamanho]
+  });
+}
+
 // Cor das notícias/fontes públicas: teal (nenhuma outra categoria usa),
 // pra nunca ser confundida com relato de usuária — teal escuro quando bate
 // com um relato de usuária de verdade (indicador de múltiplas fontes). O
@@ -183,7 +203,21 @@ export function criarMapa(idElemento = 'mapa') {
     // clicáveis (os círculos são interactive:false, não capturam clique).
     densidade: L.layerGroup().addTo(mapa),
     relatos: L.layerGroup().addTo(mapa),
-    pontos: L.layerGroup().addTo(mapa),
+    // markerClusterGroup (não layerGroup) só nesta camada — é onde mora
+    // ponto de ônibus, a categoria que ficou grande demais pra desenhar
+    // pino a pino em qualquer densidade (ver criarIconeDeCluster e
+    // ZOOM_MINIMO_ONIBUS acima). A API de adicionar/limpar marcador é a
+    // mesma de layerGroup, então desenharPontos() não muda nada.
+    pontos: L.markerClusterGroup({
+      iconCreateFunction: criarIconeDeCluster,
+      // 60px, não o padrão 80px do plugin: clusters menores deixam um
+      // ponto de apoio/hospital isolado continuar visível como pino
+      // próprio, em vez de ser engolido por um grupo de ônibus que só por
+      // acaso está perto.
+      maxClusterRadius: 60,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false
+    }).addTo(mapa),
     delegacias: L.layerGroup().addTo(mapa),
     // Só entra no mapa se o toggle (#filtro-fontes-publicas) estiver
     // marcado — ver ligarFiltroDeFontesPublicas(). Começa dentro do mapa
@@ -297,7 +331,7 @@ export async function carregarDadosDaAreaVisivel() {
   const oeste = b.getWest(), leste = b.getEast();
 
   try {
-    const [relatos, pontos, delegacias, fontesPublicas] = await Promise.all([
+    const [relatos, pontos, pontosOnibus, delegacias, fontesPublicas] = await Promise.all([
       supabase.from('reports')
         .select('id,type,description,address,lat,lng,occurred_at,attention_level,status,created_at,image_url,expires_at')
         .gte('lat', sul).lte('lat', norte)
@@ -314,11 +348,30 @@ export async function carregarDadosDaAreaVisivel() {
         .order('occurred_at', { ascending: false })
         .limit(200),
 
+      // Nunca inclui ponto_onibus aqui de propósito — ele tem busca própria
+      // logo abaixo. BUG QUE ISTO CORRIGE: antes das duas consultas eram
+      // uma só, sem filtrar tipo — numa área com muitos pontos de ônibus
+      // (hoje 2500+ no total, ver sql/seed_pontos_onibus.sql), eles sozinhos
+      // já estouravam o limite de 200 linhas e um hospital/farmácia de
+      // verdade podia nem entrar na resposta, sumindo do mapa sem nenhum
+      // erro aparecer.
       supabase.from('support_points')
         .select('id,type,name,address,lat,lng,phone,description,opening_hours,extra_info,status')
+        .neq('type', 'ponto_onibus')
         .gte('lat', sul).lte('lat', norte)
         .gte('lng', oeste).lte('lng', leste)
         .limit(200),
+
+      // Busca em QUALQUER zoom (quem evita a poluição visual é o
+      // agrupamento da camada, não esconder o pino — ver criarIconeDeCluster
+      // acima; já existiu uma versão com corte de zoom aqui, mas aí ponto de
+      // ônibus simplesmente sumia da visão padrão do mapa, sem nenhum aviso).
+      supabase.from('support_points')
+        .select('id,type,name,address,lat,lng,phone,description,opening_hours,extra_info,status')
+        .eq('type', 'ponto_onibus')
+        .gte('lat', sul).lte('lat', norte)
+        .gte('lng', oeste).lte('lng', leste)
+        .limit(300),
 
       supabase.from('police_stations')
         .select('id,name,address,lat,lng,phone,is_women_only,opening_hours,status')
@@ -341,14 +394,16 @@ export async function carregarDadosDaAreaVisivel() {
     ]);
 
     // Só relatos é dado essencial do mapa — se ELE falhar, aí sim aborta
-    // tudo (cai no catch abaixo). pontos/delegacias/fontesPublicas são
-    // complementares: antes, uma falha em qualquer um deles (ex.: só a
-    // consulta de notícias externas) jogava um throw que abortava a função
-    // inteira ANTES de desenhar qualquer coisa — inclusive os relatos, que
-    // tinham vindo certinho. Uma fonte fora do ar nunca pode esconder as
-    // outras (mesmo princípio já usado em community.js).
+    // tudo (cai no catch abaixo). pontos/pontosOnibus/delegacias/
+    // fontesPublicas são complementares: antes, uma falha em qualquer um
+    // deles (ex.: só a consulta de notícias externas) jogava um throw que
+    // abortava a função inteira ANTES de desenhar qualquer coisa —
+    // inclusive os relatos, que tinham vindo certinho. Uma fonte fora do ar
+    // nunca pode esconder as outras (mesmo princípio já usado em
+    // community.js).
     if (relatos.error) throw relatos.error;
     if (pontos.error) console.error('Falha ao carregar pontos de apoio:', pontos.error);
+    if (pontosOnibus.error) console.error('Falha ao carregar pontos de ônibus:', pontosOnibus.error);
     if (delegacias.error) console.error('Falha ao carregar delegacias:', delegacias.error);
     if (fontesPublicas.error) console.error('Falha ao carregar notícias externas:', fontesPublicas.error);
 
@@ -358,7 +413,13 @@ export async function carregarDadosDaAreaVisivel() {
     // leitura (ver comentário no listener de popupopen/popupclose acima).
     if (!popupAberto) {
       desenharRelatos(relatos.data || []);
-      if (!pontos.error) desenharPontos(pontos.data || []);
+      // Sempre chama desenharPontos (mesmo se uma das duas falhou) — assim
+      // quem ainda veio certo continua desenhado, em vez de a tela inteira
+      // de pontos sumir por causa de só uma das duas consultas.
+      desenharPontos([
+        ...(pontos.error ? [] : (pontos.data || [])),
+        ...(pontosOnibus.error ? [] : (pontosOnibus.data || []))
+      ]);
       if (!delegacias.error) desenharDelegacias(delegacias.data || []);
       if (!fontesPublicas.error) desenharFontesPublicas(fontesPublicas.data || []);
     }

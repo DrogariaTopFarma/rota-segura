@@ -1180,7 +1180,11 @@ create policy "push_subscriptions_delete_proprio"
 create table if not exists public.monitored_trips (
   id                   uuid primary key default gen_random_uuid(),
   user_id              uuid not null references auth.users(id) on delete cascade,
-  share_link           text not null,
+  -- Opcional: a Tela 2 deixou de EXIGIR link de carona por app (Uber/99) —
+  -- "Acompanhar trajeto" também serve pra quem só está andando sozinha até
+  -- algum lugar, sem corrida nenhuma pra colar o link. Null = não tinha link
+  -- (ou foi um trajeto a pé) — ver js/carona.js.
+  share_link           text,
   destino_texto        text not null,
   expected_arrival_at  timestamptz not null,
   confirmed_at         timestamptz,
@@ -1220,6 +1224,12 @@ drop policy if exists "corridas_proprias_update" on public.monitored_trips;
 create policy "corridas_proprias_update"
   on public.monitored_trips for update
   to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- MIGRAÇÃO: quem já tinha monitored_trips criada antes do link virar opcional
+-- (ver comentário na coluna acima) — "create table if not exists" não altera
+-- uma tabela que já existe. Rodar de novo numa coluna que já é opcional não
+-- dá erro (é idempotente).
+alter table public.monitored_trips alter column share_link drop not null;
 
 
 -- ============================================================================
@@ -1278,6 +1288,21 @@ begin
   return v_contagem <= p_limite;
 end;
 $$;
+
+
+-- ============================================================================
+-- 21. reports.bairro — resolvido UMA VEZ no cadastro (js/reports.js), nunca
+--     mais recalculado toda vez que alguém abre o Observatório. Antes disso,
+--     cada abertura da tela chamava geocodificação reversa (Photon) ao vivo
+--     pra cada relato — lento (15s+ com vários relatos) e dependente do
+--     Photon estar disponível bem naquele instante pra TODO MUNDO que
+--     abrisse a tela, não só pra quem cadastrou. Null = ainda não resolvido
+--     (relato cadastrado antes desta coluna existir, ou o Photon falhou na
+--     hora do cadastro) — esses relatos simplesmente não entram nos
+--     gráficos por região do Observatório até alguém rodar uma correção
+--     manual (poucos relatos hoje, não precisa de automação pra isso).
+-- ============================================================================
+alter table public.reports add column if not exists bairro text;
 
 -- ============================================================================
 -- FIM. Se rodou sem erro, você verá "Success. No rows returned".

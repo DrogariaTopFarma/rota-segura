@@ -20,6 +20,7 @@ import {
   nivelDeConfiancaTexto, carregarDadosDaAreaVisivel
 } from './map.js';
 import { criarSeletorLocal } from './location-picker.js';
+import { bairroDeCoordenadas } from './geocoding.js';
 
 let seletor = null;
 
@@ -363,18 +364,37 @@ export function prepararFormularioRelato() {
         ? new Date(Date.now() + horasValidade * 3600 * 1000).toISOString()
         : null;
 
-      const { error } = await supabase.from('reports').insert({
+      // Bairro resolvido UMA VEZ aqui, no cadastro, e gravado — nunca mais
+      // recalculado ao vivo toda vez que o Observatório é aberto (era lento,
+      // ~15s+, e dependia do Photon estar no ar bem naquele momento pra
+      // TODO MUNDO que abrisse a tela). Falha nisso não impede salvar o
+      // relato — bairro fica null e o relato só não entra nos gráficos por
+      // região até ser resolvido depois (ver sql/schema.sql, seção 21).
+      const bairro = await bairroDeCoordenadas(local.lat, local.lng).catch(() => null);
+
+      const dadosRelato = {
         user_id: user.id,
         type: form.tipo.value,
         description: form.descricao.value.trim() || null,
         address: local.nome,
         lat: local.lat,
         lng: local.lng,
+        bairro,
         occurred_at: ocorridoEm.toISOString(),
         attention_level: form.atencao.value,
         image_url: imageUrl,
         expires_at: expiresAt
-      });
+      };
+
+      let { error } = await supabase.from('reports').insert(dadosRelato);
+
+      // Banco ainda sem a coluna reports.bairro (schema.sql seção 21 não
+      // rodou nesse projeto Supabase ainda)? Tenta de novo sem ela, pra
+      // cadastrar relato nunca quebrar por causa de uma coluna nova opcional.
+      if (error?.message?.includes('bairro')) {
+        delete dadosRelato.bairro;
+        ({ error } = await supabase.from('reports').insert(dadosRelato));
+      }
 
       if (error) throw error;
 
@@ -393,4 +413,42 @@ export function prepararFormularioRelato() {
       botaoCarregando(botao, false);
     }
   });
+}
+
+/** Relatos cadastrados ANTES da coluna reports.bairro existir (ver
+    sql/schema.sql, seção 21) ficaram com bairro nulo — o Observatório os
+    ignora nos gráficos por região até alguém resolver isso. Esta função
+    "cura" isso aos poucos: toda vez que a PRÓPRIA autora de um relato antigo
+    abre Observatório ou Perfil, resolve o bairro que falta nos relatos DELA
+    (nunca de outra pessoa — a policy de RLS só deixa atualizar o que é seu
+    mesmo, o que é correto) e grava, silenciosamente, em segundo plano.
+    Nunca bloqueia a tela: dispare sem `await` no chamador.
+
+    LIMITE HONESTO: isso só conserta relato de quem realmente abrir o app de
+    novo — não é um "conserta tudo de todo mundo de uma vez" (precisaria da
+    service_role key, que só o painel do Supabase tem, pra contornar a RLS
+    entre usuárias — ver sql/schema.sql, política "relatos_update_proprio").
+    Pra maioria dos casos reais (a própria pessoa testando/usando o app)
+    isso já resolve; pede uma Edge Function à parte se quiser cobrir também
+    relato antigo de conta que ninguém mais vai abrir. */
+export async function corrigirBairroDosProprios() {
+  const { data: sessao } = await supabase.auth.getUser();
+  const user = sessao?.user;
+  if (!user) return;
+
+  const { data: semBairro, error } = await supabase
+    .from('reports')
+    .select('id,lat,lng')
+    .eq('user_id', user.id)
+    .is('bairro', null)
+    .limit(30);
+  if (error || !semBairro?.length) return;
+
+  for (const relato of semBairro) {
+    const bairro = await bairroDeCoordenadas(relato.lat, relato.lng).catch(() => null);
+    if (bairro) {
+      const { error: erroUpdate } = await supabase.from('reports').update({ bairro }).eq('id', relato.id);
+      if (erroUpdate) console.error(erroUpdate);
+    }
+  }
 }

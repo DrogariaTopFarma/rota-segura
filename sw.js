@@ -17,7 +17,7 @@
    apaga qualquer cache de versão anterior automaticamente.
    ============================================================================ */
 
-const CACHE_VERSION = 'v10';
+const CACHE_VERSION = 'v15';
 const CACHE_NAME = `rota-segura-${CACHE_VERSION}`;
 
 const ARQUIVOS_DO_APP = [
@@ -25,16 +25,17 @@ const ARQUIVOS_DO_APP = [
   'manifest.json',
   'css/variables.css', 'css/global.css', 'css/components.css', 'css/auth.css',
   'css/map.css', 'css/rotas.css', 'css/carona.css', 'css/comunidade.css', 'css/perfil.css',
-  'css/inicio.css', 'css/responsive.css',
+  'css/ajuda.css',
+  'css/responsive.css',
   'js/config.js', 'js/supabase.js', 'js/auth.js', 'js/map.js', 'js/geolocation.js',
   'js/geocoding.js', 'js/location-picker.js', 'js/search.js', 'js/reports.js',
   'js/routes.js', 'js/navigation.js', 'js/voice.js', 'js/push.js', 'js/carona.js', 'js/vanessa.js',
   'js/pwa.js', 'js/risco-horario.js', 'js/emergency.js', 'js/community.js', 'js/alertas.js', 'js/profile.js',
   'js/notifications.js', 'js/nav.js', 'js/ui.js', 'js/icons.js', 'js/app.js',
-  'js/inicio.js', 'js/observatorio.js', 'js/observatorio-graficos.js', 'js/wikimedia.js',
+  'js/observatorio.js', 'js/observatorio-graficos.js', 'js/wikimedia.js', 'js/ajuda.js',
   'pages/login.html', 'pages/cadastro.html', 'pages/recuperar-senha.html', 'pages/nova-senha.html',
-  'pages/inicio.html', 'pages/mapa.html', 'pages/rotas.html', 'pages/alertas.html', 'pages/perfil.html',
-  'pages/observatorio.html', 'pages/termos.html',
+  'pages/mapa.html', 'pages/rotas.html', 'pages/alertas.html', 'pages/perfil.html',
+  'pages/observatorio.html', 'pages/ajuda.html', 'pages/termos.html',
   'assets/icone-192.png', 'assets/icone-512.png',
   'vendor/leaflet/leaflet.css', 'vendor/leaflet/leaflet.js',
   'vendor/leaflet/images/layers.png', 'vendor/leaflet/images/layers-2x.png',

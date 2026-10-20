@@ -15,33 +15,24 @@
    relatos no total".
 
    Bairro de uma notícia externa já vem pronto do banco (neighborhood/city).
-   Bairro de um relato de usuária NÃO existe como coluna (só lat/lng) —
-   descobrimos com geocodificação reversa (bairroDeCoordenadas, Photon),
-   agrupando por grade de ~110m antes de chamar a API, pra não repetir a
-   mesma chamada pra relatos vizinhos.
+   Bairro de um relato de usuária é resolvido UMA VEZ no cadastro (ver
+   js/reports.js, bairroDeCoordenadas) e gravado na coluna reports.bairro —
+   esta tela só LÊ o que já está salvo, nunca chama geocodificação reversa
+   ao vivo. Antes era o contrário (recalculava toda vez que a tela abria,
+   15s+ de espera, dependente do Photon estar disponível bem naquele
+   instante) — mudou depois de reproduzir isso ao vivo e confirmar o
+   problema. Relato sem bairro salvo (cadastrado antes desta coluna existir,
+   ou o Photon falhou na hora) simplesmente não entra nos gráficos por
+   região, sem travar a tela nem mostrar erro.
    ============================================================================ */
 
 import { supabase } from './supabase.js';
 import { htmlEstadoVazio, escapar } from './ui.js';
-import { bairroDeCoordenadas } from './geocoding.js';
 
 const CORES_BARRA = ['#E83D67', '#7C5CBF', '#0097A7', '#F4A261', '#4CAF7D', '#D32F2F', '#D81B60', '#777777'];
 const MAX_BAIRROS_NO_GRAFICO = 8;
-const CONCORRENCIA_GEOCODIFICACAO = 5;
 
 let carregado = false;
-
-/** Roda `tarefa(item)` pra cada item da lista, no máximo `limite` de cada
-    vez — evita disparar uma chamada à API do Photon por relato de uma vez
-    só (poderia ser dezenas simultâneas). */
-async function emLotes(itens, limite, tarefa) {
-  const resultado = [];
-  for (let i = 0; i < itens.length; i += limite) {
-    const fatia = itens.slice(i, i + limite);
-    resultado.push(...(await Promise.all(fatia.map(tarefa))));
-  }
-  return resultado;
-}
 
 export async function carregarObservatorio() {
   const container = document.getElementById('observatorio');
@@ -51,7 +42,7 @@ export async function carregarObservatorio() {
   const agora = new Date().toISOString();
   const [relatosResp, noticiasResp] = await Promise.all([
     supabase.from('reports')
-      .select('type,lat,lng')
+      .select('type,bairro')
       .eq('status', 'approved')
       .or(`expires_at.is.null,expires_at.gt.${agora}`)
       .limit(500),
@@ -68,10 +59,10 @@ export async function carregarObservatorio() {
     return;
   }
 
-  const relatos = relatosResp.data || [];
+  const relatosComBairro = (relatosResp.data || []).filter((r) => r.bairro);
   const noticias = noticiasResp.data || [];
 
-  if (!relatos.length && !noticias.length) {
+  if (!relatosComBairro.length && !noticias.length) {
     container.innerHTML = htmlEstadoVazio('Ainda não há relatos ou notícias suficientes para montar o Observatório.');
     return;
   }
@@ -93,29 +84,9 @@ export async function carregarObservatorio() {
       <h3>Tabela: relato interno x notícia pública, por bairro</h3>
       <div id="observatorio-tabela-bairros"></div>
     </div>
-    <p class="observatorio__carregando" id="observatorio-carregando">Identificando o bairro de cada relato, pode levar alguns segundos...</p>
-    <button type="button" class="btn btn-secundario btn-bloco" id="observatorio-baixar-pdf" hidden>Baixar em PDF</button>
+    <button type="button" class="btn btn-secundario btn-bloco" id="observatorio-baixar-pdf">Baixar em PDF</button>
   `;
   document.getElementById('observatorio-baixar-pdf')?.addEventListener('click', () => window.print());
-
-  // Geocodifica só pontos ÚNICOS (grade de ~110m) — muitos relatos caem na
-  // mesma célula, isso evita repetir a mesma chamada ao Photon.
-  const celulaDe = (lat, lng) => `${lat.toFixed(3)},${lng.toFixed(3)}`;
-  const celulasUnicas = [...new Map(
-    relatos.filter((r) => typeof r.lat === 'number' && typeof r.lng === 'number')
-      .map((r) => [celulaDe(r.lat, r.lng), r])
-  ).values()];
-
-  const bairroPorCelula = new Map();
-  await emLotes(celulasUnicas, CONCORRENCIA_GEOCODIFICACAO, async (r) => {
-    const bairro = await bairroDeCoordenadas(r.lat, r.lng);
-    bairroPorCelula.set(celulaDe(r.lat, r.lng), bairro);
-  });
-
-  const relatosComBairro = relatos
-    .filter((r) => typeof r.lat === 'number' && typeof r.lng === 'number')
-    .map((r) => ({ ...r, bairro: bairroPorCelula.get(celulaDe(r.lat, r.lng)) }))
-    .filter((r) => r.bairro);
 
   const noticiasComBairro = noticias
     .map((n) => ({ ...n, bairro: n.neighborhood || n.city }))
@@ -137,10 +108,6 @@ export async function carregarObservatorio() {
     'Sem relato ou notícia com bairro identificado ainda.'
   );
   desenharTabelaPorBairro(relatosComBairro, noticiasComBairro);
-
-  document.getElementById('observatorio-carregando')?.remove();
-  const botaoPdf = document.getElementById('observatorio-baixar-pdf');
-  if (botaoPdf) botaoPdf.hidden = false;
 }
 
 function desenharGraficoPorBairro(idCanvas, itens, textoVazio) {

@@ -260,22 +260,22 @@ create table if not exists public.posts (
   image_url    text,
   likes_count  integer not null default 0,
   status       text not null default 'approved' check (status in ('pending','approved','rejected')),
-  -- Rota Segura 2.0: status de ATENDIMENTO, visível à usuária — diferente de
-  -- `status` acima, que é moderação administrativa (pending/approved/
-  -- rejected). A própria autora marca se o pedido/alerta dela já foi
-  -- respondido/resolvido pela comunidade (ver posts_update_proprio, que já
-  -- cobre qualquer coluna da própria linha).
-  status_resposta text not null default 'aberto' check (status_resposta in ('aberto','resolvido')),
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
 );
 
-alter table public.posts
-  add column if not exists status_resposta text not null default 'aberto';
-alter table public.posts
-  drop constraint if exists posts_status_resposta_check;
-alter table public.posts
-  add constraint posts_status_resposta_check check (status_resposta in ('aberto','resolvido'));
+-- MIGRAÇÃO: "status_resposta" (marcar publicação como resolvida) existiu por
+-- uma rodada do Rota Segura 2.0 e foi removida de volta a pedido explícito —
+-- a tela ficava feia/confusa com o botão, e não era essencial. Quem já tinha
+-- rodado a versão com essa coluna (schema.sql de antes) tem ela apagada
+-- aqui; quem nunca rodou, nem chega a criar (a tabela acima já nasce sem
+-- ela). "drop column if exists" também remove a constraint associada
+-- sozinho, não precisa de um "drop constraint" separado.
+-- CASCADE: a view posts_publico (seção 9.2 logo abaixo) ainda referenciava
+-- essa coluna — sem cascade, o Postgres recusa o drop (erro 2BP01, "outros
+-- objetos dependem"). A própria seção 9.2 apaga e recria essa view sem a
+-- coluna de qualquer jeito, então o cascade aqui não perde nada.
+alter table public.posts drop column if exists status_resposta cascade;
 
 create index if not exists idx_posts_status     on public.posts(status);
 create index if not exists idx_posts_created_at on public.posts(created_at desc);
@@ -397,20 +397,21 @@ create trigger trg_post_comments_sync
 -- valendo normalmente para quem consulta esta view (não é uma forma de
 -- burlar a segurança, só de mascarar uma coluna).
 -- ---------------------------------------------------------------------------
--- IMPORTANTE: "create or replace view" do Postgres não deixa INSERIR uma
--- coluna no meio da lista de uma view que já existe (só deixar ela igual ou
--- ACRESCENTAR no fim) — ele lê isso como "renomear" a coluna que empurrou
--- pro lado e recusa (erro 42P16, já visto rodando este script de novo).
--- Por isso status_resposta entra no FINAL da lista, depois de is_anonymous,
--- nunca no meio — preserva a ordem exata de quem já rodou este script antes
--- do Rota Segura 2.0.
-create or replace view public.posts_publico
+-- IMPORTANTE: "create or replace view" do Postgres não deixa TIRAR uma
+-- coluna de uma view que já existe (só deixar igual ou ACRESCENTAR no fim —
+-- erro 42P16 se a lista encolher ou mudar de ordem). Por isso, pra remover
+-- de vez status_resposta (ver MIGRAÇÃO na tabela 8 acima — a coluna foi
+-- removida da tabela), esta view precisa ser apagada e recriada do zero em
+-- vez de um simples "or replace"; a permissão de select é refeita logo
+-- abaixo de qualquer jeito, então não se perde nada.
+drop view if exists public.posts_publico;
+create view public.posts_publico
 with (security_invoker = true) as
 select
   id, category, title, content, address, lat, lng, image_url,
   likes_count, comments_count, status, created_at,
   case when is_anonymous then null else user_id end as user_id,
-  is_anonymous, status_resposta
+  is_anonymous
 from public.posts;
 
 grant select on public.posts_publico to authenticated;

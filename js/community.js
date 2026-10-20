@@ -56,7 +56,7 @@ export async function carregarFeed(filtro = filtroAtual) {
   if (!ehFiltroExternas) {
     consultaPosts = supabase
       .from('posts_publico')
-      .select('id,user_id,category,title,content,address,lat,lng,image_url,likes_count,comments_count,created_at,is_anonymous,status_resposta')
+      .select('id,user_id,category,title,content,address,lat,lng,image_url,likes_count,comments_count,created_at,is_anonymous')
       .order('created_at', { ascending: false })
       .limit(50);
     if (filtro) consultaPosts = consultaPosts.eq('category', filtro);
@@ -189,7 +189,6 @@ function cardPost(p, autores, curtidos) {
           <div class="post-card__hora">${escapar(formatarDataHora(p.created_at))}</div>
         </div>
         <span class="tag tag--${cor}">${escapar(ROTULOS_CATEGORIA[p.category] || 'Publicação')}</span>
-        ${p.status_resposta === 'resolvido' ? '<span class="tag tag--verde">Resolvido</span>' : ''}
       </div>
       ${p.title ? `<h3 class="post-card__titulo">${escapar(p.title)}</h3>` : ''}
       <p class="post-card__conteudo">${escapar(p.content)}</p>

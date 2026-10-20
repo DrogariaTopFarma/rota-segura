@@ -230,7 +230,7 @@ async function carregarMinhasPublicacoes() {
 
   const { data, error } = await supabase
     .from('posts')
-    .select('id,category,title,likes_count,created_at,is_anonymous,status_resposta')
+    .select('id,category,title,likes_count,created_at,is_anonymous')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(10);
@@ -246,9 +246,7 @@ async function carregarMinhasPublicacoes() {
     return;
   }
 
-  container.innerHTML = posts.map((p) => {
-    const resolvido = p.status_resposta === 'resolvido';
-    return `
+  container.innerHTML = posts.map((p) => `
     <article class="card-lista">
       <div class="card-lista__icone card-lista__icone--roxo">${icone('megafone', 22)}</div>
       <div class="card-lista__conteudo">
@@ -260,31 +258,14 @@ async function carregarMinhasPublicacoes() {
       </div>
       <span class="tag tag--rosa">${escapar(ROTULOS_CATEGORIA[p.category] || '')}</span>
       <div class="contato-acoes">
-        <button type="button" class="btn-texto" data-alternar-resposta="${p.id}" data-resolvido="${resolvido}">
-          ${resolvido ? 'Resolvido' : 'Marcar como resolvido'}
-        </button>
         <button type="button" class="btn-icone" data-excluir-publicacao="${p.id}" aria-label="Excluir publicação ${escapar(p.title || 'sem título')}">${icone('lixeira', 16)}</button>
       </div>
-    </article>`;
-  }).join('');
+    </article>`).join('');
 
   container.querySelectorAll('[data-excluir-publicacao]').forEach((b) => {
     b.addEventListener('click', () => {
       publicacaoParaExcluir = b.dataset.excluirPublicacao;
       abrirModal('modal-excluir-publicacao');
-    });
-  });
-
-  container.querySelectorAll('[data-alternar-resposta]').forEach((b) => {
-    b.addEventListener('click', async () => {
-      const novoStatus = b.dataset.resolvido === 'true' ? 'aberto' : 'resolvido';
-      b.disabled = true;
-      const { error } = await supabase
-        .from('posts')
-        .update({ status_resposta: novoStatus })
-        .eq('id', b.dataset.alternarResposta);
-      if (error) { toast('Não foi possível atualizar o status.', 'erro'); b.disabled = false; return; }
-      await carregarMinhasPublicacoes();
     });
   });
 }

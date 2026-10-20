@@ -47,7 +47,7 @@ export async function exigirLogin() {
 }
 
 /** Usada nas páginas públicas: se já estiver logada, vai direto ao mapa. */
-export async function redirecionarSeLogado(destino = 'pages/inicio.html') {
+export async function redirecionarSeLogado(destino = 'pages/mapa.html') {
   if (!supabaseConfigurado) return;
   const { data } = await supabase.auth.getSession();
   if (data.session) window.location.replace(destino);
@@ -124,7 +124,7 @@ function ligarFormLogin() {
       mostrarMensagem(msg, traduzirErro(error), 'erro');
       return;
     }
-    window.location.replace('inicio.html');
+    window.location.replace('mapa.html');
   });
 }
 
@@ -191,7 +191,7 @@ function ligarFormCadastro() {
 
     // Se a confirmação de e-mail estiver LIGADA, não vem sessão.
     if (data.session) {
-      window.location.replace('inicio.html');
+      window.location.replace('mapa.html');
     } else {
       form.reset();
       mostrarMensagem(

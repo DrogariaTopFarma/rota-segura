@@ -28,7 +28,9 @@ const ICONE_CONTEXTO = {
   ponto_apoio: () => divIconContexto('escudo', '#4CAF7D'),
   hospital: () => divIconContexto('hospital', '#4CAF7D'),
   farmacia: () => divIconContexto('hospital', '#4CAF7D'),
-  comercio_24h: () => divIconContexto('predio', '#7C5CBF'),
+  // Mesma cor nova de js/map.js (ICONES.comercio_24h) — antes era igual à
+  // de delegacia, dava pra confundir os dois pinos só de olhar o mapa.
+  comercio_24h: () => divIconContexto('predio', '#8D6E63'),
   ponto_onibus: () => divIconContexto('onibus', '#F4A261'),
   delegacia: () => divIconContexto('predio', '#7C5CBF')
 };
@@ -155,7 +157,7 @@ function prepararSeletorDePreferencia(userId) {
 function preencherTextoComoCalculamos() {
   const el = document.getElementById('texto-como-calculamos');
   if (!el) return;
-  const { PESO_RISCO_POR_GRAVIDADE: peso, PONTOS_POR_APOIO_PERTO: apoio, RAIO_PONTUACAO_M: raio } = CONFIGURACAO_PONTUACAO;
+  const { PESO_RISCO_POR_GRAVIDADE: peso, PONTOS_POR_APOIO_PERTO: apoio, RAIO_PONTUACAO_M: raio, RAIO_APOIO_METROS: raioApoio } = CONFIGURACAO_PONTUACAO;
   el.innerHTML = `
     <p class="rota-modal__texto">
       Entre as alternativas de caminho, escolhemos a de MENOR pontuação de risco — nunca
@@ -167,7 +169,7 @@ function preencherTextoComoCalculamos() {
       (médio), <strong>+${peso.alto}</strong> (alto).
     </p>
     <p class="rota-modal__texto">
-      Cada ponto de apoio ou delegacia a até ${raio} m do caminho ajuda, tirando
+      Cada ponto de apoio ou delegacia a até ${raioApoio} m do caminho ajuda, tirando
       <strong>${Math.abs(apoio)}</strong> pontos.
     </p>
     <p class="rota-modal__texto">
@@ -466,10 +468,10 @@ async function calcularRota() {
     avisosDeLocal.push({ icone: 'pino', texto: 'O destino é aproximado — o número exato do endereço não está mapeado.' });
   }
 
-  const observacoes = montarObservacoes(escolha);
   // Só afirma que "evitou" relatos quando havia de fato outra opção pior —
   // com uma rota só (ORS às vezes não acha alternativa nenhuma), não haveria
   // nada pra comparar, e a frase seria uma promessa vazia.
+  const observacoes = [...avisosDeLocal];
   if (escolha.eraAMaisRapida === false) {
     observacoes.unshift({
       icone: 'escudo',
@@ -477,7 +479,7 @@ async function calcularRota() {
     });
   }
 
-  desenharCardRota(rotaAtual, [...avisosDeLocal, ...observacoes], escolha);
+  desenharCardRota(rotaAtual, observacoes, escolha, montarListaDeRelatos(escolha));
   salvarHistoricoRota(rotaAtual).catch((erro) => console.error('Não foi possível salvar o histórico da rota:', erro));
 }
 
@@ -517,24 +519,45 @@ function formatarDistancia(metros) {
 }
 
 /** `escolha` só existe quando a rota passou por escolherRotaMaisSegura (nunca
-    no card de erro/carregando) — placarSeguranca/pontosPerto/delegaciasPerto
-    vêm de lá, ver comentário em escolherRotaMaisSegura sobre o placar só
-    aparecer quando há mais de uma alternativa pra comparar. */
-function desenharCardRota(rota, observacoes, escolha = {}) {
+    no card de erro/carregando) — pontosPerto/delegaciasPerto/relatos vêm de
+    lá. SEM nota/placar de propósito: um número 0-10 resumia tudo numa
+    sensação só, e já saiu enganoso mais de uma vez (10/10 com relato de
+    risco real no caminho). Em vez disso, cada relato aparece detalhado
+    (`listaDeRelatos`) — o que é, a gravidade e o endereço — pra decisão ficar
+    com quem vai andar o trajeto, não com um resumo abstrato. */
+function desenharCardRota(rota, observacoes, escolha = {}, listaDeRelatos = []) {
   const card = document.getElementById('rota-card');
-  const { placarSeguranca, pontosPerto = 0, delegaciasPerto = 0, relatos = [] } = escolha;
+  const { pontosPerto = 0, delegaciasPerto = 0 } = escolha;
 
   const oferece = [
     { icone: 'escudo', texto: `${pontosPerto} ponto${pontosPerto === 1 ? '' : 's'} de apoio no trajeto` },
     { icone: 'predio', texto: `${delegaciasPerto} delegacia${delegaciasPerto === 1 ? '' : 's'} no trajeto` },
-    { icone: 'alerta', texto: `${relatos.length} relato${relatos.length === 1 ? '' : 's'} de risco no trajeto` }
+    { icone: 'alerta', texto: `${listaDeRelatos.length} relato${listaDeRelatos.length === 1 ? '' : 's'} de risco no trajeto` }
   ];
 
-  const placarHtml = typeof placarSeguranca === 'number' ? `
-    <div class="rota-card__placar">
-      <strong>${placarSeguranca}/10</strong>
-      <span>comparado às alternativas encontradas</span>
-    </div>` : '';
+  const relatosHtml = listaDeRelatos.length ? `
+    <div class="rota-card__relatos">
+      <h3 class="rota-card__relatos-titulo">Relatos perto deste trajeto</h3>
+      ${listaDeRelatos.map((r) => `
+        <div class="rota-card__relato">
+          <span class="rota-card__relato-icone">${icone(r.icone, 18)}</span>
+          <div class="rota-card__relato-conteudo">
+            <div class="rota-card__relato-topo">
+              <strong>${escapar(r.rotulo)}</strong>
+              <span class="tag ${r.tagGravidade}">${escapar(r.rotuloGravidade)}</span>
+            </div>
+            <div class="rota-card__relato-endereco">${escapar(r.endereco)}</div>
+            ${r.inevitavel ? `
+              <div class="rota-card__relato-inevitavel">
+                ${icone('info', 13)} Nenhum caminho encontrado evita passar perto deste relato.
+              </div>` : ''}
+          </div>
+        </div>
+      `).join('')}
+    </div>` : `
+    <div class="rota-card__relatos">
+      <div class="rota-card__relato-vazio">${icone('escudo', 16)} Nenhum relato perto deste trajeto até agora.</div>
+    </div>`;
 
   card.innerHTML = `
     <div class="rota-card__cabecalho">
@@ -543,7 +566,6 @@ function desenharCardRota(rota, observacoes, escolha = {}) {
       <span class="tag tag--verde">Recomendada</span>
     </div>
     <div class="rota-card__numeros">${formatarDuracao(rota.duracaoS)} (${formatarDistancia(rota.distanciaM)})</div>
-    ${placarHtml}
     <div class="rota-card__oferece">
       ${oferece.map((o) => `<span class="rota-card__badge">${icone(o.icone, 14)}${escapar(o.texto)}</span>`).join('')}
     </div>
@@ -552,6 +574,7 @@ function desenharCardRota(rota, observacoes, escolha = {}) {
         <div class="rota-card__observacao">${icone(o.icone, 14)}<span>${escapar(o.texto)}</span></div>
       `).join('')}
     </div>
+    ${relatosHtml}
     <button type="button" class="btn btn-primario btn-bloco" id="rota-btn-iniciar">
       ${icone('mira', 18)} Iniciar
     </button>
@@ -562,7 +585,10 @@ function desenharCardRota(rota, observacoes, escolha = {}) {
 }
 
 /** Marcadores de relatos/pontos de apoio/delegacias perto da rota, no mesmo
-    estilo do mapa da Tela 1 (map.js), para você ver o que existe no caminho. */
+    estilo do mapa da Tela 1 (map.js), para você ver o que existe no caminho —
+    SEMPRE o mesmo raio (RAIO_APOIO_METROS) usado na contagem/selo e na lista
+    detalhada (ver pontuarCadidata): nunca um pino aparecendo no mapa sem bater
+    com o que o card diz, ou vice-versa. */
 function desenharContextoDaRota({ relatos, pontos, delegacias }) {
   camadaContexto.clearLayers();
 
@@ -614,20 +640,29 @@ function desenharContextoDaRota({ relatos, pontos, delegacias }) {
 // que tiver menos/mais leve, exatamente como pedido.
 const PESO_RISCO_POR_GRAVIDADE = { baixo: 1, medio: 2, alto: 4 };
 const PONTOS_POR_APOIO_PERTO = -2;
-const RAIO_PONTUACAO_M = 70; // mesmo raio já usado pra "isso está no caminho"
+const RAIO_PONTUACAO_M = 70; // relato de risco — raio apertado de propósito
+// Ponto de apoio/delegacia usa um raio mais largo que o do relato de risco:
+// são sinal POSITIVO (reforça, nunca inventa risco), então o custo de ser
+// generoso aqui é baixo — o custo de dizer "0 delegacias" com uma bem ali do
+// lado (o que já aconteceu de verdade, reportado ao vivo) é muito pior.
+const RAIO_APOIO_METROS = 150;
 
 // Exportado só pra alimentar o texto do modal "Como calculamos a rota mais
 // segura" (preencherTextoComoCalculamos, mais abaixo) — nunca duplicar estes
 // números à mão em outro lugar (HTML, doc), pra nunca desalinhar do que a
 // pontuação de verdade usa.
-export const CONFIGURACAO_PONTUACAO = { PESO_RISCO_POR_GRAVIDADE, PONTOS_POR_APOIO_PERTO, RAIO_PONTUACAO_M };
+export const CONFIGURACAO_PONTUACAO = { PESO_RISCO_POR_GRAVIDADE, PONTOS_POR_APOIO_PERTO, RAIO_PONTUACAO_M, RAIO_APOIO_METROS };
 
 // "Prioridade da rota" (controle em #rota-preferencia): o quanto o risco de
 // segurança pesa contra a duração da rota na escolha final — 1 = só risco
 // importa (comportamento de sempre, sem mudar nada pra quem nunca mexeu no
 // controle), 0 = só duração importa (rota mais rápida, ignorando risco).
 // "equilibrada" fica no meio, pesando os dois por igual.
-const PESO_SEGURANCA_POR_PREFERENCIA = { segura: 1, equilibrada: 0.6, rapida: 0.2 };
+// BUG QUE ISTO CORRIGE: "rapida" valia 0.2, não 0 — ou seja, escolher "Mais
+// rápida" ainda deixava o risco pesar 20% na decisão, e podia trocar pra uma
+// rota mais lenta mesmo assim. Quem aperta "Mais rápida" quer a mais rápida
+// de verdade, não "principalmente rápida, mas depende".
+const PESO_SEGURANCA_POR_PREFERENCIA = { segura: 1, equilibrada: 0.6, rapida: 0 };
 
 /** Busca relatos, pontos de apoio e delegacias numa área — a MESMA busca serve
     pra pontuar várias alternativas de rota de uma vez (evita repetir a
@@ -643,7 +678,7 @@ async function buscarRelatosPontosEDelegaciasNaArea(geometrias) {
 
   const [relatos, apoio, delegacias] = await Promise.all([
     supabase.from('reports')
-      .select('type,attention_level,address,lat,lng')
+      .select('id,type,attention_level,address,lat,lng')
       .gte('lat', sul).lte('lat', norte).gte('lng', oeste).lte('lng', leste)
       .eq('status', 'approved')
       // Sem isto, um relato SEU já expirado ainda pesava na pontuação de
@@ -667,39 +702,87 @@ async function buscarRelatosPontosEDelegaciasNaArea(geometrias) {
   return { relatos: relatos.data || [], pontos: apoio.data || [], delegacias: delegacias.data || [] };
 }
 
+/** Distância (m) de um ponto até o SEGMENTO de reta A-B mais próximo dele —
+    projeta o ponto no segmento (clampado nas pontas) e mede a distância
+    geodésica até essa projeção. Lat/lng tratados como plano local só pra
+    achar ONDE no segmento cai a projeção (aproximação segura pra distâncias
+    de rua, a escala de uma rota a pé/de carro dentro da cidade); a distância
+    final em metros continua vindo de distanciaMetros (Haversine), não da
+    aproximação planar.
+    BUG QUE ISTO CORRIGE: antes a checagem de "está perto da rota" media a
+    distância só até os VÉRTICES do traçado (geometria.some(...)), não até a
+    LINHA entre eles — numa rua reta e longa (comum em avenida), o ORS
+    devolve poucos vértices bem espaçados, e um ponto bem no meio do
+    quarteirão (visivelmente EM CIMA da rua, no mapa) podia estar a centenas
+    de metros do vértice mais próximo mesmo estando a poucos metros da rota
+    de verdade — por isso delegacia/ponto de apoio visivelmente no caminho
+    apareciam contados como "0". */
+function distanciaPontoAoSegmento(lat, lng, [latA, lngA], [latB, lngB]) {
+  const dx = lngB - lngA;
+  const dy = latB - latA;
+  if (dx === 0 && dy === 0) return distanciaMetros(lat, lng, latA, lngA);
+
+  const t = ((lng - lngA) * dx + (lat - latA) * dy) / (dx * dx + dy * dy);
+  const tClampado = Math.max(0, Math.min(1, t));
+  const latProjetado = latA + tClampado * dy;
+  const lngProjetado = lngA + tClampado * dx;
+  return distanciaMetros(lat, lng, latProjetado, lngProjetado);
+}
+
 /** Filtra o que está perto DESSA alternativa específica e calcula a
     pontuação de risco dela (quanto menor, mais segura). */
 function pontuarCandidata(geometria, bruto) {
-  const pertoDaRota = (lat, lng, raioM) =>
-    geometria.some(([rLat, rLng]) => distanciaMetros(lat, lng, rLat, rLng) <= raioM);
+  const pertoDaRota = (lat, lng, raioM) => {
+    if (geometria.length < 2) {
+      return geometria.some(([rLat, rLng]) => distanciaMetros(lat, lng, rLat, rLng) <= raioM);
+    }
+    for (let i = 0; i < geometria.length - 1; i++) {
+      if (distanciaPontoAoSegmento(lat, lng, geometria[i], geometria[i + 1]) <= raioM) return true;
+    }
+    return false;
+  };
 
-  const relatos = bruto.relatos.filter((r) => pertoDaRota(r.lat, r.lng, RAIO_PONTUACAO_M));
-  const pontosPerto = bruto.pontos.filter((p) => pertoDaRota(p.lat, p.lng, RAIO_PONTUACAO_M));
-  const delegaciasPerto = bruto.delegacias.filter((d) => pertoDaRota(d.lat, d.lng, RAIO_PONTUACAO_M));
+  // DOIS raios de propósito diferentes, usados em TUDO que segue (relato,
+  // ponto de apoio, delegacia): RAIO_PONTUACAO_M (70m, estreito) só pra
+  // PONTUAR risco — decidir qual alternativa é mais segura é uma conta
+  // interna, nunca aparece pra usuária, então pode (e deve) ser rigorosa.
+  // RAIO_APOIO_METROS (150m, largo) pra TUDO que a usuária efetivamente VÊ —
+  // pino no mapa, contagem no selo, item na lista detalhada — sempre o
+  // MESMO raio nos três, nunca um critério pra desenhar e outro pra contar.
+  //
+  // BUG QUE ISTO CORRIGE: antes os PINOS do mapa vinham de `bruto.*` direto
+  // — sem filtro de distância NENHUM, só a caixa (bounding box) larga ao
+  // redor de TODAS as alternativas somadas (às vezes quilômetros, se elas
+  // divergem). Por isso dava pra ver "3 delegacias" no mapa que na verdade
+  // estavam perto de OUTRA alternativa (ou só dentro da margem da caixa),
+  // não da rota realmente escolhida e desenhada — nenhum ajuste de raio na
+  // CONTAGEM resolvia isso, porque o problema era o PINO nunca ter sido
+  // filtrado, não o número. Agora pino, selo e lista usam a mesma busca.
+  const relatosExibir = bruto.relatos.filter((r) => pertoDaRota(r.lat, r.lng, RAIO_APOIO_METROS));
+  const pontosExibir = bruto.pontos.filter((p) => pertoDaRota(p.lat, p.lng, RAIO_APOIO_METROS));
+  const delegaciasExibir = bruto.delegacias.filter((d) => pertoDaRota(d.lat, d.lng, RAIO_APOIO_METROS));
+
+  const relatosPontuacao = bruto.relatos.filter((r) => pertoDaRota(r.lat, r.lng, RAIO_PONTUACAO_M));
+  const pontosPontuacao = bruto.pontos.filter((p) => pertoDaRota(p.lat, p.lng, RAIO_PONTUACAO_M));
+  const delegaciasPontuacao = bruto.delegacias.filter((d) => pertoDaRota(d.lat, d.lng, RAIO_PONTUACAO_M));
 
   let pontuacao = 0;
-  relatos.forEach((r) => { pontuacao += PESO_RISCO_POR_GRAVIDADE[r.attention_level] ?? PESO_RISCO_POR_GRAVIDADE.medio; });
-  pontuacao += (pontosPerto.length + delegaciasPerto.length) * PONTOS_POR_APOIO_PERTO;
+  relatosPontuacao.forEach((r) => { pontuacao += PESO_RISCO_POR_GRAVIDADE[r.attention_level] ?? PESO_RISCO_POR_GRAVIDADE.medio; });
+  pontuacao += (pontosPontuacao.length + delegaciasPontuacao.length) * PONTOS_POR_APOIO_PERTO;
 
-  // Pra DESENHAR no mapa (botão "Pontos de apoio" na navegação ativa), usa
-  // uma faixa bem mais larga que os 70m da pontuação de risco — os 70m são
-  // de propósito apertados pra pontuar só o que está NO caminho, mas usar o
-  // mesmo raio pro desenho deixava o botão "Pontos de apoio" quase sempre
-  // vazio (o ponto existia perto, só não dentro dessa faixa estreita).
-  // `bruto.pontos`/`bruto.delegacias` já vêm filtrados por uma caixa (bounding
-  // box) ampla o bastante ao redor de toda a rota (ver
-  // buscarRelatosPontosEDelegaciasNaArea, ~300m de margem) — reaproveita
-  // direto, sem gastar outra consulta ao banco.
   return {
-    relatos, pontos: bruto.pontos, delegacias: bruto.delegacias, pontuacao,
-    pontosPerto: pontosPerto.length, delegaciasPerto: delegaciasPerto.length
+    relatos: relatosExibir, pontos: pontosExibir, delegacias: delegaciasExibir, pontuacao,
+    pontosPerto: pontosExibir.length, delegaciasPerto: delegaciasExibir.length
   };
 }
 
-// Compartilhado entre ordenarPorPrioridade e o placar 0-10 do card de rota —
-// um valor sozinho não diz nada ("risco 3" é bom ou ruim?), só comparado ao
-// restante das alternativas desta mesma busca faz sentido.
+// Usado por ordenarPorPrioridade pra misturar risco com duração — um valor
+// sozinho não diz nada ("risco 3" é bom ou ruim?), só comparado ao restante
+// das alternativas desta mesma busca faz sentido ali (ESCOLHER a melhor
+// entre as opções que existem agora, não importa o quão arriscadas todas
+// sejam em termos absolutos).
 const normalizar = (valor, min, max) => (max === min ? 0 : (valor - min) / (max - min));
+
 
 /** Ordena as alternativas já pontuadas pela prioridade escolhida. Com
     "segura" (padrão, peso 1) o critério é EXATAMENTE o de sempre — pontuação
@@ -737,7 +820,13 @@ function ordenarPorPrioridade(pontuadas, pesoSeguranca) {
 async function escolherRotaMaisSegura(rotas) {
   if (rotas.length === 1) {
     const bruto = await buscarRelatosPontosEDelegaciasNaArea([rotas[0].geometria]).catch(() => ({ relatos: [], pontos: [], delegacias: [] }));
-    return { ...rotas[0], ...pontuarCandidata(rotas[0].geometria, bruto), eraAMaisRapida: true };
+    const pontuada = pontuarCandidata(rotas[0].geometria, bruto);
+    // Só existe esta alternativa — nenhuma outra pra comparar, então todo
+    // relato dela é "inevitável" por definição (não existe caminho sem ele).
+    return {
+      ...rotas[0], ...pontuada, eraAMaisRapida: true,
+      relatosInevitaveisIds: new Set(pontuada.relatos.map((r) => r.id))
+    };
   }
 
   try {
@@ -745,68 +834,73 @@ async function escolherRotaMaisSegura(rotas) {
     const pontuadas = rotas.map((r) => ({ ...r, ...pontuarCandidata(r.geometria, bruto) }));
 
     const pesoSeguranca = PESO_SEGURANCA_POR_PREFERENCIA[preferenciaRota] ?? 1;
-    const maisRapida = pontuadas.reduce((m, r) => (r.distanciaM < m.distanciaM ? r : m), pontuadas[0]);
+    // BUG QUE ISTO CORRIGE: comparava por distanciaM (menor distância), não
+    // por duracaoS (menor tempo) — "mais rápida" é sobre TEMPO, e uma rota
+    // mais curta em metros pode demorar mais (mais sinais, rua mais lenta)
+    // do que uma mais longa só que mais direta. O card mostra duração em
+    // destaque ("14 min (7,4 km)") — tinha caso de bater o olho e a rota
+    // "mais rápida" escolhida mostrar um tempo MAIOR que outra alternativa.
+    const maisRapida = pontuadas.reduce((m, r) => (r.duracaoS < m.duracaoS ? r : m), pontuadas[0]);
     const escolhida = ordenarPorPrioridade(pontuadas, pesoSeguranca)[0];
 
-    // Placar 0-10 só de RISCO (não da prioridade escolhida) — comparado às
-    // outras alternativas desta busca, nunca um número absoluto. Com 2+
-    // alternativas de pontuação igual (empate — ex.: nenhum relato perto de
-    // nenhuma), todas ficam com 10/10: de verdade não há diferença de risco
-    // pra mostrar entre elas.
-    const pontuacaoMin = Math.min(...pontuadas.map((p) => p.pontuacao));
-    const pontuacaoMax = Math.max(...pontuadas.map((p) => p.pontuacao));
-    const placarSeguranca = Math.round((1 - normalizar(escolhida.pontuacao, pontuacaoMin, pontuacaoMax)) * 10);
+    // BUG QUE ISTO CORRIGE: comparava por "escolhida === maisRapida"
+    // (igualdade de OBJETO) — mas ordenarPorPrioridade, sempre que a
+    // prioridade não é "segura" (equilibrada/rápida), devolve uma lista
+    // MAPEADA (`.map((p) => ({ ...p, scorePrioridade }))`), ou seja, objetos
+    // NOVOS, nunca o mesmo objeto de `pontuadas`. Resultado: nesses dois
+    // modos, "escolhida === maisRapida" dava FALSE sempre, mesmo quando a
+    // rota escolhida era de fato a mais rápida — o card dizia "por isso não
+    // é a mais rápida" mesmo quando era. Comparar pela duração (valor, não
+    // referência) funciona nos três modos.
+    const eraAMaisRapida = escolhida.duracaoS === maisRapida.duracaoS;
 
-    return { ...escolhida, eraAMaisRapida: escolhida === maisRapida, placarSeguranca };
+    // Um relato é "inevitável" quando aparece perto de TODAS as alternativas
+    // encontradas, não só da escolhida — ou seja, nenhum caminho calculado
+    // consegue evitá-lo (bem diferente de "foi o menos pior", que soava como
+    // se houvesse opção). Mostrado por relato individual (ver
+    // montarListaDeRelatos), pedido explícito: em vez de só contar relatos,
+    // explicar quando passar perto de um deles não foi escolha, foi o único
+    // caminho que existe.
+    const relatosInevitaveisIds = new Set(
+      escolhida.relatos
+        .filter((r) => pontuadas.every((alt) => alt.relatos.some((r2) => r2.id === r.id)))
+        .map((r) => r.id)
+    );
+
+    return { ...escolhida, eraAMaisRapida, relatosInevitaveisIds };
   } catch (erro) {
     console.error('Falha ao pontuar as alternativas de rota:', erro);
-    return { ...rotas[0], relatos: [], pontos: [], delegacias: [], pontuacao: 0, eraAMaisRapida: true };
+    return {
+      ...rotas[0], relatos: [], pontos: [], delegacias: [], pontuacao: 0, eraAMaisRapida: true,
+      pontosPerto: 0, delegaciasPerto: 0, relatosInevitaveisIds: new Set()
+    };
   }
 }
 
-/** Monta o texto de observações do card a partir do que foi encontrado perto
-    da rota ESCOLHIDA — só dados reais do banco, nunca inventa iluminação/
-    movimento que a plataforma não sabe. */
-function montarObservacoes({ relatos, pontos, delegacias }) {
-  const iluminacao = relatos.filter((r) => r.type === 'rua_pouco_iluminada');
-  const outros = relatos.filter((r) => r.type !== 'rua_pouco_iluminada');
-  const altoRisco = outros.filter((r) => r.attention_level === 'alto');
-  // "baixo"/"médio" também pesam na pontuação que escolheu a rota (ver
-  // pontuarCandidata) — por isso também entram aqui, mesmo sem o alerta mais
-  // forte do alto risco. Sem isso, o card podia dizer "nenhum relato" perto
-  // de uma rota que na verdade tinha um relato leve considerado na escolha.
-  const demaisRiscos = outros.filter((r) => r.attention_level !== 'alto');
+const ROTULO_GRAVIDADE = { baixo: 'Baixo risco', medio: 'Risco médio', alto: 'Alto risco' };
+const TAG_GRAVIDADE = { baixo: 'tag--teal', medio: 'tag--amarelo', alto: 'tag--vermelho' };
 
-  const observacoes = [];
-  const apoioNoCaminho = pontos.length + delegacias.length;
-  if (apoioNoCaminho > 0) {
-    observacoes.push({
-      icone: 'predio',
-      texto: `${apoioNoCaminho} ${apoioNoCaminho === 1 ? 'ponto de apoio/delegacia' : 'pontos de apoio/delegacias'} no caminho`
-    });
-  }
-  if (iluminacao.length > 0) {
-    observacoes.push({
-      icone: 'lampada',
-      texto: `${iluminacao.length} ${iluminacao.length === 1 ? 'relato' : 'relatos'} de rua pouco iluminada perto deste trajeto`
-    });
-  }
-  if (altoRisco.length > 0) {
-    observacoes.push({
-      icone: 'alerta',
-      texto: `${altoRisco.length} ${altoRisco.length === 1 ? 'relato' : 'relatos'} de alto risco perto deste trajeto — redobre a atenção`
-    });
-  }
-  if (demaisRiscos.length > 0) {
-    observacoes.push({
-      icone: 'alerta',
-      texto: `${demaisRiscos.length} ${demaisRiscos.length === 1 ? 'outro relato' : 'outros relatos'} de risco perto deste trajeto`
-    });
-  }
-  if (!observacoes.length) {
-    observacoes.push({ icone: 'escudo', texto: 'Nenhum relato registrado perto deste trajeto até agora' });
-  }
-  return observacoes;
+/** Lista CONCRETA dos relatos perto da rota ESCOLHIDA — em vez de só contar
+    quantos existem ("3 relatos de risco"), mostra O QUE é cada um (tipo,
+    gravidade, endereço), pra ser informação útil de verdade pra quem vai
+    passar por ali, não um número abstrato. Pedido explícito: trocar a nota/
+    contagem por fatos concretos.
+    `inevitavel` marca quando o relato aparece em TODAS as alternativas
+    encontradas (ver relatosInevitaveisIds em escolherRotaMaisSegura) — nesse
+    caso o card explica que não existe caminho que o evite, em vez de dar a
+    entender que essa rota "escolheu" passar perto dele. */
+function montarListaDeRelatos({ relatos, relatosInevitaveisIds = new Set() }) {
+  const ordemGravidade = { alto: 0, medio: 1, baixo: 2 };
+  return [...relatos]
+    .sort((a, b) => (ordemGravidade[a.attention_level] ?? 1) - (ordemGravidade[b.attention_level] ?? 1))
+    .map((r) => ({
+      icone: ICONE_POR_TIPO_RELATO[r.type] || 'escudo',
+      rotulo: ROTULOS_RELATO[r.type] || 'Relato',
+      rotuloGravidade: ROTULO_GRAVIDADE[r.attention_level] || ROTULO_GRAVIDADE.medio,
+      tagGravidade: TAG_GRAVIDADE[r.attention_level] || TAG_GRAVIDADE.medio,
+      endereco: r.address || 'Endereço não informado',
+      inevitavel: relatosInevitaveisIds.has(r.id)
+    }));
 }
 
 async function salvarHistoricoRota(rota) {

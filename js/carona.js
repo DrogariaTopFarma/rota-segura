@@ -1,14 +1,17 @@
 /* ============================================================================
-   ROTA SEGURA — Acompanhar corrida (Uber/99), Tela 2
+   ROTA SEGURA — Acompanhar trajeto, Tela 2
 
-   Não lê o GPS de dentro do Uber/99 — não existe API pública que deixe um
-   app terceiro observar uma corrida alheia (testado: as APIs oficiais das
-   duas são pra empresa que PEDE a corrida pela API, não pra acompanhar uma
-   corrida que a própria usuária já chamou no app normal dela). Em vez
-   disso: ela cola o link de "compartilhar corrida" que o próprio Uber/99 já
-   gera, define o horário esperado de chegada, e o app lembra ela de
-   confirmar que chegou bem — escalando pra um aviso mais urgente se passar
-   do prazo sem confirmação (ver supabase/functions/verificar-corridas).
+   Dois jeitos de usar: (1) carona de app (Uber/99) — cola o link de
+   "compartilhar corrida" que o próprio app já gera (não lê o GPS de dentro
+   do Uber/99 sozinho — não existe API pública que deixe um app terceiro
+   observar uma corrida alheia: testado, as APIs oficiais das duas são pra
+   empresa que PEDE a corrida pela API, não pra acompanhar uma corrida que a
+   própria usuária já chamou no app normal dela); ou (2) só andando sozinha
+   até algum lugar, sem corrida nenhuma — o link é OPCIONAL, pode deixar em
+   branco. Nos dois casos define o horário esperado de chegada, e o app
+   lembra ela de confirmar que chegou bem — escalando pra um aviso mais
+   urgente se passar do prazo sem confirmação (ver
+   supabase/functions/verificar-corridas).
 
    LIMITE HONESTO (repetido do texto fixo na tela, não só aqui): isso é uma
    camada de lembrete/tranquilidade, nunca um substituto de ligar pra 190.
@@ -57,10 +60,9 @@ async function iniciar() {
     return;
   }
 
-  // Veio de um atalho pra "Acompanhar corrida" (?abrirCarona=1) — da Vanessa
-  // (pages/alertas.html) ou do cartão de status da Tela Início quando há
-  // uma corrida ativa (js/inicio.js) — abre o painel direto, sem precisar
-  // achar o link "Vou de carona" na mão.
+  // Veio do atalho "Abrir Acompanhar corrida" da Vanessa (?abrirCarona=1,
+  // ver pages/alertas.html) — abre o painel direto, sem precisar achar o
+  // link "Vou de carona" na mão.
   if (new URLSearchParams(window.location.search).get('abrirCarona') === '1') {
     abrirPainelCarona();
   }
@@ -214,14 +216,14 @@ function prepararFormulario() {
     const link = form.link.value.trim();
     const horaTexto = form.chegada.value;
     const destino = seletorDestino.valor();
-    if (!link || !horaTexto || !destino) {
-      mostrarMensagem(msg, 'Preencha o link, o destino e o horário esperado antes de avisar.', 'atencao');
+    if (!horaTexto || !destino) {
+      mostrarMensagem(msg, 'Preencha o destino e o horário esperado antes de avisar.', 'atencao');
       return;
     }
     abrirWhatsAppComContatoPrincipal(obterLinkDeAcompanhamento, {
       destino: destino.nome,
       horario: calcularChegadaEsperada(horaTexto),
-      linkCorrida: link
+      linkCorrida: link || null
     });
   });
 
@@ -233,7 +235,6 @@ function prepararFormulario() {
     const destino = seletorDestino.valor();
     const horaTexto = form.chegada.value;
 
-    if (!link) return mostrarMensagem(msg, 'Cole o link de compartilhamento da corrida.', 'atencao');
     if (!destino) return mostrarMensagem(msg, 'Pesquise e escolha pra onde você está indo.', 'atencao');
     if (!horaTexto) return mostrarMensagem(msg, 'Defina o horário esperado de chegada.', 'atencao');
 
@@ -246,7 +247,7 @@ function prepararFormulario() {
         .from('monitored_trips')
         .insert({
           user_id: usuarioAtual.id,
-          share_link: link,
+          share_link: link || null,
           destino_texto: destino.nome,
           expected_arrival_at: chegadaEsperada.toISOString()
         })

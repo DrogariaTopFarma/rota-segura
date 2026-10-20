@@ -13,7 +13,7 @@
 
 import { acompanharPosicao } from './geolocation.js';
 import { supabase } from './supabase.js';
-import { abrirModal, toast } from './ui.js';
+import { abrirModal, toast, escapar } from './ui.js';
 
 /**
  * Formata um telefone para o padrão que o wa.me exige: só dígitos,
@@ -120,10 +120,20 @@ export function obterLinkDeEmergencia(contatoEmergencia) {
 }
 
 /**
- * Botão SOS completo (usado em Rotas e Início) — pega o contato de
- * emergência principal e manda WhatsApp com localização em tempo real. Sem
- * contato cadastrado, abre o modal pedindo pra cadastrar (cada página
- * precisa ter `#modal-sos-sem-contato`).
+ * Botão SOS completo (usado em Rotas) — manda WhatsApp com localização em
+ * tempo real para o contato de emergência principal. Sem contato
+ * cadastrado, abre o modal pedindo pra cadastrar (cada página precisa ter
+ * `#modal-sos-sem-contato`).
+ *
+ * Quando existe MAIS de um contato cadastrado, o principal recebe a
+ * mensagem na hora (igual sempre foi) e os demais aparecem logo depois num
+ * modal próprio (`#modal-sos-outros-contatos`, opcional — página sem ele
+ * simplesmente não oferece o passo extra), um botão por contato: rede de
+ * apoio de verdade, não só uma pessoa que pode não ver a tempo. Cada um
+ * desses botões abre o próprio WhatsApp só quando TOCADO (um clique de
+ * verdade por vez) — nunca todos de uma vez junto com o principal, porque
+ * vários window.open ao mesmo tempo o navegador trataria como pop-up e
+ * bloquearia a maioria.
  */
 export async function acionarSos() {
   // BUG DE CONFIABILIDADE QUE ISTO CORRIGE: abrir a aba só depois de esperar
@@ -155,8 +165,7 @@ export async function acionarSos() {
       .from('emergency_contacts')
       .select('name,phone,is_primary')
       .eq('user_id', user.id)
-      .order('is_primary', { ascending: false })
-      .limit(1);
+      .order('is_primary', { ascending: false });
 
     if (error) throw error;
 
@@ -166,13 +175,51 @@ export async function acionarSos() {
       return;
     }
 
-    const { url } = await obterLinkDeEmergencia(contatos[0].phone);
+    const [principal, ...outros] = contatos;
+    const { url } = await obterLinkDeEmergencia(principal.phone);
     if (janela) janela.location.href = url;
     else window.open(url, '_blank', 'noopener');
+
+    if (outros.length) mostrarOutrosContatosSos(outros);
   } catch (erro) {
     janela?.close();
     toast(erro.message || 'Não foi possível acionar o SOS agora.', 'erro', 6000);
   }
+}
+
+/** Lista de botões — um por contato ALÉM do principal — dentro de
+    `#modal-sos-outros-contatos`. Cada botão só busca localização/monta o
+    link quando TOCADO (ver comentário de acionarSos acima sobre por que
+    nunca abrir tudo de uma vez). */
+function mostrarOutrosContatosSos(contatos) {
+  const lista = document.getElementById('sos-outros-contatos-lista');
+  if (!lista) return; // página sem este modal — segue sem o passo extra
+
+  lista.innerHTML = contatos.map((c, i) => `
+    <button type="button" class="btn btn-secundario btn-bloco" data-sos-outro="${i}">
+      Avisar ${escapar(c.name)} também
+    </button>`).join('');
+
+  lista.querySelectorAll('[data-sos-outro]').forEach((botao) => {
+    botao.addEventListener('click', async () => {
+      const contato = contatos[Number(botao.dataset.sosOutro)];
+      const janela = window.open('', '_blank');
+      if (janela) janela.opener = null;
+      botao.disabled = true;
+      try {
+        const { url } = await obterLinkDeEmergencia(contato.phone);
+        if (janela) janela.location.href = url;
+        else window.open(url, '_blank', 'noopener');
+        botao.textContent = `Avisado: ${contato.name}`;
+      } catch (erro) {
+        janela?.close();
+        botao.disabled = false;
+        toast(erro.message || 'Não foi possível abrir o WhatsApp agora.', 'erro');
+      }
+    });
+  });
+
+  abrirModal('modal-sos-outros-contatos');
 }
 
 /**
@@ -193,10 +240,11 @@ function formatarHora(data) {
 }
 
 /**
- * Usado pelo "Acompanhar corrida" (js/carona.js) no botão "Avisar agora que
- * comecei a corrida" — diferente de obterLinkDeCompartilhamento, inclui
- * também o link de acompanhamento da própria corrida (Uber/99) e o horário
- * esperado de chegada, pra quem recebe já poder abrir e ver o trajeto ao
+ * Usado pelo "Acompanhar trajeto" (js/carona.js) no botão "Avisar agora que
+ * comecei o trajeto" — diferente de obterLinkDeCompartilhamento, inclui
+ * também o horário esperado de chegada e, SE houver (carona de app, link
+ * opcional — ver js/carona.js), o link de acompanhamento da própria
+ * corrida (Uber/99), pra quem recebe já poder abrir e ver o trajeto ao
  * vivo, não só a localização pontual de agora.
  */
 export function obterLinkDeAcompanhamento(contato, { destino, horario, linkCorrida }) {
@@ -204,14 +252,15 @@ export function obterLinkDeAcompanhamento(contato, { destino, horario, linkCorri
     contato,
     (linkMapa) => {
       const destinoTexto = destino ? ` até ${destino}` : '';
-      return `Oi! Comecei uma corrida agora${destinoTexto} e devo chegar até ${formatarHora(horario)}. `
-        + `Segue o link de acompanhamento dela: ${linkCorrida}. Minha localização atual: ${linkMapa}`;
+      const textoLinkCorrida = linkCorrida ? ` Segue o link de acompanhamento: ${linkCorrida}.` : '';
+      return `Oi! Saí agora${destinoTexto} e devo chegar até ${formatarHora(horario)}.${textoLinkCorrida} `
+        + `Minha localização atual: ${linkMapa}`;
     }
   );
 }
 
 /**
- * Usado pelo "Acompanhar corrida" (js/carona.js) quando o horário esperado de
+ * Usado pelo "Acompanhar trajeto" (js/carona.js) quando o horário esperado de
  * chegada passou sem confirmação e a usuária responde "Não" pra "Está tudo
  * bem?" — ainda é ELA quem dispara (nunca automático: contato de emergência
  * não é usuária do app, não tem como receber push sozinho), só que o texto
@@ -221,8 +270,8 @@ export function obterLinkDeConfirmacaoAtrasada(contato, { linkCorrida } = {}) {
   return construirLinkDeWhatsApp(
     contato,
     (linkMapa) => {
-      const linkTexto = linkCorrida ? ` Link da corrida: ${linkCorrida}.` : '';
-      return `Ainda não confirmei que cheguei bem numa corrida que já devia ter chegado. `
+      const linkTexto = linkCorrida ? ` Link de acompanhamento: ${linkCorrida}.` : '';
+      return `Ainda não confirmei que cheguei bem a um trajeto que já devia ter terminado. `
         + `Pode me ajudar a conferir?${linkTexto} Minha última localização: ${linkMapa}`;
     }
   );

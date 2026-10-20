@@ -30,6 +30,9 @@
      — mantém a identidade visual entre o pino e o card da lista. */
   --teal: #0097A7;
   --teal-suave: #E0F4F6;
+  /* Comércio 24h no mapa (js/map.js, js/routes.js) — antes usava a MESMA cor
+     de delegacia (--roxo), dava pra confundir os dois pinos só de olhar. */
+  --marrom: #8D6E63;
 
   /* ---------- Tipografia ---------- */
   --fonte: 'Poppins', 'Nunito', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;

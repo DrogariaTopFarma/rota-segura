@@ -191,15 +191,6 @@
 }
 .rota-card__numeros { font-size: var(--fs-lg); font-weight: 700; }
 
-.rota-card__placar {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  margin-top: 6px;
-}
-.rota-card__placar strong { font-size: var(--fs-xl); color: var(--rosa-magenta-escuro); }
-.rota-card__placar span { font-size: var(--fs-xs); color: var(--texto-secundario); }
-
 .rota-card__oferece {
   display: flex;
   flex-wrap: wrap;
@@ -226,6 +217,49 @@
   align-items: flex-start;
   gap: 6px;
 }
+.rota-card__relatos { margin-top: var(--esp-3); }
+.rota-card__relatos-titulo {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--texto-secundario);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin: 0 0 var(--esp-2);
+}
+.rota-card__relato {
+  display: flex;
+  gap: var(--esp-2);
+  padding: var(--esp-2) 0;
+  border-top: 1px solid var(--borda);
+}
+.rota-card__relato:first-of-type { border-top: none; }
+.rota-card__relato-icone { color: var(--rosa-magenta-escuro); flex-shrink: 0; margin-top: 2px; }
+.rota-card__relato-conteudo { flex: 1; min-width: 0; }
+.rota-card__relato-topo {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  flex-wrap: wrap;
+}
+.rota-card__relato-topo strong { font-size: var(--fs-sm); }
+.rota-card__relato-endereco { font-size: var(--fs-xs); color: var(--texto-secundario); margin-top: 2px; }
+.rota-card__relato-inevitavel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  color: var(--texto-secundario);
+  margin-top: 4px;
+  font-style: italic;
+}
+.rota-card__relato-vazio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-xs);
+  color: var(--texto-secundario);
+}
+
 .rota-card__aviso {
   font-size: var(--fs-xs);
   color: var(--texto-secundario);

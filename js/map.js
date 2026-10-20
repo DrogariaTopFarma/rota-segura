@@ -140,7 +140,9 @@ const ICONES = {
   ponto_apoio: () => divIcon('escudo', '#4CAF7D'),
   hospital: () => divIcon('hospital', '#4CAF7D'),
   farmacia: () => divIcon('hospital', '#4CAF7D'),
-  comercio_24h: () => divIcon('predio', '#7C5CBF'),
+  // Antes usava a MESMA cor de delegacia (#7C5CBF) — dava pra confundir os
+  // dois pinos só de olhar o mapa.
+  comercio_24h: () => divIcon('predio', '#8D6E63'),
   ponto_onibus: () => divIcon('onibus', '#F4A261'),
   delegacia: () => divIcon('predio', '#7C5CBF'),
   busca: () => divIcon('pino', '#2D2430')

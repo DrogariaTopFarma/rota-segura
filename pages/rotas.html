@@ -111,23 +111,26 @@
       </div>
 
       <button type="button" class="rota-link-carona" id="abrir-painel-carona">
-        <span data-icone="carro" data-tamanho="16" aria-hidden="true"></span>
-        Vou de carona (Uber/99)? Acompanhar corrida
+        <span data-icone="pino" data-tamanho="16" aria-hidden="true"></span>
+        Me acompanhe até eu chegar
       </button>
     </div>
 
-    <!-- ================= ACOMPANHAR CORRIDA (Uber/99) =================
-         Não é rota própria — não tem origem/destino nem cálculo de rota
-         (não existe API pública que leia o GPS de uma corrida de terceiro,
-         ver js/carona.js). A usuária cola o link de "compartilhar corrida"
-         que o próprio app dela já gera, define o horário esperado de
-         chegada, e o Rota Segura lembra ela de confirmar que chegou bem. -->
+    <!-- ================= ACOMPANHAR TRAJETO =================
+         Não é rota própria — não tem origem/destino nem cálculo de rota.
+         Serve pra dois casos: (1) carona de app (Uber/99) — cola o link de
+         "compartilhar corrida" que o próprio app dela já gera (não existe
+         API pública que leia o GPS de uma corrida de terceiro, ver
+         js/carona.js), ou (2) só andando sozinha até algum lugar, sem
+         nenhum link (o campo de link é opcional). Nos dois casos, define o
+         horário esperado de chegada e o Rota Segura lembra ela de
+         confirmar que chegou bem. -->
     <div class="card rota-carona" id="painel-carona" hidden>
       <div class="rota-carona__topo">
         <button type="button" class="btn-icone" id="carona-voltar" aria-label="Voltar">
           <span data-icone="voltar" data-tamanho="20" aria-hidden="true"></span>
         </button>
-        <h2>Acompanhar corrida</h2>
+        <h2>Acompanhar trajeto</h2>
       </div>
 
       <p class="rota-carona__aviso">
@@ -144,8 +147,8 @@
 
       <form id="form-carona" novalidate>
         <div class="campo">
-          <label for="carona-link">Link de "compartilhar corrida" (Uber ou 99)</label>
-          <input type="url" id="carona-link" name="link" placeholder="Cole aqui o link que o app gerou" required>
+          <label for="carona-link">Link de "compartilhar corrida" (Uber ou 99) — opcional</label>
+          <input type="url" id="carona-link" name="link" placeholder="Só se for de carro por app — deixe em branco se for a pé">
         </div>
 
         <div class="campo campo--busca">
@@ -165,7 +168,7 @@
 
         <button type="button" class="btn btn-secundario btn-bloco" id="carona-avisar-agora">
           <span data-icone="compartilhar" data-tamanho="18" aria-hidden="true"></span>
-          Avisar agora que comecei a corrida
+          Avisar agora que comecei o trajeto
         </button>
 
         <button type="submit" class="btn btn-primario btn-bloco">Começar a acompanhar</button>
@@ -269,24 +272,24 @@
 
   <!-- ================= BOTTOM NAVIGATION ================= -->
   <nav class="bottom-nav" id="rota-bottom-nav" aria-label="Navegação principal">
-    <a class="bottom-nav__item" href="inicio.html">
-      <span data-icone="inicio" data-tamanho="22" aria-hidden="true"></span>
-      <span class="bottom-nav__rotulo">Início</span>
-    </a>
     <a class="bottom-nav__item" href="mapa.html">
       <span data-icone="mapa" data-tamanho="22" aria-hidden="true"></span>
       <span class="bottom-nav__rotulo">Mapa</span>
     </a>
-    <button type="button" class="bottom-nav__fab" id="botao-central" aria-label="Cadastrar">
-      <span data-icone="mais" data-tamanho="28" aria-hidden="true"></span>
-    </button>
     <a class="bottom-nav__item" href="rotas.html">
       <span data-icone="rotas" data-tamanho="22" aria-hidden="true"></span>
       <span class="bottom-nav__rotulo">Rotas</span>
     </a>
+    <button type="button" class="bottom-nav__fab" id="botao-central" aria-label="Cadastrar">
+      <span data-icone="mais" data-tamanho="28" aria-hidden="true"></span>
+    </button>
     <a class="bottom-nav__item" href="alertas.html">
       <span data-icone="sino" data-tamanho="22" aria-hidden="true"></span>
       <span class="bottom-nav__rotulo">Comunidade</span>
+    </a>
+    <a class="bottom-nav__item" href="observatorio.html">
+      <span data-icone="grafico" data-tamanho="22" aria-hidden="true"></span>
+      <span class="bottom-nav__rotulo">Observatório</span>
     </a>
   </nav>
 
@@ -368,7 +371,29 @@
     </div>
   </div>
 
-  <!-- ================= MODAL: CHECK-IN DA CORRIDA ATRASADA =================
+  <!-- ================= MODAL: SOS — AVISAR OUTROS CONTATOS =================
+       Só aparece quando há MAIS de um contato de emergência cadastrado — o
+       SOS já abriu o WhatsApp do principal sozinho (ver acionarSos em
+       js/emergency.js); cada botão aqui abre o WhatsApp de mais um contato,
+       um de cada vez, a partir de um clique de verdade (nunca vários abertos
+       ao mesmo tempo, que o navegador bloquearia como pop-up). -->
+  <div class="modal" id="modal-sos-outros-contatos" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-sos-outros-contatos" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-sos-outros-contatos">SOS enviado</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <p class="rota-modal__texto">
+        Já abrimos o WhatsApp do seu contato principal. Você também pode avisar:
+      </p>
+      <div class="rota-modal__acoes" id="sos-outros-contatos-lista"></div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: CHECK-IN DO TRAJETO ATRASADO =================
        Aparece sozinho (ver atualizarContador em js/carona.js) a cada 5 min
        de atraso sem confirmação — se ela fechar sem responder, some e volta
        a aparecer no próximo ciclo, de propósito: é um check-in de segurança,

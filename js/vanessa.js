@@ -18,7 +18,7 @@ import { abrirModal } from './ui.js';
 const PERGUNTAS_FREQUENTES = [
   'Como cadastro um relato de segurança?',
   'O que eu faço se perceber que estão me seguindo?',
-  'Como funciona o Acompanhar corrida?',
+  'Como funciona o Acompanhar trajeto?',
   'Como cadastro um contato de emergência?'
 ];
 

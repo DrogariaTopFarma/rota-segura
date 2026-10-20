@@ -3,8 +3,14 @@
    Dados reais do Supabase: perfil editável, avatar (Storage), meus relatos,
    minhas publicações, histórico de rotas e CRUD de contatos de emergência.
    Contatos de emergência e Configurações vivem aqui dentro (seções da mesma
-   página), no mesmo espírito de relato/ponto de apoio: seção dentro de uma
-   tela existente, não uma página nova por formulário.
+   página), no mesmo espírito de relato: seção dentro de uma tela existente,
+   não uma página nova por formulário.
+
+   SEM "meus pontos de apoio" de propósito: ponto de apoio/delegacia virou
+   "lugar parceiro" cadastrado só pela administradora do projeto (ver
+   sql/schema.sql, seção 12.4) — não existe mais formulário público pra
+   cadastrar um, então uma lista aqui ficaria sempre vazia pra qualquer
+   usuária.
    ============================================================================ */
 
 import { exigirLogin, iniciarAuth, usuarioAtual } from './auth.js';
@@ -16,8 +22,9 @@ import {
 } from './ui.js';
 import { marcarItemAtivo, atualizarBadgeNotificacoes, ligarRealtimeBadgeNotificacoes } from './nav.js';
 import { prepararNotificacoes } from './notifications.js';
-import { ROTULOS_PONTO, ROTULOS_RELATO, ICONE_POR_TIPO_RELATO, corDoRelato } from './map.js';
+import { ROTULOS_RELATO, ICONE_POR_TIPO_RELATO, corDoRelato } from './map.js';
 import { registrarServiceWorker, ligarBotaoInstalarApp } from './pwa.js';
+import { corrigirBairroDosProprios } from './reports.js';
 
 const ROTULOS_CATEGORIA = { alerta: 'Alerta', dica: 'Dica', apoio: 'Apoio', noticia: 'Notícia' };
 
@@ -210,68 +217,6 @@ function prepararMeusRelatos() {
     toast('Relato excluído.', 'sucesso');
     relatoParaExcluir = null;
     await carregarMeusRelatos();
-  });
-}
-
-let pontosCache = [];
-let pontoParaExcluir = null;
-
-async function carregarMeusPontos() {
-  const container = document.getElementById('perfil-pontos-lista');
-  if (!container) return;
-  container.innerHTML = htmlCarregando(2);
-
-  const user = await usuarioAtual();
-  if (!user) return;
-
-  const { data, error } = await supabase
-    .from('support_points')
-    .select('id,type,name,address')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(20);
-
-  if (error) {
-    container.innerHTML = `<div class="mensagem mensagem--erro">Não foi possível carregar seus pontos de apoio.</div>`;
-    return;
-  }
-
-  pontosCache = data || [];
-  if (!pontosCache.length) {
-    container.innerHTML = htmlEstadoVazio('Você ainda não cadastrou nenhum ponto de apoio.');
-    return;
-  }
-
-  container.innerHTML = pontosCache.map((p) => `
-    <article class="card-lista">
-      <div class="card-lista__icone card-lista__icone--verde">${icone('escudo', 20)}</div>
-      <div class="card-lista__conteudo">
-        <div class="card-lista__titulo">${escapar(p.name)}</div>
-        <div class="card-lista__meta">${escapar(ROTULOS_PONTO[p.type] || 'Ponto de apoio')}</div>
-        ${p.address ? `<div class="card-lista__endereco">${escapar(p.address)}</div>` : ''}
-      </div>
-      <div class="contato-acoes">
-        <button type="button" class="btn-icone" data-excluir-ponto="${p.id}" aria-label="Excluir ${escapar(p.name)}">${icone('lixeira', 16)}</button>
-      </div>
-    </article>`).join('');
-
-  container.querySelectorAll('[data-excluir-ponto]').forEach((b) => {
-    b.addEventListener('click', () => {
-      pontoParaExcluir = b.dataset.excluirPonto;
-      abrirModal('modal-excluir-ponto');
-    });
-  });
-}
-
-function prepararMeusPontos() {
-  document.getElementById('btn-confirmar-excluir-ponto')?.addEventListener('click', async () => {
-    if (!pontoParaExcluir) return;
-    const { error } = await supabase.from('support_points').delete().eq('id', pontoParaExcluir);
-    fecharModal('modal-excluir-ponto');
-    if (error) { toast('Não foi possível excluir o ponto de apoio.', 'erro'); return; }
-    toast('Ponto de apoio excluído.', 'sucesso');
-    pontoParaExcluir = null;
-    await carregarMeusPontos();
   });
 }
 
@@ -620,20 +565,24 @@ async function iniciar() {
   prepararEdicaoPerfil();
   prepararTrocaDeSenha();
   prepararContatos();
-  prepararMeusPontos();
   prepararMeusRelatos();
   prepararMinhasPublicacoes();
   prepararHistoricoRotas();
 
   await Promise.all([
     carregarMeusRelatos(),
-    carregarMeusPontos(),
     carregarMinhasPublicacoes(),
     carregarHistoricoRotas(),
     carregarContatos(),
     atualizarBadgeNotificacoes()
   ]);
   ligarRealtimeBadgeNotificacoes();
+
+  // Sem await de propósito — mesma lógica de js/observatorio.js: conserta em
+  // segundo plano os relatos DELA sem bairro (cadastrados antes da coluna
+  // existir), sem travar esta tela esperando (ver corrigirBairroDosProprios
+  // em js/reports.js).
+  corrigirBairroDosProprios().catch((erro) => console.error('Não foi possível corrigir bairro de relatos antigos:', erro));
 }
 
 document.addEventListener('DOMContentLoaded', iniciar);

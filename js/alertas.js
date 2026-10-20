@@ -46,12 +46,6 @@ async function iniciar() {
   prepararComentarios();
   prepararChatVanessa();
 
-  // Veio do atalho "Falar com Vanessa" da tela Início (?abrirVanessa=1, ver
-  // js/inicio.js) — abre o chat direto, sem precisar achar o botão flutuante.
-  if (new URLSearchParams(window.location.search).get('abrirVanessa') === '1') {
-    document.getElementById('abrir-vanessa')?.click();
-  }
-
   await Promise.all([carregarFeed(), atualizarBadgeNotificacoes()]);
   ligarRealtimePosts();
   ligarRealtimeBadgeNotificacoes();

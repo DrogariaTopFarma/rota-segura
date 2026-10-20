@@ -1,0 +1,66 @@
+/* ============================================================================
+   ROTA SEGURA — Central de ajuda
+   Conteúdo 100% estático (números de emergência, o que fazer em situações de
+   risco, direitos básicos, segurança digital) — ver js/ajuda.js.
+   ============================================================================ */
+
+.ajuda {
+  padding: 0 var(--esp-4) var(--esp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-4);
+}
+
+.ajuda__cartao h2 {
+  font-size: var(--fs-md);
+  margin: 0 0 var(--esp-3);
+  color: var(--texto-principal);
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+}
+
+.ajuda__cartao p {
+  font-size: var(--fs-sm);
+  color: var(--texto-secundario);
+  margin: 0 0 var(--esp-3);
+  line-height: 1.5;
+}
+.ajuda__cartao p:last-child { margin-bottom: 0; }
+
+.ajuda__cartao ol,
+.ajuda__cartao ul {
+  font-size: var(--fs-sm);
+  color: var(--texto-secundario);
+  margin: 0;
+  padding-left: var(--esp-5);
+  line-height: 1.6;
+}
+.ajuda__cartao li + li { margin-top: var(--esp-1); }
+
+.ajuda__numeros {
+  display: grid;
+  gap: var(--esp-2);
+}
+
+.ajuda__numero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-3);
+  padding: var(--esp-3);
+  border-radius: var(--raio-md);
+  background: var(--cinza-muito-claro);
+  text-decoration: none;
+}
+
+.ajuda__numero-texto { display: flex; flex-direction: column; }
+.ajuda__numero-numero { font-size: var(--fs-lg); font-weight: 700; color: var(--rosa-magenta); }
+.ajuda__numero-legenda { font-size: var(--fs-xs); color: var(--texto-secundario); }
+
+.ajuda__aviso {
+  font-size: var(--fs-xs);
+  color: var(--texto-secundario);
+  text-align: center;
+  padding: var(--esp-2) var(--esp-2) 0;
+}

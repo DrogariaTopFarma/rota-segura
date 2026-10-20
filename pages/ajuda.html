@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#E83D67">
+  <title>Central de ajuda — Rota Segura</title>
+  <link rel="manifest" href="../manifest.json">
+  <link rel="apple-touch-icon" href="../assets/icone-192.png">
+  <link rel="icon" type="image/png" href="../assets/icone-192.png">
+
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://drogariatopfarma.github.io/rota-segura/pages/ajuda.html">
+  <meta property="og:title" content="Central de ajuda — Rota Segura">
+  <meta property="og:description" content="Pra quem ligar e o que fazer: números de emergência, direitos e segurança digital.">
+  <meta property="og:image" content="https://drogariatopfarma.github.io/rota-segura/assets/icone-512.png">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/global.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="../css/ajuda.css">
+  <link rel="stylesheet" href="../css/responsive.css">
+</head>
+<body>
+  <div class="app-shell">
+
+    <!-- ================= CABEÇALHO ================= -->
+    <header class="topo">
+      <div>
+        <span class="topo__titulo">Central de ajuda</span><br>
+        <span class="topo__slogan">Pra quem ligar, e o que fazer.</span>
+      </div>
+
+      <div class="topo__acoes">
+        <button type="button" class="topo__botao" id="botao-notificacoes" aria-label="Notificações">
+          <span data-icone="sino" data-tamanho="24" aria-hidden="true"></span>
+          <span class="badge" id="badge-notificacoes" hidden>0</span>
+        </button>
+        <button type="button" class="topo__botao" id="botao-menu" aria-label="Abrir menu">
+          <span data-icone="menu" data-tamanho="24" aria-hidden="true"></span>
+        </button>
+      </div>
+    </header>
+
+    <div class="ajuda" id="ajuda">
+
+      <section class="card ajuda__cartao">
+        <h2><span data-icone="telefone" data-tamanho="18" aria-hidden="true"></span> Números para ligar agora</h2>
+        <div class="ajuda__numeros">
+          <a class="ajuda__numero" href="tel:190">
+            <span class="ajuda__numero-texto">
+              <span class="ajuda__numero-numero">190</span>
+              <span class="ajuda__numero-legenda">Polícia Militar — emergência acontecendo agora</span>
+            </span>
+            <span data-icone="telefone" data-tamanho="20" aria-hidden="true"></span>
+          </a>
+          <a class="ajuda__numero" href="tel:180">
+            <span class="ajuda__numero-texto">
+              <span class="ajuda__numero-numero">180</span>
+              <span class="ajuda__numero-legenda">Central de Atendimento à Mulher — orientação e denúncia</span>
+            </span>
+            <span data-icone="telefone" data-tamanho="20" aria-hidden="true"></span>
+          </a>
+          <a class="ajuda__numero" href="tel:188">
+            <span class="ajuda__numero-texto">
+              <span class="ajuda__numero-numero">188</span>
+              <span class="ajuda__numero-legenda">CVV — apoio emocional, 24h, qualquer motivo</span>
+            </span>
+            <span data-icone="telefone" data-tamanho="20" aria-hidden="true"></span>
+          </a>
+          <a class="ajuda__numero" href="tel:100">
+            <span class="ajuda__numero-texto">
+              <span class="ajuda__numero-numero">100</span>
+              <span class="ajuda__numero-legenda">Disque Direitos Humanos</span>
+            </span>
+            <span data-icone="telefone" data-tamanho="20" aria-hidden="true"></span>
+          </a>
+          <a class="ajuda__numero" href="tel:192">
+            <span class="ajuda__numero-texto">
+              <span class="ajuda__numero-numero">192</span>
+              <span class="ajuda__numero-legenda">SAMU — emergência de saúde</span>
+            </span>
+            <span data-icone="telefone" data-tamanho="20" aria-hidden="true"></span>
+          </a>
+        </div>
+      </section>
+
+      <section class="card ajuda__cartao">
+        <h2><span data-icone="olho" data-tamanho="18" aria-hidden="true"></span> Se perceber que estão te seguindo</h2>
+        <ol>
+          <li>Mude de direção ou atravesse a rua — se continuar vindo atrás, não foi coincidência.</li>
+          <li>Vá para o lugar mais perto com gente e luz (comércio aberto, ponto de ônibus movimentado), não direto para casa.</li>
+          <li>Use o botão SOS da tela de Rotas — ele manda sua localização em tempo real para seu contato de emergência.</li>
+          <li>Ligue 190 se o risco parecer real. Não precisa ter certeza antes de ligar.</li>
+        </ol>
+      </section>
+
+      <section class="card ajuda__cartao">
+        <h2><span data-icone="predio" data-tamanho="18" aria-hidden="true"></span> Indo registrar um boletim de ocorrência</h2>
+        <p>Qualquer delegacia pode registrar, mas a Delegacia da Mulher (DEAM) é especializada em violência de gênero — o Mapa mostra as mais próximas.</p>
+        <ul>
+          <li>Leve um documento com foto, se tiver.</li>
+          <li>Você pode pedir para ser atendida por uma policial mulher.</li>
+          <li>Anote o número do boletim (BO) antes de sair.</li>
+          <li>Você pode pedir uma medida protetiva de urgência no mesmo atendimento.</li>
+        </ul>
+      </section>
+
+      <section class="card ajuda__cartao">
+        <h2><span data-icone="escudo" data-tamanho="18" aria-hidden="true"></span> Seus direitos — Lei Maria da Penha</h2>
+        <p>
+          A Lei nº 11.340/2006 criminaliza a violência doméstica e familiar contra a mulher e criou
+          a medida protetiva de urgência — uma ordem judicial que pode, por exemplo, afastar o
+          agressor de casa ou proibir que ele se aproxime de você, mesmo sem um processo criminal
+          já concluído.
+        </p>
+        <p>
+          Isso é informação geral sobre o que existe — não substitui orientação jurídica sobre o
+          seu caso. Para isso, procure a Defensoria Pública, uma delegacia ou ligue 180.
+        </p>
+      </section>
+
+      <section class="card ajuda__cartao">
+        <h2><span data-icone="cadeado" data-tamanho="18" aria-hidden="true"></span> Segurança digital</h2>
+        <ul>
+          <li>Antes de bloquear quem te assedia, tire print como prova.</li>
+          <li>Denuncie dentro da própria rede social — todas têm canal pra isso.</li>
+          <li>Cuidado com localização em fotos/posts públicos (dá pra saber onde você está ou mora).</li>
+          <li>Deixe seu perfil privado se estiver sendo importunada por alguém que não conhece.</li>
+        </ul>
+      </section>
+
+      <p class="ajuda__aviso">
+        Informação geral, não é parecer jurídico nem substitui atendimento profissional. Em
+        emergência real, use o SOS do app ou ligue 190.
+      </p>
+    </div>
+  </div>
+
+  <!-- ================= BOTTOM NAVIGATION ================= -->
+  <nav class="bottom-nav" aria-label="Navegação principal">
+    <a class="bottom-nav__item" href="mapa.html">
+      <span data-icone="mapa" data-tamanho="22" aria-hidden="true"></span>
+      <span class="bottom-nav__rotulo">Mapa</span>
+    </a>
+    <a class="bottom-nav__item" href="rotas.html">
+      <span data-icone="rotas" data-tamanho="22" aria-hidden="true"></span>
+      <span class="bottom-nav__rotulo">Rotas</span>
+    </a>
+    <button type="button" class="bottom-nav__fab" id="botao-central" aria-label="Cadastrar">
+      <span data-icone="mais" data-tamanho="28" aria-hidden="true"></span>
+    </button>
+    <a class="bottom-nav__item" href="alertas.html">
+      <span data-icone="sino" data-tamanho="22" aria-hidden="true"></span>
+      <span class="bottom-nav__rotulo">Comunidade</span>
+    </a>
+    <a class="bottom-nav__item" href="observatorio.html">
+      <span data-icone="grafico" data-tamanho="22" aria-hidden="true"></span>
+      <span class="bottom-nav__rotulo">Observatório</span>
+    </a>
+  </nav>
+
+  <!-- ================= MODAL: NOTIFICAÇÕES ================= -->
+  <div class="modal" id="modal-notificacoes" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-notificacoes" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-notificacoes">Notificações</h2>
+        <div class="modal__cabecalho-acoes">
+          <button type="button" class="btn-texto" id="btn-limpar-notificacoes">Limpar</button>
+          <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+            <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+      <div id="notificacoes-lista"></div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: MENU ================= -->
+  <div class="modal" id="modal-menu" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-menu" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-menu">Menu</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <p class="menu-saudacao">Conectada como <strong id="nome-usuaria">...</strong></p>
+
+      <a class="modal__opcao" href="perfil.html">
+        <span class="modal__opcao__icone" data-icone="perfil" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Meu perfil</span></span>
+      </a>
+      <a class="modal__opcao" href="perfil.html#relatos">
+        <span class="modal__opcao__icone" data-icone="escudo" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Meus relatos</span></span>
+      </a>
+      <a class="modal__opcao" href="perfil.html#contatos">
+        <span class="modal__opcao__icone" data-icone="telefone" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Contatos de emergência</span></span>
+      </a>
+      <a class="modal__opcao" href="ajuda.html">
+        <span class="modal__opcao__icone" data-icone="coracao" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Central de ajuda</span></span>
+      </a>
+      <button type="button" class="modal__opcao" data-trocar-modal="modal-notificacoes">
+        <span class="modal__opcao__icone" data-icone="sino" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Notificações</span></span>
+      </button>
+      <a class="modal__opcao" href="perfil.html#configuracoes">
+        <span class="modal__opcao__icone" data-icone="engrenagem" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Configurações</span></span>
+      </a>
+      <button type="button" class="modal__opcao" id="menu-baixar-app">
+        <span class="modal__opcao__icone" data-icone="baixar" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Baixar app</span></span>
+      </button>
+      <a class="modal__opcao" href="termos.html">
+        <span class="modal__opcao__icone" data-icone="documento" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Termos de uso</span></span>
+      </a>
+      <button type="button" class="modal__opcao" data-trocar-modal="modal-privacidade">
+        <span class="modal__opcao__icone" data-icone="cadeado" data-tamanho="22" aria-hidden="true"></span>
+        <span><span class="modal__opcao__titulo">Privacidade</span></span>
+      </button>
+
+      <button type="button" class="btn btn-secundario btn-bloco menu-sair" data-acao="sair">Sair da conta</button>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: PRIVACIDADE ================= -->
+  <div class="modal" id="modal-privacidade" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-privacidade" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-privacidade">Privacidade</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <p class="modal__texto">
+        Seus dados de conta (nome, e-mail, telefone, avatar) ficam armazenados no Supabase,
+        protegidos por regras de acesso (Row Level Security) — por exemplo, seus contatos de
+        emergência só podem ser vistos por você.
+      </p>
+      <p class="modal__texto">
+        A localização usada pelo botão SOS é lida na hora e nunca é salva em nosso banco de
+        dados. Relatos, pontos de apoio e publicações que você cadastra ficam visíveis para
+        outras usuárias logadas, porque esse é o propósito da plataforma.
+      </p>
+      <p class="modal__texto">
+        Você pode editar seus dados e excluir seus contatos de emergência a qualquer momento
+        pela tela de Perfil.
+      </p>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: BAIXAR APP ================= -->
+  <div class="modal" id="modal-baixar-app" role="dialog" aria-modal="true"
+       aria-labelledby="titulo-modal-baixar-app" hidden>
+    <div class="modal__caixa">
+      <div class="modal__cabecalho">
+        <h2 class="modal__titulo" id="titulo-modal-baixar-app">Baixar o app</h2>
+        <button type="button" class="btn-icone" data-fechar aria-label="Fechar">
+          <span data-icone="fechar" data-tamanho="20" aria-hidden="true"></span>
+        </button>
+      </div>
+      <p class="modal__texto">
+        O Rota Segura pode ficar como um ícone na tela do seu celular, abrindo direto sem
+        precisar do navegador. O passo muda um pouco conforme o aparelho:
+      </p>
+      <p class="modal__texto">
+        <strong>iPhone (Safari):</strong> toque no ícone de compartilhar (o quadrado com a
+        seta pra cima) → "Adicionar à Tela de Início" → Adicionar.
+      </p>
+      <p class="modal__texto">
+        <strong>Android (Chrome):</strong> toque nos três pontinhos do navegador → "Instalar
+        aplicativo" ou "Adicionar à tela inicial".
+      </p>
+      <p class="modal__texto">
+        <strong>Computador (Chrome/Edge):</strong> procure o ícone de instalação na barra de
+        endereço, ou no menu do navegador → "Instalar Rota Segura".
+      </p>
+    </div>
+  </div>
+
+  <!-- ================= SCRIPTS ================= -->
+  <script type="module" src="../js/ajuda.js"></script>
+  <script type="module">
+    import { abrirModal, toast } from '../js/ui.js';
+    document.getElementById('botao-menu')
+      ?.addEventListener('click', () => abrirModal('modal-menu'));
+    // Central de ajuda não tem formulário de cadastro próprio (mesmo
+    // princípio de js/observatorio.html, botão-central lá) — manda pra tela
+    // que tem.
+    document.getElementById('botao-central')
+      ?.addEventListener('click', () => {
+        toast('Para cadastrar, vá até a tela do Mapa.', 'info');
+        window.location.href = 'mapa.html';
+      });
+  </script>
+</body>
+</html>

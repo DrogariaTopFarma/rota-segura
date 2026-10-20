@@ -79,8 +79,8 @@ function clienteComoUsuaria(req: Request) {
 }
 
 /** Pra "Vanessa Acompanha" responder "estou sendo acompanhada agora?" com
-    informação de verdade, nunca inventada — lê só a corrida mais recente
-    ainda ativa/escalada (nunca uma já encerrada) de "Acompanhar corrida"
+    informação de verdade, nunca inventada — lê só o trajeto mais recente
+    ainda ativo/escalado (nunca um já encerrado) de "Acompanhar trajeto"
     (js/carona.js). Se não der pra consultar, devolve null — a Vanessa segue
     sem esse pedaço de contexto, nunca quebra a conversa por causa disso. */
 async function buscarContextoDeAcompanhamento(req: Request): Promise<string | null> {
@@ -96,7 +96,7 @@ async function buscarContextoDeAcompanhamento(req: Request): Promise<string | nu
       .limit(1)
       .maybeSingle();
 
-    if (error || !data) return "Ela não está com nenhuma corrida sendo acompanhada agora em \"Acompanhar corrida\".";
+    if (error || !data) return "Ela não está com nenhum trajeto sendo acompanhado agora em \"Acompanhar trajeto\".";
 
     const chegadaEsperada = new Date(data.expected_arrival_at).toLocaleTimeString("pt-BR", {
       hour: "2-digit",
@@ -104,9 +104,9 @@ async function buscarContextoDeAcompanhamento(req: Request): Promise<string | nu
     });
 
     if (data.status === "escalada") {
-      return `Ela está numa corrida em "Acompanhar corrida" (chegada esperada ${chegadaEsperada}) que já passou do prazo sem confirmação — o aviso urgente pro contato de emergência já foi oferecido a ela.`;
+      return `Ela está num trajeto em "Acompanhar trajeto" (chegada esperada ${chegadaEsperada}) que já passou do prazo sem confirmação — o aviso urgente pro contato de emergência já foi oferecido a ela.`;
     }
-    return `Ela está sendo acompanhada agora em "Acompanhar corrida", com chegada esperada às ${chegadaEsperada}.`;
+    return `Ela está sendo acompanhada agora em "Acompanhar trajeto", com chegada esperada às ${chegadaEsperada}.`;
   } catch {
     return null;
   }
@@ -182,21 +182,22 @@ VOCÊ SÓ RESPONDE ESTES ASSUNTOS:
      localização em tempo real para o contato de emergência; logo abaixo dá para ligar direto
      para a polícia (190). "Compartilhar rota" avisa o contato para onde a pessoa está indo, sem
      ser emergência.
-   - ACOMPANHAR CORRIDA: dentro de Rotas, em "Vou de carona (Uber/99)?" — cola o link de
-     "compartilhar corrida" que o próprio Uber/99 gera, pesquisa o destino e diz o horário
-     esperado de chegada. Se passar do horário sem confirmar "Cheguei bem", a cada 5 minutos um
-     popup pergunta "Você está bem?"; responder que precisa de ajuda já abre o WhatsApp para o
-     contato, com o link da corrida. Também dá para ligar direto para o contato ou para a
-     polícia a qualquer momento. Isso NÃO lê o GPS de dentro do Uber/99 (não existe API pública
-     pra isso) — é um lembrete/tranquilidade, nunca um substituto de ligar pra 190. Se vier um
-     "CONTEXTO AO VIVO" nesta conversa sobre uma corrida sendo acompanhada agora, use essa
-     informação real pra responder (ex.: "estou sendo acompanhada agora?"); se não vier nenhum
-     contexto, é porque ela não está com nenhuma corrida ativa nisso agora.
+   - ACOMPANHAR TRAJETO: dentro de Rotas, em "Me acompanhe até eu chegar" — pesquisa o destino e
+     diz o horário esperado de chegada; se for de carro por app (Uber/99), pode colar o link de
+     "compartilhar corrida" (opcional — funciona também só andando, sem link nenhum). Se passar
+     do horário sem confirmar "Cheguei bem", a cada 5 minutos um popup pergunta "Você está bem?";
+     responder que precisa de ajuda já abre o WhatsApp para o contato (com o link da corrida,
+     quando houver um). Também dá para ligar direto para o contato ou para a polícia a qualquer
+     momento. Isso NÃO lê o GPS de dentro do Uber/99 (não existe API pública pra isso) — é um
+     lembrete/tranquilidade, nunca um substituto de ligar pra 190. Se vier um "CONTEXTO AO VIVO"
+     nesta conversa sobre um trajeto sendo acompanhado agora, use essa informação real pra
+     responder (ex.: "estou sendo acompanhada agora?"); se não vier nenhum contexto, é porque ela
+     não está com nenhum trajeto ativo nisso agora.
    - COMUNIDADE: feed de publicações (Alertas, Dicas, Apoio) e notícias externas coletadas
      automaticamente, filtráveis por categoria. Publicações podem ser anônimas.
    - PERFIL: editar nome/foto/telefone, ver relatos/publicações/histórico de rotas (tudo pode
      ser apagado), cadastrar contatos de emergência (são eles que recebem os avisos de SOS,
-     rota e corrida), trocar senha.
+     rota e trajeto), trocar senha.
 
 SE A PERGUNTA FOR SOBRE OUTRA COISA (lição de casa, programação, fofoca, assuntos gerais sem
 relação com segurança nem com o app): recuse com gentileza, em uma frase, e lembre que você só

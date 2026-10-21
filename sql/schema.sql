@@ -1094,6 +1094,109 @@ create policy "report_votes_delete_proprio"
 
 
 -- ============================================================================
+-- 17.1 TABELA: report_flags ("denunciar informação falsa")
+--      Diferente de report_votes acima (que é "concordo/discordo", uma
+--      opinião leve sobre o relato): aqui a usuária está dizendo que ACHA que
+--      o relato é falso ou malicioso — sinal mais forte, usado só pra decidir
+--      quando um relato precisa de uma segunda olhada humana. 1 denúncia por
+--      pessoa por relato (pode desfazer clicando de novo — mesmo padrão de
+--      report_votes).
+--
+--      `reports.verification_status` é uma coisa DIFERENTE de
+--      `reports.status` (seção 5: moderação, pending/approved/rejected, que
+--      decide SE o relato é público). Aqui decide o quanto confiar nele
+--      DEPOIS de já estar público:
+--        nao_verificado -> estado inicial de todo relato aprovado.
+--        em_analise     -> virou sozinho quando denúncias acumuladas passam
+--                          de um limiar (ver sync_report_flags_count abaixo).
+--        verificado     -> SEM gatilho automático ainda — existe no banco e
+--                          já aparece na tela, pronto pro dia em que houver
+--                          uma fonte de corroboração (cruzamento com fonte
+--                          externa) ou confirmação manual de uma moderadora.
+--                          Não implementado agora de propósito (ver conversa
+--                          do dia 2026-10-21): validação por IA e cruzamento
+--                          com o Instituto Fogo Cruzado ficaram pro roadmap,
+--                          arriscado demais integrar horas antes de uma
+--                          apresentação ao vivo.
+-- ============================================================================
+create table if not exists public.report_flags (
+  id         uuid primary key default gen_random_uuid(),
+  report_id  uuid not null references public.reports(id) on delete cascade,
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (report_id, user_id)
+);
+
+create index if not exists idx_report_flags_report on public.report_flags(report_id);
+create index if not exists idx_report_flags_user    on public.report_flags(user_id);
+
+alter table public.reports add column if not exists flags_count integer not null default 0;
+alter table public.reports add column if not exists verification_status text
+  not null default 'nao_verificado'
+  check (verification_status in ('nao_verificado','em_analise','verificado'));
+
+create or replace function public.sync_report_flags_count()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if (tg_op = 'INSERT') then
+    update public.reports set
+      flags_count = flags_count + 1,
+      -- Só AVANÇA pra "em_analise" ao cruzar o limiar — nunca volta sozinha
+      -- pra "nao_verificado" se uma denúncia for desfeita depois (um relato
+      -- que já precisou de atenção continua precisando, mesmo que uma
+      -- denúncia isolada seja retirada).
+      verification_status = case
+        when verification_status = 'nao_verificado' and flags_count + 1 >= 3 then 'em_analise'
+        else verification_status
+      end
+    where id = new.report_id;
+    return new;
+  elsif (tg_op = 'DELETE') then
+    update public.reports set flags_count = greatest(flags_count - 1, 0) where id = old.report_id;
+    return old;
+  end if;
+  return null;
+end;
+$$;
+
+drop trigger if exists trg_report_flags_sync on public.report_flags;
+create trigger trg_report_flags_sync
+  after insert or delete on public.report_flags
+  for each row execute function public.sync_report_flags_count();
+
+alter table public.report_flags enable row level security;
+
+-- Leitura liberada a qualquer authenticated (mesmo padrão de report_votes):
+-- precisa saber se a própria usuária já denunciou, pra destacar o botão.
+drop policy if exists "report_flags_leitura" on public.report_flags;
+create policy "report_flags_leitura"
+  on public.report_flags for select
+  to authenticated
+  using (true);
+
+-- "with check" impede duas coisas ao mesmo tempo: denunciar em nome de outra
+-- pessoa (auth.uid() = user_id) e denunciar o PRÓPRIO relato (subconsulta).
+drop policy if exists "report_flags_insert_proprio" on public.report_flags;
+create policy "report_flags_insert_proprio"
+  on public.report_flags for insert
+  to authenticated with check (
+    auth.uid() = user_id
+    and not exists (
+      select 1 from public.reports r where r.id = report_id and r.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "report_flags_delete_proprio" on public.report_flags;
+create policy "report_flags_delete_proprio"
+  on public.report_flags for delete
+  to authenticated using (auth.uid() = user_id);
+
+
+-- ============================================================================
 -- 18. TABELA: push_subscriptions (alertas proativos de segurança perto de você)
 --     Diferente de tudo que existe até aqui, isso não é consultado pelo
 --     app quando VOCÊ abre uma tela — é o INVERSO: quando um relato novo é

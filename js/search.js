@@ -136,7 +136,7 @@ async function contarRelatosProximos(local, container) {
 
   const [relatosResp, noticiasResp] = await Promise.all([
     caixa(supabase.from('reports')
-      .select('id,type,address,occurred_at,attention_level,status,lat,lng,image_url,agrees_count,disagrees_count,expires_at')
+      .select('id,type,address,occurred_at,attention_level,status,lat,lng,image_url,agrees_count,disagrees_count,expires_at,verification_status,flags_count')
       // Mesmo motivo do filtro em map.js/reports.js: sem isso, um relato seu
       // expirado ainda aparecia na prévia "perto deste endereço" só pra você.
       .eq('status', 'approved')
@@ -188,7 +188,7 @@ function mostrarListaDeProximos(container, relatos, noticias) {
 
   const lista = document.createElement('div');
   lista.className = 'resultado-busca__lista';
-  renderizarLista(lista, relatos.slice(0, LIMITE_LISTA_PROXIMOS), noticias.slice(0, LIMITE_LISTA_PROXIMOS), new Map(), { colapsar: false });
+  renderizarLista(lista, relatos.slice(0, LIMITE_LISTA_PROXIMOS), noticias.slice(0, LIMITE_LISTA_PROXIMOS), new Map(), new Set(), { colapsar: false });
   container.appendChild(lista);
 
   const restantes = Math.max(0, relatos.length - LIMITE_LISTA_PROXIMOS)

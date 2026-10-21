@@ -338,6 +338,7 @@
   margin-bottom: var(--esp-4);
 }
 .secao-relatos__titulo { font-size: var(--fs-lg); font-weight: 600; }
+.secao-relatos__aviso { font-size: var(--fs-xs); color: var(--texto-secundario); margin: calc(-1 * var(--esp-3)) 0 var(--esp-4); }
 
 /* ---------------- Placeholder das telas dos próximos blocos --------- */
 .placeholder-tela {

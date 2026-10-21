@@ -135,6 +135,7 @@
 .card-lista__voto-btn:hover:not([disabled]) { border-color: var(--rosa-claro); }
 .card-lista__voto-btn--concordo.ativo { background: var(--verde-suave); border-color: var(--verde); color: #2E7D5B; }
 .card-lista__voto-btn--discordo.ativo { background: var(--vermelho-suave); border-color: var(--vermelho); color: var(--vermelho); }
+.card-lista__voto-btn--denunciar.ativo { background: var(--amarelo-suave); border-color: var(--amarelo); color: #B26A22; }
 .card-lista__percentual { font-size: var(--fs-xs); color: var(--texto-secundario); }
 
 .card-lista__foto {
@@ -198,6 +199,7 @@
 .tag--vermelho { background: var(--vermelho-suave); color: var(--vermelho); }
 .tag--roxo { background: var(--roxo-suave); color: var(--roxo); }
 .tag--teal { background: var(--teal-suave); color: var(--teal); }
+.tag--cinza { background: var(--cinza-muito-claro); color: var(--texto-secundario); }
 
 .badge {
   position: absolute;

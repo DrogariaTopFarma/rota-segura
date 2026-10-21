@@ -22,6 +22,22 @@ import {
 import { criarSeletorLocal } from './location-picker.js';
 import { bairroDeCoordenadas } from './geocoding.js';
 
+// Rótulo/cor da camada de VERIFICAÇÃO (diferente de status de moderação,
+// que decide se o relato é público — isto decide o quanto confiar nele
+// depois de já estar público). "verificado" não tem nenhum jeito de chegar
+// lá ainda (ver sql/schema.sql, seção 17.1) — fica pronto na tela pro dia em
+// que existir uma fonte de corroboração automática ou confirmação manual.
+const ROTULO_VERIFICACAO = {
+  nao_verificado: 'Não verificado',
+  em_analise: 'Sinalizado pela comunidade',
+  verificado: 'Verificado'
+};
+const TAG_VERIFICACAO = {
+  nao_verificado: 'tag--cinza',
+  em_analise: 'tag--amarelo',
+  verificado: 'tag--verde'
+};
+
 let seletor = null;
 
 /** Deixa o seletor de local acessível para o app.js (abrir/limpar o modal). */
@@ -44,7 +60,7 @@ export async function carregarListaRelatos() {
   // confuso, difícil de separar "isso é da comunidade" de "isso é notícia".
   const [relatosResp, noticiasResp] = await Promise.all([
     supabase.from('reports')
-      .select('id,type,address,occurred_at,attention_level,status,image_url,agrees_count,disagrees_count,expires_at')
+      .select('id,type,address,occurred_at,attention_level,status,image_url,agrees_count,disagrees_count,expires_at,verification_status,flags_count')
       // Mesmo motivo do filtro em map.js: sem isso, um relato seu expirado
       // (ou ainda não aprovado) continuava aparecendo nesta lista só pra
       // você, mesmo já escondido de todo mundo — a policy de RLS libera ver
@@ -73,21 +89,25 @@ export async function carregarListaRelatos() {
   // aparecendo normalmente — só não mostra a seção de notícias desta vez.
   const noticias = noticiasResp.data || [];
 
-  // Voto da usuária atual em cada relato, pra já abrir a lista com o botão
-  // certo destacado (nunca com os dois "apagados" quando ela já votou).
+  // Voto/denúncia da usuária atual em cada relato, pra já abrir a lista com o
+  // botão certo destacado (nunca com tudo "apagado" quando ela já agiu).
   const { data: sessao } = await supabase.auth.getUser();
   const user = sessao?.user;
   let votos = new Map();
+  let minhasDenuncias = new Set();
   if (user && relatos.length) {
-    const { data: meusVotos } = await supabase
-      .from('report_votes')
-      .select('report_id,vote')
-      .eq('user_id', user.id)
-      .in('report_id', relatos.map((r) => r.id));
+    const idsRelatos = relatos.map((r) => r.id);
+    const [{ data: meusVotos }, { data: minhasFlags }] = await Promise.all([
+      supabase.from('report_votes').select('report_id,vote')
+        .eq('user_id', user.id).in('report_id', idsRelatos),
+      supabase.from('report_flags').select('report_id')
+        .eq('user_id', user.id).in('report_id', idsRelatos)
+    ]);
     votos = new Map((meusVotos || []).map((v) => [v.report_id, v.vote]));
+    minhasDenuncias = new Set((minhasFlags || []).map((f) => f.report_id));
   }
 
-  renderizarLista(lista, relatos, noticias, votos);
+  renderizarLista(lista, relatos, noticias, votos, minhasDenuncias);
 }
 
 // Quantos cards aparecem de cara em cada grupo antes do "Ver todos" — só
@@ -95,7 +115,7 @@ export async function carregarListaRelatos() {
 // busca (search.js) já é compacto por conta própria e não usa isso.
 const PREVIA_POR_GRUPO = 3;
 
-export function renderizarLista(container, relatos, noticias = [], votos = new Map(), { colapsar = true } = {}) {
+export function renderizarLista(container, relatos, noticias = [], votos = new Map(), minhasDenuncias = new Set(), { colapsar = true } = {}) {
   if (!relatos.length && !noticias.length) {
     container.innerHTML = htmlEstadoVazio('Nenhum relato registrado ainda. Seja a primeira a contribuir.');
     return;
@@ -106,7 +126,7 @@ export function renderizarLista(container, relatos, noticias = [], votos = new M
     tituloBotao: 'Ver todos os relatos da comunidade',
     chave: 'relatos',
     itens: relatos,
-    montarCard: (r) => cardRelato(r, votos.get(r.id) || null),
+    montarCard: (r) => cardRelato(r, votos.get(r.id) || null, minhasDenuncias.has(r.id)),
     colapsar
   });
 
@@ -121,8 +141,12 @@ export function renderizarLista(container, relatos, noticias = [], votos = new M
 
   container.innerHTML = grupoRelatos + grupoNoticias;
 
-  container.querySelectorAll('.card-lista__voto-btn').forEach((botao) => {
+  container.querySelectorAll('.card-lista__voto-btn[data-voto]').forEach((botao) => {
     botao.addEventListener('click', () => alternarVoto(botao.dataset.reportId, botao.dataset.voto, container));
+  });
+
+  container.querySelectorAll('.card-lista__voto-btn--denunciar').forEach((botao) => {
+    botao.addEventListener('click', () => alternarDenuncia(botao.dataset.reportId, container));
   });
 
   // "Ver todos": só revela os cards já renderizados (escondidos por CSS) —
@@ -168,7 +192,7 @@ function textoPercentual(agrees, disagrees) {
   return `${Math.round((agrees / total) * 100)}% concordam (${total} ${total === 1 ? 'voto' : 'votos'})`;
 }
 
-function cardRelato(r, votoAtual) {
+function cardRelato(r, votoAtual, jaDenunciado = false) {
   // Mesmo ícone/cor do pino no mapa (map.js) — formato = categoria, cor =
   // gravidade — pra nunca mostrar o mesmo relato de um jeito na lista e de
   // outro no mapa.
@@ -180,6 +204,13 @@ function cardRelato(r, votoAtual) {
   if (r.attention_level === 'alto') tag = '<span class="tag tag--vermelho">Alto risco</span>';
   if (r.status === 'pending') tag = '<span class="tag tag--roxo">Em análise</span>';
 
+  // Selo de VERIFICAÇÃO — sempre visível, nunca só quando dá pra desconfiar:
+  // mesmo "verificado" aparece, pra deixar claro que um relato comum ainda
+  // não passou por nenhuma confirmação além do que a própria comunidade
+  // registrou (pedido explícito: relato nunca deve parecer uma certeza).
+  const verificacao = r.verification_status || 'nao_verificado';
+  const tagVerificacao = `<span class="tag ${TAG_VERIFICACAO[verificacao] || 'tag--cinza'}">${escapar(ROTULO_VERIFICACAO[verificacao] || ROTULO_VERIFICACAO.nao_verificado)}</span>`;
+
   const expiraTexto = r.expires_at
     ? `<div class="card-lista__meta card-lista__meta--prazo">Visível até ${escapar(formatarDataHora(r.expires_at))}</div>`
     : '';
@@ -188,7 +219,7 @@ function cardRelato(r, votoAtual) {
     <article class="card-lista">
       <div class="card-lista__icone" style="background:${cor}">${icone(nomeIcone, 22)}</div>
       <div class="card-lista__conteudo">
-        <div class="card-lista__titulo">${escapar(ROTULOS_RELATO[r.type] || 'Relato')}</div>
+        <div class="card-lista__titulo">${escapar(ROTULOS_RELATO[r.type] || 'Relato')} ${tagVerificacao}</div>
         <div class="card-lista__meta">${escapar(formatarDataHora(r.occurred_at))}</div>
         <div class="card-lista__endereco">${escapar(r.address || 'Endereço não informado')}</div>
         ${expiraTexto}
@@ -206,6 +237,12 @@ function cardRelato(r, votoAtual) {
             ${icone('votoNegativo', 16)} Discordo
           </button>
           <span class="card-lista__percentual" data-percentual="${r.id}">${textoPercentual(r.agrees_count, r.disagrees_count)}</span>
+        </div>
+        <div class="card-lista__votos">
+          <button type="button" class="card-lista__voto-btn card-lista__voto-btn--denunciar${jaDenunciado ? ' ativo' : ''}"
+                  data-report-id="${r.id}" aria-pressed="${jaDenunciado}">
+            ${icone('bandeira', 16)} ${jaDenunciado ? 'Denunciado' : 'Denunciar informação falsa'}
+          </button>
         </div>
       </div>
       ${tag}
@@ -287,6 +324,51 @@ async function alternarVoto(reportId, voto, container) {
   } finally {
     botaoConcordo.disabled = false;
     botaoDiscordo.disabled = false;
+  }
+}
+
+/* ========================================================================== */
+/* 1.2 DENÚNCIA DE INFORMAÇÃO FALSA                                           */
+/* ========================================================================== */
+
+/** Clicar de novo desfaz a denúncia (mesmo gesto de "descurtir" dos votos
+    acima) — mas a contagem acumulada que já cruzou o limiar não some: ver
+    sync_report_flags_count em sql/schema.sql, o avanço pra "em_analise" é
+    só pra frente, nunca desfeito por uma denúncia retirada depois. */
+async function alternarDenuncia(reportId, container) {
+  const { data: sessao } = await supabase.auth.getUser();
+  const user = sessao?.user;
+  if (!user) return;
+
+  const botao = container.querySelector(`.card-lista__voto-btn--denunciar[data-report-id="${reportId}"]`);
+  if (!botao) return;
+
+  const jaDenunciado = botao.classList.contains('ativo');
+  botao.disabled = true;
+
+  try {
+    if (jaDenunciado) {
+      const { error } = await supabase.from('report_flags').delete()
+        .eq('report_id', reportId).eq('user_id', user.id);
+      if (error) throw error;
+      botao.classList.remove('ativo');
+      botao.setAttribute('aria-pressed', 'false');
+      botao.innerHTML = `${icone('bandeira', 16)} Denunciar informação falsa`;
+    } else {
+      const { error } = await supabase.from('report_flags')
+        .insert({ report_id: reportId, user_id: user.id });
+      if (error) throw error;
+      botao.classList.add('ativo');
+      botao.setAttribute('aria-pressed', 'true');
+      botao.innerHTML = `${icone('bandeira', 16)} Denunciado`;
+      toast('Obrigada por avisar. Esse relato pode entrar em revisão.', 'sucesso');
+    }
+  } catch {
+    // Causa mais comum: denunciar o próprio relato (a policy do banco
+    // recusa por design — ver report_flags_insert_proprio).
+    toast('Não foi possível registrar a denúncia agora.', 'erro');
+  } finally {
+    botao.disabled = false;
   }
 }
 

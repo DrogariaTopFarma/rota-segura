@@ -579,7 +579,8 @@ function desenharCardRota(rota, observacoes, escolha = {}, listaDeRelatos = []) 
       ${icone('mira', 18)} Iniciar
     </button>
     <div class="rota-card__aviso">
-      As recomendações são baseadas nos dados disponíveis na plataforma e não garantem segurança.
+      Os relatos vêm da comunidade e nem sempre são verificados — a rota é uma sugestão, não um
+      substituto da sua atenção.
     </div>`;
   document.getElementById('rota-btn-iniciar')?.addEventListener('click', iniciarNavegacaoClique);
 }
@@ -687,8 +688,19 @@ async function buscarRelatosPontosEDelegaciasNaArea(geometrias) {
       // podia estar reagindo a um relato que nem devia mais contar.
       .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
       .limit(200),
+    // Nunca inclui ponto_onibus aqui — ele é mostrado no Mapa (Tela 1), mas
+    // NÃO entra na pontuação de segurança da rota nem na contagem "X pontos
+    // de apoio no trajeto". Motivo: com 2506 pontos de ônibus cobrindo a
+    // cidade inteira (ver sql/seed_pontos_onibus.sql), praticamente QUALQUER
+    // rota passa perto de vários — o bônus de segurança por ponto perto
+    // (PONTOS_POR_APOIO_PERTO abaixo) ficava sempre alto por causa disso
+    // sozinho, afogando o peso real dos relatos de risco na conta (bug real
+    // relatado ao vivo: "a rota mais segura parou de evitar risco"). Também
+    // evita que ponto de ônibus sozinho estoure o limite de 200 linhas e
+    // esconda um hospital/farmácia de verdade perto da rota.
     supabase.from('support_points')
       .select('type,name,address,lat,lng')
+      .neq('type', 'ponto_onibus')
       .gte('lat', sul).lte('lat', norte).gte('lng', oeste).lte('lng', leste)
       .eq('status', 'approved')
       .limit(200),
